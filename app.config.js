@@ -34,9 +34,11 @@ export default {
       package: 'com.ggfix.shopapp',
       adaptiveIcon: { backgroundColor: '#202124' },
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
-      usesCleartextTraffic: true,
     },
     plugins: [
+      // Cleartext HTTP for the plain-http backend. The bare android.usesCleartextTraffic
+      // key is ignored by Expo prebuild — it must be set via expo-build-properties.
+      ['expo-build-properties', { android: { usesCleartextTraffic: true } }],
       [
         'expo-location',
         {
