@@ -5,6 +5,7 @@ import { getSession, clearSession, setAuthExpiredHandler } from '../auth/session
 import { logout } from '../api/auth';
 import { setSession, clearSession as clearAuth } from '../store/authSlice';
 import LoginScreen from '../screens/LoginScreen';
+import CreateAccountScreen from '../screens/CreateAccountScreen';
 import OwnerNavigator from './OwnerNavigator';
 import TechnicianNavigator from './TechnicianNavigator';
 
@@ -60,6 +61,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Login">
           {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
         </Stack.Screen>
+        <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
       </Stack.Navigator>
     );
   }

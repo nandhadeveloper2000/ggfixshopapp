@@ -28,7 +28,7 @@ const FIELD_BG = '#FFFFFF';
 const FIELD_BORDER = '#E5E7EB';
 const SEGMENT_BG = '#ECEEF1';
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen({ onLogin, navigation }) {
   const { width, height } = useWindowDimensions();
   const isWide = width >= 600;
   const isShort = height < 700;
@@ -94,17 +94,21 @@ export default function LoginScreen({ onLogin }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: 32,
+            justifyContent: isWide ? 'center' : 'flex-start',
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View
             style={{
-              flex: 1,
+              flex: isWide ? undefined : 1,
               width: '100%',
               maxWidth: contentMaxWidth,
               alignSelf: 'center',
-              paddingHorizontal: 22,
+              paddingHorizontal: isWide ? 32 : 22,
               paddingTop: Platform.OS === 'ios' ? (isShort ? 28 : 44) : (isShort ? 22 : 32),
             }}
           >
@@ -187,11 +191,6 @@ export default function LoginScreen({ onLogin }) {
                   />
                 )}
               </View>
-              {usingOtp ? (
-                <Text style={hint}>Default OTP for new accounts is 123456.</Text>
-              ) : (
-                <Text style={hint}>Default password for new accounts is 123456.</Text>
-              )}
             </FieldGroup>
 
             {error ? (
@@ -223,12 +222,28 @@ export default function LoginScreen({ onLogin }) {
               {ctaLabel}
             </Button>
 
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginTop: 20,
+              }}
+            >
+              <Text style={{ fontSize: 13, color: MUTED }}>New to GGfix? </Text>
+              <Pressable onPress={() => navigation?.navigate('CreateAccount')} hitSlop={8}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: GREEN }}>
+                  Create account
+                </Text>
+              </Pressable>
+            </View>
+
             <Text
               style={{
                 fontSize: 11,
                 color: MUTED,
                 textAlign: 'center',
-                marginTop: 24,
+                marginTop: 18,
                 lineHeight: 16,
               }}
             >
@@ -323,11 +338,4 @@ const fieldInput = {
   color: '#0F172A',
   height: '100%',
   paddingVertical: 0,
-};
-
-const hint = {
-  fontSize: 10.5,
-  color: MUTED,
-  marginTop: 6,
-  marginLeft: 4,
 };

@@ -57,6 +57,9 @@ async function request(baseUrlOrNull, method, path, { query, body, headers, skip
   }
 
   if (!res.ok) {
+    // TEMP DIAGNOSTIC: surface which call failed and with what status so we can
+    // see why the app bounces back to Login (a 401 here clears the session).
+    console.warn(`[API ${res.status}] ${method} ${urlString} — hadToken=${!!token}`);
     // Only 401 means the bearer token is missing/invalid/expired. A 403 is a
     // real authorization failure for that resource and should not clear the
     // session or cause repeated login/retry churn.
