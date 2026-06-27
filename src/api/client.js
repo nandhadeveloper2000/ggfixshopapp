@@ -57,17 +57,18 @@ async function request(baseUrlOrNull, method, path, { query, body, headers, skip
   }
 
   if (!res.ok) {
-    // TEMP DIAGNOSTIC: surface which call failed and with what status so we can
-    // see why the app bounces back to Login (a 401 here clears the session).
-    console.warn(`[API ${res.status}] ${method} ${urlString} — hadToken=${!!token}`);
-    // Only 401 means the bearer token is missing/invalid/expired. A 403 is a
-    // real authorization failure for that resource and should not clear the
-    // session or cause repeated login/retry churn.
-    if (res.status === 401 && token && !skipAuthExpiry) {
+    // A 401 only means "session is dead, log in again" when it comes from the
+    // AUTH service — that service is the authority on token validity. A 401 from
+    // any OTHER microservice means THAT service can't validate the token (its
+    // JWT_SECRET has drifted from auth-service, or it's running an older build);
+    // that must NOT clear the session and bounce the whole app to Login. A 403
+    // is a real per-resource authorization failure and never clears the session.
+    const isAuthService = base === AUTH_BASE;
+    if (res.status === 401 && token && !skipAuthExpiry && isAuthService) {
       await clearSession();
       notifyAuthExpired();
     }
-    const message = res.status === 401 && token
+    const message = res.status === 401 && token && isAuthService
       ? 'Your session has expired. Please log in again.'
       : (json && (json.message || json.error)) || text || `HTTP ${res.status}`;
     const err = new Error(message);
@@ -117,7 +118,8 @@ async function uploadRequest(baseUrlOrNull, path, { uri, name, type, fields } = 
   let json;
   try { json = text ? JSON.parse(text) : null; } catch { json = null; }
   if (!res.ok) {
-    if (res.status === 401 && token) { await clearSession(); notifyAuthExpired(); }
+    // Same rule as request(): only an auth-service 401 ends the session.
+    if (res.status === 401 && token && base === AUTH_BASE) { await clearSession(); notifyAuthExpired(); }
     const message = (json && (json.message || json.error)) || text || `HTTP ${res.status}`;
     const err = new Error(message);
     err.status = res.status;
