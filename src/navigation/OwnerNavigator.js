@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, LayoutGrid, FileText, Receipt, ShoppingBag, Tag, UserCircle } from 'lucide-react-native';
+import { ArrowLeft, LayoutGrid, FileText, Receipt, Settings, ShoppingBag, Tag } from 'lucide-react-native';
 import colors from '../theme/colors';
 import BackButton from '../components/BackButton';
 
@@ -34,11 +34,14 @@ import MyAccountScreen from '../screens/owner/MyAccountScreen';
 // All booking-related screens are now grouped under owner/AllBooking/
 import BookingHistoryScreen from '../screens/owner/AllBooking/BookingHistoryScreen';
 import BillingScreen from '../screens/owner/BillingScreen';
-import BuyScreen from '../screens/owner/BuyScreen';
 import BookingStatusScreen from '../screens/owner/BookingStatusScreen';
 import BookingStatusReportScreen from '../screens/owner/BookingStatusReportScreen';
 import BookingPreviousReportScreen from '../screens/owner/BookingPreviousReportScreen';
 import OwnerBuyListingDetailsScreen from '../screens/owner/OwnerBuyListingDetailsScreen';
+import OwnerBuyListingScreen from '../screens/owner/OwnerBuyListingScreen';
+import OwnerCartScreen from '../screens/owner/OwnerCartScreen';
+import OwnerNotificationsScreen from '../screens/owner/OwnerNotificationsScreen';
+import OwnerSearchScreen from '../screens/owner/OwnerSearchScreen';
 import TicketListScreen from '../screens/owner/TicketListScreen';
 import TicketDetailScreen from '../screens/owner/AllBooking/TicketDetailScreen';
 import DeviceDetailScreen from '../screens/owner/AllBooking/DeviceDetailScreen';
@@ -94,6 +97,7 @@ import OwnerEmployeeDetailScreen from '../screens/owner/OwnerEmployeeDetailScree
 import OwnerEmployeeCreatedScreen from '../screens/owner/OwnerEmployeeCreatedScreen';
 import OwnerEmployeeAddScreen from '../screens/owner/OwnerEmployeeAddScreen';
 import OwnerEmployeeAttendanceScreen from '../screens/owner/OwnerEmployeeAttendanceScreen';
+import OwnerStaffReportScreen from '../screens/owner/OwnerStaffReportScreen';
 import OwnerEmployeeLeaveScreen from '../screens/owner/OwnerEmployeeLeaveScreen';
 import OwnerEmployeeSalaryReportScreen from '../screens/owner/OwnerEmployeeSalaryReportScreen';
 import OwnerEmployeePayslipScreen from '../screens/owner/OwnerEmployeePayslipScreen';
@@ -118,7 +122,7 @@ const OWNER_TAB_ICONS = {
   Billing: Receipt,
   Buy: ShoppingBag,
   Sell: Tag,
-  MyAccount: UserCircle,
+  MyAccount: Settings,
 };
 
 function OwnerTabs({ onLogout }) {
@@ -140,7 +144,7 @@ function OwnerTabs({ onLogout }) {
           shadowRadius: 12,
           shadowOffset: { width: 0, height: -4 },
         },
-        tabBarActiveTintColor: '#00008B',
+        tabBarActiveTintColor: '#15803D',
         tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
         tabBarIcon: ({ color, focused }) => {
@@ -153,7 +157,7 @@ function OwnerTabs({ onLogout }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 12,
-                backgroundColor: focused ? '#EEF2FF' : 'transparent',
+                backgroundColor: focused ? '#DCFCE7' : 'transparent',
               }}
             >
               <Icon size={20} color={color} strokeWidth={focused ? 2.4 : 2} />
@@ -166,15 +170,15 @@ function OwnerTabs({ onLogout }) {
         {(props) => <DashboardScreen {...props} onLogout={onLogout} />}
       </Tab.Screen>
       <Tab.Screen name="Bookings" component={BookingHistoryScreen} />
-      <Tab.Screen name="Billing" component={BillingScreen} />
-      <Tab.Screen name="Buy" component={BuyScreen} options={{ title: 'Buy' }} />
+      <Tab.Screen name="Billing" component={BillingScreen} options={{ tabBarLabel: 'Invoices' }} />
+      <Tab.Screen name="Buy" component={OwnerBuyListingScreen} options={{ title: 'Buy' }} />
       <Tab.Screen
         name="Sell"
         component={OwnerSellHomeScreen}
         options={{ title: 'Sell' }}
         initialParams={{ flow: 'OWNER_LIST' }}
       />
-      <Tab.Screen name="MyAccount" options={{ title: 'My Account' }}>
+      <Tab.Screen name="MyAccount" options={{ title: 'Settings' }}>
         {(props) => <MyAccountScreen {...props} onLogout={onLogout} />}
       </Tab.Screen>
     </Tab.Navigator>
@@ -220,6 +224,9 @@ export default function OwnerNavigator({ session, onLogout }) {
       <Stack.Screen name="BookingPreviousReport" component={BookingPreviousReportScreen} options={{ headerShown: false }} />
       <Stack.Screen name="LegacyAssignTechnician" component={AssignTechnicianScreen} options={{ title: 'Assign Technician' }} />
       <Stack.Screen name="MarketplaceSell" component={MarketplaceSellScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="OwnerCart" component={OwnerCartScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="OwnerNotifications" component={OwnerNotificationsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="OwnerSearch" component={OwnerSearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerBuyListingDetails" component={OwnerBuyListingDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerSellMobile" component={OwnerSellMobileChoiceScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerSellSpareParts" component={OwnerSellSparePartsScreen} options={{ headerShown: false }} />
@@ -268,6 +275,7 @@ export default function OwnerNavigator({ session, onLogout }) {
       <Stack.Screen name="OwnerEmployeeDetail" component={OwnerEmployeeDetailScreen} options={{ title: 'Employee Details' }} />
       <Stack.Screen name="OwnerEmployeeCreated" component={OwnerEmployeeCreatedScreen} options={{ title: 'Employee Created', headerShown: false }} />
       <Stack.Screen name="OwnerEmployeeAttendance" component={OwnerEmployeeAttendanceScreen} options={{ title: 'Attendance' }} />
+      <Stack.Screen name="OwnerStaffReport" component={OwnerStaffReportScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerEmployeeLeave" component={OwnerEmployeeLeaveScreen} options={{ title: 'Leave details' }} />
       <Stack.Screen name="OwnerEmployeeSalaryReport" component={OwnerEmployeeSalaryReportScreen} options={{ title: 'Salary report' }} />
       <Stack.Screen name="OwnerEmployeePayslip" component={OwnerEmployeePayslipScreen} options={{ title: 'Pay slip' }} />

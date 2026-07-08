@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   Linking,
@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { addToCart } from '../../api/marketplace';
+import { notify } from '../../components/confirm';
 
 const PALETTE = {
   primary: '#1D4ED8',
@@ -38,6 +40,24 @@ export default function OwnerBuyListingDetailsScreen({ navigation, route }) {
   const isCustomer = listing.sellerType === 'CUSTOMER';
   const priceNum = listing.expectedPrice != null ? Number(listing.expectedPrice) : null;
   const isAwaitingQuote = priceNum != null && priceNum === 0;
+
+  // Catalog products (shop inventory / spare parts) can go in the cart. Peer
+  // sell listings can't — they route to Contact / Order Now instead.
+  const isProduct = listing.source === 'product' && !!listing.id;
+  const [adding, setAdding] = useState(false);
+
+  const onAddToCart = async () => {
+    if (!isProduct || adding) return;
+    setAdding(true);
+    try {
+      await addToCart(listing.id, 1);
+      notify('Added to cart', `${listing.productName || 'Item'} is in your cart.`, { preset: 'done' });
+    } catch (e) {
+      notify('Could not add', e.message || 'Please try again.', { preset: 'error' });
+    } finally {
+      setAdding(false);
+    }
+  };
 
   // The contact phone is supplied either by the listing (shop seller — we
   // hydrate it via the BuyScreen card) or by the listing's seller record.
@@ -160,24 +180,33 @@ export default function OwnerBuyListingDetailsScreen({ navigation, route }) {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.contactBtn} onPress={callSeller} disabled={!contactPhone}>
-          <Ionicons name="call-outline" size={16} color={PALETTE.primary} />
-          <Text style={styles.contactText}>
-            {contactPhone ? 'Contact' : `Call ${contactName}`}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.orderBtn}
-          onPress={() => {
-            // Order Now currently routes to the seller via phone — quotation
-            // flow for customer sells lands here too.
-            if (contactPhone) {
-              Linking.openURL(`tel:${contactPhone}`).catch(() => {});
-            }
-          }}
-        >
-          <Text style={styles.orderText}>{isAwaitingQuote ? 'Send Quote' : 'Order Now'}</Text>
-        </TouchableOpacity>
+        {isProduct ? (
+          <TouchableOpacity style={styles.cartBtn} onPress={onAddToCart} disabled={adding} activeOpacity={0.9}>
+            <Ionicons name="cart-outline" size={17} color="#FFFFFF" />
+            <Text style={styles.cartText}>{adding ? 'Adding…' : 'Add to Cart'}</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.contactBtn} onPress={callSeller} disabled={!contactPhone}>
+              <Ionicons name="call-outline" size={16} color={PALETTE.primary} />
+              <Text style={styles.contactText}>
+                {contactPhone ? 'Contact' : `Call ${contactName}`}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.orderBtn}
+              onPress={() => {
+                // Order Now currently routes to the seller via phone — quotation
+                // flow for customer sells lands here too.
+                if (contactPhone) {
+                  Linking.openURL(`tel:${contactPhone}`).catch(() => {});
+                }
+              }}
+            >
+              <Text style={styles.orderText}>{isAwaitingQuote ? 'Send Quote' : 'Order Now'}</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -320,4 +349,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   orderText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  cartBtn: {
+    flex: 1,
+    backgroundColor: PALETTE.success,
+    paddingVertical: 12,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  cartText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });

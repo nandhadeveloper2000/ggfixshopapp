@@ -573,6 +573,7 @@ export default function InvoiceGeneratorScreen({ route, navigation }) {
             box on the right since it's the only editable value here. */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl p-4" style={cardShadow}>
+            <SectionHeader icon={ReceiptText} label="REPAIR TOTALS" />
             <PlainTotalRow label="(1) Total Repair Amount" value={`₹${fmt(totals.totalRepairAmount)}`} />
             <PlainTotalRow label="(2) Service Charges"      value={`₹${fmt(totals.serviceCharges)}`} />
             <PlainTotalRow label="(3) Spare Utility Charges (Taxable Value)" value={`₹${fmt(totals.spareUtility)}`} />
@@ -614,6 +615,7 @@ export default function InvoiceGeneratorScreen({ route, navigation }) {
             reference (Tax dropdown · GST % dropdown · readonly Amount). */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl p-4" style={cardShadow}>
+            <SectionHeader icon={Percent} label="TAX & GST" />
             <View className="flex-row" style={{ marginHorizontal: -4 }}>
               <View className="flex-1 px-1">
                 <Text
@@ -733,6 +735,7 @@ export default function InvoiceGeneratorScreen({ route, navigation }) {
             via heavier font weight on the last row. */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl p-4" style={cardShadow}>
+            <SectionHeader icon={IndianRupee} label="PAYABLE SUMMARY" />
             <PlainTotalRow label="Base Amount (₹)" value={`₹${fmt(totals.baseAmount)}`} />
             <PlainTotalRow label="Total GST (₹)"   value={`₹${fmt(totals.totalGst)}`} divider />
             <View className="flex-row items-center justify-between py-2">
@@ -747,45 +750,65 @@ export default function InvoiceGeneratorScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Sticky CTA */}
+      {/* Sticky CTA — live total on the left, action button on the right so
+          the owner always sees the payable amount update as they edit. */}
       <View
-        className="absolute left-0 right-0 bottom-0 px-4 pt-3"
+        className="absolute left-0 right-0 bottom-0 px-4 pt-2.5"
         style={{
           paddingBottom: insets.bottom + 12,
-          backgroundColor: 'rgba(244,251,246,0.96)',
+          backgroundColor: 'rgba(244,251,246,0.98)',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
         }}
       >
-        <TouchableOpacity
-          activeOpacity={0.9}
-          disabled={submitting}
-          onPress={onGenerate}
-          style={cardShadow}
-        >
-          <LinearGradient
-            colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 18,
-              paddingVertical: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <CheckCircle2 size={18} color="#FFFFFF" />
-            )}
-            <Text className="ml-2 text-white text-[15px] font-extrabold">
-              {submitting ? 'Generating...' : 'Invoice Generated'}
+        <View className="flex-row items-center">
+          <View className="flex-1 pr-3">
+            <Text
+              className="text-[10.5px] font-bold text-gray-500"
+              style={{ letterSpacing: 0.6 }}
+            >
+              TOTAL PAYABLE
             </Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <Text
+              className="text-[21px] font-extrabold"
+              style={{ color: BRAND_GREEN_DARK }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              ₹{fmt(totals.finalPayable)}
+            </Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            disabled={submitting}
+            onPress={onGenerate}
+            style={cardShadow}
+          >
+            <LinearGradient
+              colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 22,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: submitting ? 0.7 : 1,
+              }}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <CheckCircle2 size={18} color="#FFFFFF" />
+              )}
+              <Text className="ml-2 text-white text-[15px] font-extrabold">
+                {submitting ? 'Generating…' : 'Generate Invoice'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );

@@ -5,5 +5,8 @@ module.exports = function (api) {
       ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
       'nativewind/babel',
     ],
+    // gluestack-ui pulls in react-stately (.mjs) which uses static class blocks;
+    // Metro's default transform doesn't enable them, so add the plugin explicitly.
+    plugins: ['@babel/plugin-transform-class-static-block'],
   };
 };

@@ -1,7 +1,11 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, Pressable, Modal, Share, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { ScreenHeader } from '../../../components/rnr';
+import { notify } from '../../../components/confirm';
+import { getSession } from '../../../auth/session';
 
 export default function BookingThankYouScreen({ navigation, route }) {
   const { customer = {}, devices = [], tickets = [] } = route?.params || {};
@@ -11,11 +15,83 @@ export default function BookingThankYouScreen({ navigation, route }) {
     0,
   );
 
+  const receiptRef = useRef(null);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // The real shop name comes from the logged-in shop session, not the customer.
+  const [shopName, setShopName] = useState(customer.shopName || '');
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await getSession();
+        if (cancelled) return;
+        const name = s?.shopName || s?.activeShop?.name || s?.shops?.find?.((x) => x.isActive)?.name;
+        if (name) setShopName(name);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const buildMessage = () => {
+    const deviceLines = devices.map((d, i) => {
+      const svcs = (d.services || []).map((s) => s.serviceName).join(', ') || '-';
+      const price = (d.services || []).reduce((s, x) => s + (Number(x.price) || 0), 0);
+      return `${i + 1}. ${d.modelName || 'Device'}\n   Services: ${svcs}\n   Price: ₹${price.toLocaleString('en-IN')}`;
+    }).join('\n');
+    return (
+      `🧾 GGFix Booking Receipt\n\n` +
+      `— CUSTOMER DETAILS —\n` +
+      `Shop: ${shopName || 'Your Shop'}\n` +
+      `Name: ${customer.name || '-'}\n` +
+      `Mobile: ${customer.phone || '-'}\n` +
+      (customer.address ? `Address: ${customer.address}\n` : '') +
+      `\n— DEVICE & REPAIR DETAILS —\n${deviceLines}\n\n` +
+      `— SERVICE INFORMATION —\n` +
+      `Tracking ID: #${trackingId}\n` +
+      `Service Status: Order Placed\n` +
+      `Estimated Repair Price: ₹${total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}\n\n` +
+      `Track your repair in the GGFix app.`
+    );
+  };
+
+  // Option 1 — capture the receipt card as a PNG and open the system share
+  // sheet (WhatsApp & others attach the image). Falls back to a text share.
+  const shareImage = async () => {
+    setShareOpen(false);
+    try {
+      const uri = await captureRef(receiptRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: `Booking #${trackingId}`, UTI: 'public.png' });
+        return;
+      }
+    } catch (_) { /* fall through */ }
+    try {
+      await Share.share({ message: buildMessage(), title: `Booking #${trackingId}` });
+    } catch (e) {
+      notify('Share failed', e?.message || 'Could not open share sheet');
+    }
+  };
+
+  // Option 2 — share the booking details as text. The bare `sms:` URL scheme
+  // doesn't reliably pre-fill the body on Android (Samsung Messages drops it),
+  // so we use Share.share — the text is the payload, so it always lands in the
+  // SMS body (or WhatsApp text, etc.) when the user picks an app.
+  const shareSms = async () => {
+    setShareOpen(false);
+    try {
+      await Share.share({ message: buildMessage() });
+    } catch (e) {
+      notify('Share failed', e?.message || 'Could not open the share sheet.');
+    }
+  };
+
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title="" onBack={() => navigation.popToTop()} />
       <ScrollView contentContainerClassName="px-4 pt-2 pb-12">
-        {/* Hero card */}
+        {/* Hero card — wrapped so Share Receipt can capture it as a PNG */}
+        <ViewShot ref={receiptRef} options={{ format: 'png', quality: 1 }}>
         <View className="bg-text rounded-3xl px-5 py-6 mb-4" style={{ shadowColor: '#0F172A', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
           <View className="items-center mb-5">
             <View className="bg-card rounded-full p-1.5 mb-2">
@@ -29,7 +105,7 @@ export default function BookingThankYouScreen({ navigation, route }) {
           </View>
 
           <Section label="Customer Details">
-            <SectionRow label="Shop Name" value={customer.shopName || 'Green Mobiles'} />
+            <SectionRow label="Shop Name" value={shopName || 'Your Shop'} />
             <SectionRow label="Customer Name" value={customer.name} />
             <SectionRow label="Mobile Number" value={customer.phone} />
             <SectionRow label="Address" value={customer.address} />
@@ -59,6 +135,7 @@ export default function BookingThankYouScreen({ navigation, route }) {
             />
           </Section>
         </View>
+        </ViewShot>
 
         {/* Action tiles */}
         <View className="flex-row justify-between mt-2 px-1">
@@ -72,7 +149,7 @@ export default function BookingThankYouScreen({ navigation, route }) {
             icon="share-social-outline"
             color="#3B82F6"
             label="Share Receipt"
-            onPress={() => navigation.navigate('BookingSuccessful', { tickets, customer, devices })}
+            onPress={() => setShareOpen(true)}
           />
           <ActionTile
             icon="qr-code-outline"
@@ -86,6 +163,52 @@ export default function BookingThankYouScreen({ navigation, route }) {
           />
         </View>
       </ScrollView>
+
+      {/* Share Receipt chooser */}
+      <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setShareOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 28 }}
+          >
+            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 999, backgroundColor: '#E2E8F0', marginBottom: 14 }} />
+            <Text className="text-[15px] font-extrabold text-text mb-3">Share Receipt</Text>
+
+            <Pressable
+              onPress={shareImage}
+              className="flex-row items-center rounded-2xl p-3 mb-2.5 active:opacity-80"
+              style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+            >
+              <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#DCFCE7' }}>
+                <Ionicons name="logo-whatsapp" size={20} color="#15803D" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[13.5px] font-extrabold text-text">Send image to WhatsApp</Text>
+                <Text className="text-[11px] text-text-muted mt-0.5">Share the receipt image (WhatsApp & more)</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+            </Pressable>
+
+            <Pressable
+              onPress={shareSms}
+              className="flex-row items-center rounded-2xl p-3 active:opacity-80"
+              style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+            >
+              <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#DBEAFE' }}>
+                <Ionicons name="chatbubble-ellipses" size={20} color="#1D4ED8" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[13.5px] font-extrabold text-text">Send details by SMS</Text>
+                <Text className="text-[11px] text-text-muted mt-0.5">Share the booking details as a message</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

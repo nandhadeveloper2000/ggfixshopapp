@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +72,8 @@ const DATE_FILTERS = ['Today', 'Yesterday', 'This Week', 'This Month', 'Last 3 M
 
 export default function BookingHistoryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const numCols = winW >= 680 ? 2 : 1;
   const [query, setQuery] = useState('');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,8 +136,14 @@ export default function BookingHistoryScreen({ navigation }) {
   const counts = useMemo(() => ({ total: items.length }), [items]);
   const activeFilters = (statusFilter !== 'ALL' ? 1 : 0) + (dateFilter ? 1 : 0);
 
+  // Pad to an even count in 2-col mode so the last lone card stays half-width.
+  const listData = numCols > 1 && items.length % 2 === 1
+    ? [...items, { id: '__ghost__', _ghost: true }]
+    : items;
+
   // ── Card row ──────────────────────────────────────────────────────
   const renderItem = ({ item }) => {
+    if (item._ghost) return <View style={{ flex: 1, marginHorizontal: 0 }} />;
     const deviceName = item._modelName || item.deviceDisplayName || item.deviceModelName || item.modelName || 'Device';
     const deviceImage = item._modelImage || item.deviceImageUrl || null;
     const color = item.color;
@@ -151,10 +159,13 @@ export default function BookingHistoryScreen({ navigation }) {
         onPress={() => navigation.navigate('TicketDetail', { ticketId: item.id })}
         className="bg-card rounded-2xl mb-3 active:opacity-90"
         style={{
+          flex: numCols > 1 ? 1 : undefined,
           padding: 12,
+          borderWidth: 1,
+          borderColor: '#E5E7EB',
           shadowColor: '#0F172A',
-          shadowOpacity: 0.06,
-          shadowRadius: 10,
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
           shadowOffset: { width: 0, height: 3 },
           elevation: 2,
         }}
@@ -341,7 +352,7 @@ export default function BookingHistoryScreen({ navigation }) {
 
               <View className="flex-row mt-3">
                 <Pressable
-                  onPress={() => { setStatusFilter('ALL'); setDateFilter(null); }}
+                  onPress={() => { setStatusFilter('ALL'); setDateFilter(null); setQuery(''); setShowFilters(false); }}
                   className="flex-1 mr-1.5 py-2.5 rounded-xl items-center active:opacity-70"
                   style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' }}
                 >
@@ -379,7 +390,10 @@ export default function BookingHistoryScreen({ navigation }) {
         <Loader label="Loading bookings..." />
       ) : (
         <FlatList
-          data={items}
+          data={listData}
+          key={numCols}
+          numColumns={numCols}
+          columnWrapperStyle={numCols > 1 ? { gap: 12 } : undefined}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={ACCENT_GREEN} colors={[ACCENT_GREEN]} />}

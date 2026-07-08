@@ -13,7 +13,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { Audio } from 'expo-av';
-import { Truck, Wrench, Play, Pause } from 'lucide-react-native';
+import { Truck, Wrench, Play, Pause, Square } from 'lucide-react-native';
 
 // Phase keys group the flat status list into the two visual sections the
 // timeline renders: the doorstep-pickup sub-flow and the in-shop service
@@ -128,67 +128,146 @@ function PhaseHeader({ phaseKey, anyDone }) {
   );
 }
 
-// Inline media block rendered under a step event row when the event carries
-// optional attachments. Currently only the technician's compliance-note emit
-// (TECHNICIAN_COMPLIANCE_ISSUE_VERIFIED_UPDATED) populates audioUrl /
-// imageUrls — for every other event this returns null.
-function EventMedia({ audioUrl, imageUrls }) {
-  const hasAudio = !!audioUrl;
-  const hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
-  if (!hasAudio && !hasImages) return null;
+const PLAYER_GREEN = '#16A34A';
+const fmtClock = (ms) => {
+  const s = Math.max(0, Math.floor((ms || 0) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
+// Inline media block under a step event row when the event carries optional
+// attachments (the technician's compliance-note emit populates audioUrl /
+// imageUrls). Hooks are declared UNCONDITIONALLY before any early return so the
+// hook order stays stable when an event gains media on a later poll — the old
+// code returned null before the hooks, which crashed ("Rendered more hooks than
+// during the previous render") right when the media arrived, hiding it.
+function EventMedia({ audioUrl, imageUrls }) {
   const soundRef = useRef(null);
   const [playing, setPlaying] = useState(false);
+  const [rate, setRate] = useState(1);
+  const [pos, setPos] = useState(0);
+  const [dur, setDur] = useState(0);
 
   useEffect(() => () => {
     try { soundRef.current?.unloadAsync?.(); } catch (_) {}
   }, []);
 
-  const togglePlay = async () => {
-    try {
-      if (playing && soundRef.current) {
-        await soundRef.current.pauseAsync();
-        setPlaying(false);
-        return;
-      }
-      if (soundRef.current) {
-        try { await soundRef.current.unloadAsync(); } catch (_) {}
-        soundRef.current = null;
-      }
-      const { sound } = await Audio.Sound.createAsync({ uri: audioUrl });
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((s) => {
-        if (s?.didJustFinish) setPlaying(false);
-      });
-      await sound.playAsync();
-      setPlaying(true);
-    } catch (_) { /* swallow — best-effort playback */ }
+  const onStatus = (s) => {
+    if (!s || !s.isLoaded) return;
+    setPos(s.positionMillis || 0);
+    if (s.durationMillis) setDur(s.durationMillis);
+    setPlaying(!!s.isPlaying);
+    if (s.didJustFinish) { setPlaying(false); setPos(0); }
   };
 
+  const ensureSound = async () => {
+    if (soundRef.current) return soundRef.current;
+    try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true }); } catch (_) {}
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: audioUrl },
+      { rate, shouldCorrectPitch: true, progressUpdateIntervalMillis: 200 },
+      onStatus,
+    );
+    soundRef.current = sound;
+    return sound;
+  };
+
+  // Preload the clip so its total duration shows before the first play.
+  useEffect(() => {
+    if (!audioUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const sound = await ensureSound();
+        const st = await sound.getStatusAsync();
+        if (!cancelled && st.isLoaded && st.durationMillis) setDur(st.durationMillis);
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, [audioUrl]);
+
+  const togglePlay = async () => {
+    try {
+      const sound = await ensureSound();
+      const st = await sound.getStatusAsync();
+      if (st.isLoaded && st.isPlaying) {
+        await sound.pauseAsync();
+        setPlaying(false);
+      } else {
+        if (st.isLoaded && (st.didJustFinish || st.positionMillis >= (st.durationMillis || 0))) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
+        setPlaying(true);
+      }
+    } catch (_) { /* best-effort playback */ }
+  };
+
+  const stop = async () => {
+    try {
+      if (!soundRef.current) return;
+      await soundRef.current.stopAsync();
+      await soundRef.current.setPositionAsync(0);
+      setPlaying(false);
+      setPos(0);
+    } catch (_) {}
+  };
+
+  const cycleRate = async () => {
+    const next = rate >= 2 ? 1 : 2;
+    setRate(next);
+    try { await soundRef.current?.setRateAsync(next, true); } catch (_) {}
+  };
+
+  const hasAudio = !!audioUrl;
+  const hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
+  if (!hasAudio && !hasImages) return null;
+
+  const pct = dur > 0 ? Math.min(1, pos / dur) : 0;
+
   return (
-    <View className="mt-1.5">
+    <View className="mt-2">
       {hasAudio ? (
-        <View className="flex-row items-center">
+        <View
+          className="rounded-xl px-3 py-2.5 flex-row items-center"
+          style={{ borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}
+        >
           <TouchableOpacity
             onPress={togglePlay}
-            className="flex-row items-center rounded-md px-2 py-1"
+            className="w-9 h-9 rounded-full items-center justify-center mr-2"
+            style={{ backgroundColor: PLAYER_GREEN }}
+          >
+            {playing ? <Pause size={15} color="#fff" /> : <Play size={15} color="#fff" />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={stop}
+            className="w-8 h-8 rounded-full items-center justify-center mr-2"
             style={{ borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }}
           >
-            {playing
-              ? <Pause size={12} color="#0F172A" />
-              : <Play size={12} color="#0F172A" />}
-            <Text className="text-[10px] text-text ml-1">Voice note</Text>
+            <Square size={11} color="#64748B" fill="#64748B" />
+          </TouchableOpacity>
+          <View className="flex-1">
+            <View style={{ height: 4, borderRadius: 2, backgroundColor: '#E2E8F0' }}>
+              <View style={{ height: 4, borderRadius: 2, width: `${pct * 100}%`, backgroundColor: PLAYER_GREEN }} />
+            </View>
+            <Text className="text-[10px] text-gray-500 mt-1">{fmtClock(pos)} / {fmtClock(dur)}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={cycleRate}
+            className="ml-2 px-2.5 py-1.5 rounded-full"
+            style={{ backgroundColor: '#EEF2F6', borderWidth: 1, borderColor: '#E2E8F0' }}
+          >
+            <Text className="text-[11px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>{rate}x</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       {hasImages ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-1.5">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
           <View className="flex-row">
             {imageUrls.map((u, j) => (
               <Image
                 key={j}
                 source={{ uri: u }}
-                style={{ width: 56, height: 56, borderRadius: 6, marginRight: 6 }}
+                style={{ width: 64, height: 64, borderRadius: 8, marginRight: 6 }}
               />
             ))}
           </View>

@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   Phone,
   Paperclip,
+  Smile,
   Mic,
   Send,
   Camera,
@@ -215,6 +215,8 @@ function AudioRow({ url, mine }) {
 
 export default function ShopChatThreadScreen({ navigation, route }) {
   const threadId = route?.params?.threadId;
+  const insets = useSafeAreaInsets();
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [head, setHead] = useState(null);   // thread metadata (counterpart name/phone/online…)
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -246,6 +248,21 @@ export default function ShopChatThreadScreen({ navigation, route }) {
   }, [refreshThread, refreshMessages, threadId]);
 
   useEffect(() => { bootstrap(); }, [bootstrap]);
+
+  // The Android window resizes when the keyboard opens (adjustResize), so the OS
+  // itself lifts the composer above the keyboard — no KeyboardAvoidingView or
+  // manual padding needed (either would double-lift or leave a residual gap on
+  // dismiss). We only track whether the keyboard is open, to switch the
+  // composer's bottom padding (small while typing vs. nav-bar clearance closed).
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardOpen(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardOpen(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
+
+  // Constant clearance so the closed composer looks identical before and after
+  // the keyboard has been used.
+  const bottomInset = Math.max(insets.bottom, 12);
 
   // Poll for new messages + presence/typing every 5s.
   useEffect(() => {
@@ -377,14 +394,11 @@ export default function ShopChatThreadScreen({ navigation, route }) {
         </View>
       </SafeAreaView>
 
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-      >
+      <View className="flex-1">
         <ScrollView
           ref={scrollRef}
           className="flex-1"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 12, paddingBottom: 16 }}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
@@ -423,8 +437,12 @@ export default function ShopChatThreadScreen({ navigation, route }) {
           ) : null}
         </ScrollView>
 
-        {/* Composer */}
-        <View className="px-3 pt-2 pb-3 bg-card border-t border-border">
+        {/* Composer. When the keyboard is closed, pad the bottom by the safe-area
+            inset so the white bar extends behind the nav bar and the input row
+            sits just above the nav buttons. When open, only a little breathing
+            room is needed. */}
+        <View className="px-3 pt-2 bg-card border-t border-border"
+              style={{ paddingBottom: keyboardOpen ? 12 : bottomInset }}>
           {voice.recording ? (
             <View className="flex-row items-center bg-red-50 border border-red-200 rounded-2xl px-3 py-2">
               <View className="h-2.5 w-2.5 rounded-full bg-red-500 mr-2" />
@@ -454,6 +472,9 @@ export default function ShopChatThreadScreen({ navigation, route }) {
                   className="flex-1 text-text text-[14px] py-2 px-1"
                   style={{ maxHeight: 100 }}
                 />
+                <Pressable onPress={() => setText((t) => `${t || ''}😊`)} className="h-9 w-9 items-center justify-center active:opacity-70">
+                  <Smile size={18} color="#64748B" />
+                </Pressable>
                 <Pressable onPress={() => pickImage(true)} disabled={attaching} className="h-9 w-9 items-center justify-center active:opacity-70">
                   <Camera size={18} color="#64748B" />
                 </Pressable>
@@ -479,7 +500,7 @@ export default function ShopChatThreadScreen({ navigation, route }) {
             </View>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

@@ -6,6 +6,9 @@ import { logout } from '../api/auth';
 import { setSession, clearSession as clearAuth } from '../store/authSlice';
 import LoginScreen from '../screens/LoginScreen';
 import CreateAccountScreen from '../screens/CreateAccountScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ForgotPasswordOtpScreen from '../screens/ForgotPasswordOtpScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import OwnerNavigator from './OwnerNavigator';
 import TechnicianNavigator from './TechnicianNavigator';
 
@@ -62,6 +65,11 @@ export default function RootNavigator() {
           {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
         </Stack.Screen>
         <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ForgotPasswordOtp" component={ForgotPasswordOtpScreen} />
+        <Stack.Screen name="ResetPassword">
+          {(props) => <ResetPasswordScreen {...props} onLogin={handleLogin} />}
+        </Stack.Screen>
       </Stack.Navigator>
     );
   }

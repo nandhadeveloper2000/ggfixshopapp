@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, ScrollView, Text, View, TouchableOpacity, StatusBar } from 'react-native';
+import { Image, ScrollView, Text, View, TouchableOpacity, StatusBar, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +21,7 @@ import {
   Palette,
   Play,
   Pause,
+  Square,
 } from 'lucide-react-native';
 import { Loader, EmptyState } from '../../../components/rnr';
 import { ticketApi } from '../../../api/client';
@@ -30,11 +31,13 @@ const BRAND_GREEN_DARK = '#15803D';
 const ACCENT_GREEN = '#16A34A';
 
 const cardShadow = {
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
   shadowColor: '#0F172A',
-  shadowOpacity: 0.08,
-  shadowRadius: 18,
-  shadowOffset: { width: 0, height: 10 },
-  elevation: 6,
+  shadowOpacity: 0.05,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 2,
 };
 
 const softShadow = {
@@ -95,18 +98,20 @@ function formatDateTime(iso) {
   return `${date} ${time}`;
 }
 
-function SectionHeader({ icon: Icon, label, tint = '#DCFCE7', accent = BRAND_GREEN_DARK }) {
+// Uniform, neutral section header — gray chip + green icon — so the screen
+// reads cleanly instead of using a different colour per section.
+function SectionHeader({ icon: Icon, label }) {
   return (
     <View className="flex-row items-center mb-3">
       <View
-        className="w-7 h-7 rounded-full items-center justify-center mr-2"
-        style={{ backgroundColor: tint }}
+        className="w-7 h-7 rounded-lg items-center justify-center mr-2"
+        style={{ backgroundColor: '#F1F5F9' }}
       >
-        <Icon size={14} color={accent} />
+        <Icon size={14} color={BRAND_GREEN_DARK} />
       </View>
       <Text
-        className="text-[11px] font-bold tracking-widest"
-        style={{ color: accent, letterSpacing: 1.3 }}
+        className="text-[11px] font-extrabold tracking-widest text-gray-900"
+        style={{ letterSpacing: 1.2 }}
       >
         {label}
       </Text>
@@ -118,10 +123,10 @@ function DetailRow({ icon: Icon, label, value, valueClassName = 'text-gray-900' 
   return (
     <View className="flex-row items-start py-2.5">
       <View
-        className="w-8 h-8 rounded-full items-center justify-center mr-3"
-        style={{ backgroundColor: '#F0FDF4' }}
+        className="w-8 h-8 rounded-lg items-center justify-center mr-3"
+        style={{ backgroundColor: '#F1F5F9' }}
       >
-        <Icon size={14} color={ACCENT_GREEN} />
+        <Icon size={14} color={BRAND_GREEN_DARK} />
       </View>
       <View className="flex-1">
         <Text className="text-[10.5px] uppercase font-semibold text-gray-400 mb-0.5" style={{ letterSpacing: 0.6 }}>
@@ -143,61 +148,148 @@ function PhotoSlot({ label, uri, icon: Icon }) {
         className="rounded-xl overflow-hidden items-center justify-center"
         style={{
           aspectRatio: 1,
-          backgroundColor: '#F0FDF4',
+          backgroundColor: '#F8FAFC',
           borderWidth: 1.5,
           borderStyle: 'dashed',
-          borderColor: '#86EFAC',
+          borderColor: '#E2E8F0',
         }}
       >
         {uri ? (
           <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
         ) : (
-          <Icon size={22} color={BRAND_GREEN} />
+          <Icon size={22} color="#94A3B8" />
         )}
       </View>
     </View>
   );
 }
 
-// Plays a single voice note from the compliance-note card. Each row owns its
-// own Audio.Sound; we still release on unmount so navigating away doesn't
-// leak a player and block the next acquisition.
-function VoiceNoteChip({ uri }) {
+const fmtClock = (ms) => {
+  const s = Math.max(0, Math.floor((ms || 0) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+// Voice-note audio player for the compliance-note card: play / pause, stop, a
+// 1x ⇄ 2x speed toggle, and a progress bar with elapsed / total time. Each row
+// owns its own Audio.Sound and releases it on unmount so navigating away
+// doesn't leak a player or block the next one.
+function VoiceNotePlayer({ uri }) {
   const soundRef = useRef(null);
   const [playing, setPlaying] = useState(false);
+  const [rate, setRate] = useState(1);
+  const [pos, setPos] = useState(0);
+  const [dur, setDur] = useState(0);
 
   useEffect(() => () => {
     try { soundRef.current?.unloadAsync?.(); } catch (_) {}
   }, []);
 
-  const toggle = async () => {
+  const onStatus = (s) => {
+    if (!s || !s.isLoaded) return;
+    setPos(s.positionMillis || 0);
+    if (s.durationMillis) setDur(s.durationMillis);
+    setPlaying(!!s.isPlaying);
+    if (s.didJustFinish) { setPlaying(false); setPos(0); }
+  };
+
+  const ensureSound = async () => {
+    if (soundRef.current) return soundRef.current;
+    try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true }); } catch (_) {}
+    const { sound } = await Audio.Sound.createAsync(
+      { uri },
+      { rate, shouldCorrectPitch: true, progressUpdateIntervalMillis: 200 },
+      onStatus,
+    );
+    soundRef.current = sound;
+    return sound;
+  };
+
+  // Preload the clip so its total duration shows before the first play.
+  useEffect(() => {
+    if (!uri) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const sound = await ensureSound();
+        const st = await sound.getStatusAsync();
+        if (!cancelled && st.isLoaded && st.durationMillis) setDur(st.durationMillis);
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, [uri]);
+
+  const togglePlay = async () => {
     try {
-      if (playing && soundRef.current) {
-        await soundRef.current.pauseAsync();
+      const sound = await ensureSound();
+      const st = await sound.getStatusAsync();
+      if (st.isLoaded && st.isPlaying) {
+        await sound.pauseAsync();
         setPlaying(false);
-        return;
+      } else {
+        if (st.isLoaded && (st.didJustFinish || st.positionMillis >= (st.durationMillis || 0))) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
+        setPlaying(true);
       }
-      if (soundRef.current) {
-        try { await soundRef.current.unloadAsync(); } catch (_) {}
-        soundRef.current = null;
-      }
-      const { sound } = await Audio.Sound.createAsync({ uri });
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((s) => { if (s?.didJustFinish) setPlaying(false); });
-      await sound.playAsync();
-      setPlaying(true);
     } catch (_) { /* best-effort playback */ }
   };
 
+  const stop = async () => {
+    try {
+      if (!soundRef.current) return;
+      await soundRef.current.stopAsync();
+      await soundRef.current.setPositionAsync(0);
+      setPlaying(false);
+      setPos(0);
+    } catch (_) {}
+  };
+
+  const cycleRate = async () => {
+    const next = rate >= 2 ? 1 : 2;
+    setRate(next);
+    try { await soundRef.current?.setRateAsync(next, true); } catch (_) {}
+  };
+
+  const pct = dur > 0 ? Math.min(1, pos / dur) : 0;
+
   return (
-    <TouchableOpacity
-      onPress={toggle}
-      className="flex-row items-center rounded-full px-3 py-1.5 mt-2 self-start"
-      style={{ borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' }}
+    <View
+      className="mt-2 rounded-xl px-3 py-2.5"
+      style={{ borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}
     >
-      {playing ? <Pause size={12} color="#0F172A" /> : <Play size={12} color="#0F172A" />}
-      <Text className="text-[11px] font-bold text-gray-900 ml-1.5">Voice note</Text>
-    </TouchableOpacity>
+      <View className="flex-row items-center">
+        <TouchableOpacity
+          onPress={togglePlay}
+          className="w-9 h-9 rounded-full items-center justify-center mr-2"
+          style={{ backgroundColor: ACCENT_GREEN }}
+        >
+          {playing ? <Pause size={15} color="#fff" /> : <Play size={15} color="#fff" />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={stop}
+          className="w-8 h-8 rounded-full items-center justify-center mr-2"
+          style={{ borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF' }}
+        >
+          <Square size={12} color="#64748B" fill="#64748B" />
+        </TouchableOpacity>
+        <View className="flex-1">
+          <View style={{ height: 4, borderRadius: 2, backgroundColor: '#E2E8F0' }}>
+            <View style={{ height: 4, borderRadius: 2, width: `${pct * 100}%`, backgroundColor: ACCENT_GREEN }} />
+          </View>
+          <Text className="text-[10px] text-gray-500 mt-1">
+            {fmtClock(pos)} / {fmtClock(dur)}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={cycleRate}
+          className="ml-2 px-2.5 py-1.5 rounded-full"
+          style={{ backgroundColor: '#EEF2F6', borderWidth: 1, borderColor: '#E2E8F0' }}
+        >
+          <Text className="text-[11px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>{rate}x</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -235,7 +327,7 @@ function ComplianceNotesCard({ notes }) {
                 {n.note ? (
                   <Text className="text-[13px] text-gray-900 leading-5">{n.note}</Text>
                 ) : null}
-                {n.audioUrl ? <VoiceNoteChip uri={n.audioUrl} /> : null}
+                {n.audioUrl ? <VoiceNotePlayer uri={n.audioUrl} /> : null}
                 {imgs.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
                     <View className="flex-row">
@@ -265,6 +357,8 @@ function ComplianceNotesCard({ notes }) {
 
 export default function DeviceDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const contentW = Math.min(winW, 760);
   const { ticketId } = route.params || {};
   const [ticket, setTicket] = useState(null);
   const [technician, setTechnician] = useState(null);
@@ -378,6 +472,7 @@ export default function DeviceDetailScreen({ route, navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 24 }}
       >
+        <View style={{ width: contentW, alignSelf: 'center' }}>
         {/* Floating device card */}
         <View className="px-4" style={{ marginTop: 12 }}>
           <View
@@ -684,17 +779,17 @@ export default function DeviceDetailScreen({ route, navigation }) {
                       className="rounded-xl items-center justify-center overflow-hidden"
                       style={{
                         aspectRatio: 1,
-                        backgroundColor: '#F5F3FF',
+                        backgroundColor: '#F8FAFC',
                         borderWidth: 1.5,
                         borderStyle: 'dashed',
-                        borderColor: '#C4B5FD',
+                        borderColor: '#E2E8F0',
                       }}
                     >
                       {technicianPhotos[i] ? (
                         <Image source={{ uri: technicianPhotos[i] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                       ) : (
                         <View className="items-center px-2">
-                          <Camera size={20} color="#8B5CF6" />
+                          <Camera size={20} color="#94A3B8" />
                           <Text className="text-[9px] text-gray-500 text-center mt-1">
                             Awaiting photo
                           </Text>
@@ -713,6 +808,7 @@ export default function DeviceDetailScreen({ route, navigation }) {
             own Ticket Detail screen (Your Side images, then Issue Verified
             & Updated). Hidden when the technician hasn't submitted any. */}
         <ComplianceNotesCard notes={complianceNotes} />
+        </View>
       </ScrollView>
     </View>
   );

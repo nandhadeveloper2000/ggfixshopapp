@@ -81,6 +81,28 @@ export async function requestShopLoginOtp(mobile) {
   return await authApi.post('/auth/shop-login/request-otp', { body: { mobile } });
 }
 
+/**
+ * Request a login / password-reset OTP. Email identifiers get a generated
+ * 6-digit code emailed via Resend; mobile identifiers use the default 123456.
+ * Returns { channel: 'EMAIL'|'MOBILE', sent, target, ttlMinutes?, devOtp?, defaultOtp?, email }.
+ * The wire field is `email` but accepts an email OR a mobile number.
+ */
+export async function requestOtp(identifier) {
+  return await authApi.post('/auth/otp/send', { body: { email: identifier } });
+}
+
+/**
+ * Verify the OTP and set a new password. On success the server returns a fresh
+ * login session (LoginResponse) which we persist — the caller routes via onLogin.
+ */
+export async function resetPassword({ identifier, otp, newPassword }) {
+  const data = await authApi.post('/auth/forgot-password/reset', {
+    body: { email: identifier, otp, password: newPassword },
+  });
+  await saveSession(data);
+  return data;
+}
+
 export async function switchShop(shopId) {
   const data = await authApi.post('/auth/switch-shop', { body: { shopId } });
   await saveSession(data);

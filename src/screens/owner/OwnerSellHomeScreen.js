@@ -85,7 +85,13 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
     (async () => {
       try {
         const list = await getDeviceCategories();
-        setCats((list || []).filter((c) => c.isActive !== false));
+        // Fixed display order: Mobile → Laptop → Tablet → Smartwatches → Audio Device.
+        const ORDER = ['mobile', 'laptop', 'tablet', 'smartwatches', 'audio device'];
+        const rank = (c) => {
+          const i = ORDER.indexOf((c.name || '').trim().toLowerCase());
+          return i === -1 ? ORDER.length : i;
+        };
+        setCats((list || []).filter((c) => c.isActive !== false).sort((a, b) => rank(a) - rank(b)));
       } catch (_) {}
       setLoading(false);
     })();
@@ -361,19 +367,6 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
                       ) : (
                         <Text style={{ fontSize: Math.min(44, imgH * 0.5) }}>{meta.emoji}</Text>
                       )}
-                      <View
-                        style={{
-                          position: 'absolute', top: 8, left: 8,
-                          backgroundColor: '#DCFCE7', borderRadius: 999,
-                          paddingHorizontal: 8, paddingVertical: 3,
-                          flexDirection: 'row', alignItems: 'center',
-                        }}
-                      >
-                        <Tag size={10} color={GREEN_DARK} />
-                        <Text style={{ color: GREEN_DARK, fontSize: 9.5, fontWeight: '800', marginLeft: 3 }}>
-                          LIST NOW
-                        </Text>
-                      </View>
                     </View>
                     <Text
                       numberOfLines={1}
@@ -392,54 +385,6 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
               })}
             </View>
           )}
-
-          {/* How it works */}
-          <View style={{ paddingHorizontal: padH, marginTop: 22, marginBottom: 6 }}>
-            <Text
-              style={{
-                fontSize: 17, fontWeight: '800',
-                color: '#0F172A', letterSpacing: -0.2,
-              }}
-            >
-              How it works
-            </Text>
-            <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-              Three steps from device to live listing
-            </Text>
-          </View>
-          <View style={{ paddingHorizontal: padH }}>
-            {STEPS.map((s) => (
-              <View
-                key={s.n}
-                style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}
-              >
-                <View
-                  style={{
-                    height: 28, width: 28, borderRadius: 14,
-                    backgroundColor: GREEN,
-                    alignItems: 'center', justifyContent: 'center',
-                    marginRight: 10, marginTop: 2,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{s.n}</Text>
-                </View>
-                <View
-                  style={{
-                    flex: 1, backgroundColor: '#fff', borderRadius: 12,
-                    paddingHorizontal: 12, paddingVertical: 10,
-                    borderWidth: 1, borderColor: '#F1F5F9',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
-                    {s.title}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
-                    {s.sub}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
 
           {/* Bottom CTA */}
           <View style={{ paddingHorizontal: padH, marginTop: 18 }}>

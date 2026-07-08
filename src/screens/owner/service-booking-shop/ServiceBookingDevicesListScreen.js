@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { ActivityIndicator, View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -159,7 +159,13 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
         tickets: created,
       });
     } catch (e) {
-      notify('Error', e?.message || 'Failed to submit booking');
+      const status = e?.status ? ` (HTTP ${e.status})` : '';
+      const msg = `${e?.message || 'Failed to submit booking'}${status}`;
+      // Log the full error so it can be read from the Metro console too.
+      console.log('Booking submit error →', e?.status, e?.message, e);
+      // Alert stays on screen until dismissed, so the message is readable
+      // (the toast disappears in ~2s).
+      Alert.alert('Booking failed', msg);
     } finally { setSubmitting(false); }
   };
 

@@ -1,11 +1,10 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View, StatusBar } from 'react-native';
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View, StatusBar, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft,
-  Hash,
   Activity,
   History,
   Radio,
@@ -22,27 +21,29 @@ const BRAND_GREEN_DARK = '#15803D';
 const ACCENT_GREEN = '#16A34A';
 
 const cardShadow = {
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
   shadowColor: '#0F172A',
-  shadowOpacity: 0.08,
-  shadowRadius: 18,
-  shadowOffset: { width: 0, height: 10 },
-  elevation: 6,
+  shadowOpacity: 0.05,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 2,
 };
 
 const hashed = (n) => (n ? (String(n).startsWith('#') ? n : `#${n}`) : '');
 
-function SectionHeader({ icon: Icon, label, tint = '#DCFCE7', accent = BRAND_GREEN_DARK }) {
+function SectionHeader({ icon: Icon, label }) {
   return (
     <View className="flex-row items-center mb-3">
       <View
-        className="w-7 h-7 rounded-full items-center justify-center mr-2"
-        style={{ backgroundColor: tint }}
+        className="w-7 h-7 rounded-lg items-center justify-center mr-2"
+        style={{ backgroundColor: '#F1F5F9' }}
       >
-        <Icon size={14} color={accent} />
+        <Icon size={14} color={BRAND_GREEN_DARK} />
       </View>
       <Text
-        className="text-[11px] font-bold tracking-widest"
-        style={{ color: accent, letterSpacing: 1.3 }}
+        className="text-[11px] font-extrabold tracking-widest text-gray-900"
+        style={{ letterSpacing: 1.2 }}
       >
         {label}
       </Text>
@@ -53,6 +54,8 @@ function SectionHeader({ icon: Icon, label, tint = '#DCFCE7', accent = BRAND_GRE
 export default function BookingTimelineScreen({ route }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  const contentW = Math.min(winW, 760);
   const ticketId = route?.params?.ticketId;
   const [ticket, setTicket] = useState(null);
   const [events, setEvents] = useState([]);
@@ -141,12 +144,10 @@ export default function BookingTimelineScreen({ route }) {
           />
         }
       >
-        {/* Current status floating card */}
-        <View className="px-4" style={{ marginTop: -40 }}>
-          <View
-            className="bg-white rounded-2xl p-4"
-            style={cardShadow}
-          >
+        <View style={{ width: contentW, alignSelf: 'center' }}>
+        {/* Current status card */}
+        <View className="px-4" style={{ marginTop: 12 }}>
+          <View className="bg-white rounded-2xl p-4" style={cardShadow}>
             <View className="flex-row items-center">
               <View
                 className="w-12 h-12 rounded-full items-center justify-center mr-3"
@@ -203,7 +204,7 @@ export default function BookingTimelineScreen({ route }) {
         ) : null}
 
         {/* Timeline */}
-        <View className="px-4" style={{ marginTop: 14 }}>
+        <View className="px-4" style={{ marginTop: 12 }}>
           <View
             className="bg-white rounded-2xl p-4"
             style={cardShadow}
@@ -211,6 +212,7 @@ export default function BookingTimelineScreen({ route }) {
             <SectionHeader icon={History} label="SERVICE TIMELINE" />
             <ServiceHistoryTimeline events={events} status={ticket?.status} phaseFilter="SERVICE" />
           </View>
+        </View>
         </View>
       </ScrollView>
     </View>

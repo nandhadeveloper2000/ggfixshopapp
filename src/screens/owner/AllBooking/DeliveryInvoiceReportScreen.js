@@ -133,7 +133,7 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
       <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: '#F4FBF6' }}>
         <Text className="text-[15px] font-extrabold text-gray-700">No invoice generated yet</Text>
         <Text className="text-[12px] text-gray-500 mt-2 text-center">
-          Open the Invoice Generator from the Billing & Delivery screen to create one.
+          Open the Invoice Generator from the Invoices screen to create one.
         </Text>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -418,6 +418,25 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
             </Text>
           </View>
         </View>
+
+        {/* Hero — key number surfaced in the header so the owner sees the
+            payable amount immediately, without scrolling to the summary. */}
+        <View className="flex-row items-end justify-between mt-3">
+          <View>
+            <Text className="text-[9.5px] font-bold" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: 0.8 }}>
+              INVOICE TOTAL
+            </Text>
+            <Text className="text-white text-[27px] font-extrabold" style={{ marginTop: 1, letterSpacing: -0.5 }}>
+              ₹{fmt(invoice.finalPayableAmount)}
+            </Text>
+          </View>
+          <View className="items-end pb-1">
+            <Text className="text-[9.5px]" style={{ color: 'rgba(255,255,255,0.8)' }}>Delivery date</Text>
+            <Text className="text-white text-[11px] font-bold mt-0.5" numberOfLines={1}>
+              {formatDateTime(invoice.generatedAt || invoice.deliveryDate)}
+            </Text>
+          </View>
+        </View>
       </LinearGradient>
 
       <ScrollView
@@ -508,10 +527,8 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
         {/* (A) Service — 8 columns matching the reference (adds Total). */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl overflow-hidden" style={cardShadow}>
-            <View className="px-4 pt-3 pb-2">
-              <Text className="text-[11.5px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>
-                (A) Service
-              </Text>
+            <View className="px-4 pt-3 pb-1">
+              <SectionLabel>(A) Service</SectionLabel>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View>
@@ -568,10 +585,8 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
             GST column can't slip behind a floating overflow menu. */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl overflow-hidden" style={cardShadow}>
-            <View className="px-4 pt-3 pb-2">
-              <Text className="text-[11.5px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>
-                (B) Spares
-              </Text>
+            <View className="px-4 pt-3 pb-1">
+              <SectionLabel>(B) Spares</SectionLabel>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View>
@@ -633,10 +648,8 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
         {/* Tax Summary — consolidated Service + Spares + Grand Total. */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl overflow-hidden" style={cardShadow}>
-            <View className="px-4 pt-3 pb-2">
-              <Text className="text-[11.5px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>
-                Tax Summary
-              </Text>
+            <View className="px-4 pt-3 pb-1">
+              <SectionLabel>Tax Summary</SectionLabel>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View>
@@ -688,9 +701,7 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
             Invoice Total (matches the requested 4-row structure). */}
         <View className="px-4 mt-4">
           <View className="bg-white rounded-2xl p-4" style={cardShadow}>
-            <Text className="text-[11.5px] font-extrabold mb-2" style={{ color: BRAND_GREEN_DARK }}>
-              Total Payable Summary
-            </Text>
+            <SectionLabel>Total Payable Summary</SectionLabel>
             <View className="flex-row justify-between py-1">
               <Text className="text-[12px] text-gray-700">Taxable Amount</Text>
               <Text className="text-[12.5px] font-bold text-gray-900">₹{fmt(grandTotalBreak.base)}</Text>
@@ -833,6 +844,19 @@ function MetaRow({ label, value }) {
       <Text className="text-[10px] text-gray-500" style={{ width: 84 }}>{label}</Text>
       <Text className="text-[10px] text-gray-700 font-semibold">: </Text>
       <Text className="text-[10px] font-bold text-gray-900" numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+// Consistent section label: a green accent bar + uppercase-ish title, mirroring
+// the `.sec` style used in the printable PDF so screen and paper match.
+function SectionLabel({ children, color = BRAND_GREEN_DARK }) {
+  return (
+    <View className="flex-row items-center mb-2">
+      <View style={{ width: 3, height: 13, borderRadius: 2, backgroundColor: BRAND_GREEN, marginRight: 7 }} />
+      <Text className="text-[11.5px] font-extrabold" style={{ color, letterSpacing: 0.4 }}>
+        {children}
+      </Text>
     </View>
   );
 }

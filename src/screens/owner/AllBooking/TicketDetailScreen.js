@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, TouchableOpacity, View, StatusBar } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, TouchableOpacity, View, StatusBar, useWindowDimensions, Modal, Linking, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +21,14 @@ import {
   Check,
   X,
   ListChecks,
+  User,
+  Phone,
+  MapPin,
+  Receipt,
+  Calendar,
+  Wrench,
+  MessageSquare,
+  ChevronRight,
 } from 'lucide-react-native';
 import {
   Card,
@@ -66,6 +74,22 @@ const STATUS_VARIANT = {
   CANCELLED:            { label: 'Cancelled',                         tone: 'red' },
 };
 
+const TONE = {
+  amber:  { bg: 'rgba(245, 158, 11, 0.12)', fg: '#B45309',        border: 'rgba(245, 158, 11, 0.35)' },
+  blue:   { bg: 'rgba(59, 130, 246, 0.12)', fg: '#1D4ED8',        border: 'rgba(59, 130, 246, 0.35)' },
+  purple: { bg: 'rgba(168, 85, 247, 0.12)', fg: '#6D28D9',        border: 'rgba(168, 85, 247, 0.35)' },
+  green:  { bg: 'rgba(22, 163, 74, 0.12)',  fg: BRAND_GREEN_DARK,  border: 'rgba(22, 163, 74, 0.35)' },
+  red:    { bg: 'rgba(239, 68, 68, 0.12)',  fg: '#B91C1C',        border: 'rgba(239, 68, 68, 0.35)' },
+};
+
+// Linear booking lifecycle (matches the backend's LIFECYCLE_ORDER). Used so a
+// Service Progress step counts as "done" once the ticket status is at/past it —
+// e.g. after the invoice is generated, "Ready for Delivery" is already behind us.
+const LIFECYCLE_ORDER = [
+  'CREATED', 'IN_DIAGNOSIS', 'QUOTED', 'APPROVED', 'IN_REPAIR',
+  'READY', 'INVOICE_GENERATED', 'INVOICE_READY', 'DELIVERED_PROCESSING', 'DELIVERED',
+];
+
 // Statuses that imply the technician has actively picked up the job.
 const ACCEPTED_STATUSES = new Set([
   'IN_DIAGNOSIS', 'IN_REPAIR', 'QUOTED', 'APPROVED', 'READY',
@@ -96,11 +120,16 @@ const formatINR = (n) =>
 
 export default function TicketDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
+  const { width: winW } = useWindowDimensions();
+  // Phones: full width. Tablets/large screens: cap + centre so the receipt and
+  // info cards read as a tidy document instead of stretching edge-to-edge.
+  const contentW = Math.min(winW, 760);
   const { ticketId } = route.params || {};
   const [ticket, setTicket] = useState(null);
   const [technician, setTechnician] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const receiptRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -183,11 +212,10 @@ export default function TicketDetailScreen({ route, navigation }) {
     }
   }, [ticketId, refreshProgress]);
 
-  const handleShare = async () => {
-    if (!ticket) return;
+  const buildMessage = () => {
     const lineItems = priceItemsFromTicket(ticket);
     const total = ticket.estimatedPrice || lineItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
-    const message =
+    return (
       `🧾 GGFix Booking Receipt\n\n` +
       `Tracking ID: ${ticket.trackingId || ticket.id}\n` +
       `Customer: ${ticket.customerName || '-'}\n` +
@@ -197,18 +225,18 @@ export default function TicketDetailScreen({ route, navigation }) {
       `Services:\n` +
       lineItems.map((i) => `  • ${i.label} — ₹${i.amount}`).join('\n') +
       `\n\nEstimated Total: ₹${total}\n\n` +
-      `Track your repair in the GGFix app.`;
+      `Track your repair in the GGFix app.`
+    );
+  };
 
-    // Try to capture the hidden receipt View as a PNG and share that via the
-    // system share sheet so messengers like WhatsApp attach the receipt image
-    // (not just a text snippet). Fall back to the plain text share on any
-    // capture / sharing failure so the user still gets *something*.
+  // Option 1 — capture the hidden receipt View as a PNG and open the system
+  // share sheet so WhatsApp (and others) attach the receipt image. Falls back
+  // to a plain-text share on any capture / sharing failure.
+  const shareImage = async () => {
+    setShareOpen(false);
+    if (!ticket) return;
     try {
-      const uri = await captureRef(receiptRef, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-      });
+      const uri = await captureRef(receiptRef, { format: 'png', quality: 1, result: 'tmpfile' });
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(uri, {
@@ -219,11 +247,24 @@ export default function TicketDetailScreen({ route, navigation }) {
         return;
       }
     } catch (_) { /* fall through to text share */ }
-
     try {
-      await Share.share({ message, title: `Booking ${ticket.trackingId || ticket.id}` });
+      await Share.share({ message: buildMessage(), title: `Booking ${ticket.trackingId || ticket.id}` });
     } catch (e) {
       notify('Share failed', e?.message || 'Could not open share sheet');
+    }
+  };
+
+  // Option 2 — share the booking details as text. The bare `sms:` URL scheme
+  // doesn't reliably pre-fill the body on Android (Samsung Messages drops it),
+  // so we use Share.share — the text is the payload, so it always lands in the
+  // SMS body (or WhatsApp text, etc.) when the user picks an app.
+  const shareSms = async () => {
+    setShareOpen(false);
+    if (!ticket) return;
+    try {
+      await Share.share({ message: buildMessage() });
+    } catch (e) {
+      notify('Share failed', e?.message || 'Could not open the share sheet.');
     }
   };
 
@@ -280,6 +321,9 @@ export default function TicketDetailScreen({ route, navigation }) {
     : lineItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
 
   const statusKey = String(ticket.status || '').toUpperCase();
+  const statusMeta = STATUS_VARIANT[statusKey] || { label: ticket.status || 'Pending', tone: 'amber' };
+  const statusTone = TONE[statusMeta.tone] || TONE.amber;
+  const statusIdx = LIFECYCLE_ORDER.indexOf(statusKey);
   const hasTechnician = !!ticket.assignedTechnicianId;
   const techAccepted = hasTechnician && ACCEPTED_STATUSES.has(statusKey);
   const techName = technician?.name || (hasTechnician ? 'Assigned Technician' : null);
@@ -366,7 +410,7 @@ export default function TicketDetailScreen({ route, navigation }) {
       }
       case 'view':    navigation.navigate('DeviceDetail', { ticketId: ticket.id }); break;
       case 'history': navigation.navigate('BookingTimeline', { ticketId: ticket.id }); break;
-      case 'share':   handleShare(); break;
+      case 'share':   setShareOpen(true); break;
       case 'barcode': navigation.navigate('BarcodePrint', { ticketId: ticket.id, mode: 'barcode' }); break;
       default: break;
     }
@@ -438,90 +482,128 @@ export default function TicketDetailScreen({ route, navigation }) {
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 24 }}>
-        {/* ── Receipt card ─ mirrors BookingSuccessfulScreen layout ── */}
+        <View style={{ width: contentW, alignSelf: 'center' }}>
+        {/* ── Device hero ─────────────────────────────────────── */}
         <View className="px-4" style={{ marginTop: 12 }}>
-          <Card className="p-0 overflow-hidden">
-            {/* Device header */}
-            <View className="flex-row items-center px-3 py-2.5 border-b border-border">
-              <View className="w-11 h-12 bg-border rounded-md overflow-hidden items-center justify-center">
+          <View className="bg-card rounded-3xl p-4" style={cardShadow}>
+            <View className="flex-row items-center">
+              <View
+                className="w-[72px] h-[72px] rounded-2xl overflow-hidden items-center justify-center"
+                style={{ backgroundColor: '#F1F5F9' }}
+              >
                 {ticket.deviceImageUrl ? (
-                  <Image source={{ uri: ticket.deviceImageUrl }} style={{ width: 44, height: 48 }} resizeMode="cover" />
+                  <Image source={{ uri: ticket.deviceImageUrl }} style={{ width: 72, height: 72 }} resizeMode="cover" />
                 ) : (
-                  <Smartphone size={20} color="#64748B" />
+                  <Smartphone size={30} color="#64748B" />
                 )}
               </View>
-              <View className="ml-2.5 flex-1">
+              <View className="ml-3.5 flex-1">
+                <Text className="text-[17px] font-extrabold text-text" numberOfLines={1}>{deviceName}</Text>
+                {(ramLabel || storageLabel || color) ? (
+                  <Text className="text-[12px] text-text-muted mt-0.5" numberOfLines={1}>
+                    {[ramLabel, storageLabel, color].filter(Boolean).join(' · ')}
+                  </Text>
+                ) : null}
+                <View
+                  className="self-start rounded-full px-2.5 py-1 mt-2"
+                  style={{ backgroundColor: statusTone.bg, borderWidth: 1, borderColor: statusTone.border }}
+                >
+                  <Text className="text-[10px] font-extrabold" style={{ color: statusTone.fg }}>
+                    {statusMeta.label.toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View className="h-px bg-border my-3" />
+            <View className="flex-row items-center justify-between">
+              <View>
                 <Text className="text-[10px] text-text-muted">Tracking ID</Text>
-                <Text className="text-[13px] font-extrabold text-primary">#{trackingId}</Text>
-                <Text className="text-[11px] text-text mt-0.5" numberOfLines={1}>
-                  {deviceName}{ramLabel ? ` · ${ramLabel}` : ''}{storageLabel ? ` · ${storageLabel}` : ''}{color ? ` · ${color}` : ''}
-                </Text>
+                <Text className="text-[14px] font-extrabold text-primary">#{trackingId}</Text>
               </View>
-            </View>
-
-            {/* Customer */}
-            {(customerName || phone || address) ? (
-              <View className="px-3 py-2.5 border-b border-border">
-                <Text className="text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-1.5">Customer Details</Text>
-                {customerName ? <InfoRow label="Name" value={customerName} /> : null}
-                {phone   ? <InfoRow label="Mobile Number" value={phone} /> : null}
-                {address ? <InfoRow label="Address" value={address} /> : null}
-              </View>
-            ) : null}
-
-            {/* Services */}
-            <View className="px-3 py-2.5 border-b border-border">
-              <Text className="text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-1.5">Price Summary</Text>
-              {lineItems.length === 0 ? (
-                <Text className="text-[12px] text-text-muted">No service items recorded.</Text>
-              ) : (
-                <>
-                  {lineItems.map((item, idx) => (
-                    <View key={item.id || idx} className="flex-row items-center my-0.5">
-                      <View className="w-5 h-5 bg-background rounded items-center justify-center mr-2">
-                        <Text className="text-text text-[10px] font-bold">{idx + 1}</Text>
-                      </View>
-                      <Text className="flex-1 text-text text-[12px]" numberOfLines={1}>{item.label}</Text>
-                      <Text className="font-bold text-text text-[12px]">₹{Number(item.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-                    </View>
-                  ))}
-                  <View className="border-t border-border mt-1.5 pt-1.5 flex-row items-center">
-                    <Text className="flex-1 font-extrabold text-text text-[12px]">Estimated Repair Amount</Text>
-                    <Text className="font-extrabold text-primary text-[13px]">₹{Number(estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-                  </View>
-                </>
-              )}
-            </View>
-
-            {/* Service Info */}
-            <View className="px-3 py-2.5">
-              <Text className="text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-1.5">Service Info</Text>
-              {ticket.issueDescription ? (
-                <View className="mb-1.5">
-                  <Text className="text-[11px] text-text-muted">Complaint</Text>
-                  <Text className="text-[12px] text-text">{ticket.issueDescription}</Text>
+              {ticket.createdAt ? (
+                <View className="items-end">
+                  <Text className="text-[10px] text-text-muted">Booked</Text>
+                  <Text className="text-[12px] font-bold text-text">{fmtInstant(ticket.createdAt) || '-'}</Text>
                 </View>
               ) : null}
-              <InfoRow label="Estimated Time" value={fmtInstant(ticket.estimatedReadyAt) || '-'} />
-              <InfoRow label="Delivery Date" value={fmtInstant(ticket.estimatedDeliveryAt) || '-'} />
-              <View className="flex-row items-center mt-1">
-                <Text className="flex-1 text-[11px] text-text-muted">Repair Approval</Text>
-                <View className="flex-row items-center">
-                  {ticket.customerApproval ? (
-                    <>
-                      <CheckCircle2 size={12} color="#22C55E" />
-                      <Text className="text-[12px] font-bold text-success ml-1">Done</Text>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle size={12} color="#94A3B8" />
-                      <Text className="text-[12px] font-bold text-text-muted ml-1">Pending</Text>
-                    </>
-                  )}
-                </View>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Customer ────────────────────────────────────────── */}
+        {(customerName || phone || address) ? (
+          <>
+            <SectionHeader icon={User} label="CUSTOMER" />
+            <View className="px-4">
+              <View className="bg-card rounded-2xl px-4 py-2" style={cardShadow}>
+                {customerName ? <DetailRow icon={User} label="Name" value={customerName} /> : null}
+                {phone ? <DetailRow icon={Phone} label="Mobile" value={phone} /> : null}
+                {address ? <DetailRow icon={MapPin} label="Address" value={address} /> : null}
               </View>
             </View>
-          </Card>
+          </>
+        ) : null}
+
+        {/* ── Price summary ───────────────────────────────────── */}
+        <SectionHeader icon={Receipt} label="PRICE SUMMARY" />
+        <View className="px-4">
+          <View className="bg-card rounded-2xl p-4" style={cardShadow}>
+            {lineItems.length === 0 ? (
+              <Text className="text-[12.5px] text-text-muted">No service items recorded.</Text>
+            ) : (
+              lineItems.map((item, idx) => (
+                <View
+                  key={item.id || idx}
+                  className="flex-row items-center py-2"
+                  style={{ borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: '#F1F5F9' }}
+                >
+                  <View className="w-6 h-6 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F1F5F9' }}>
+                    <Text className="text-text text-[11px] font-extrabold">{idx + 1}</Text>
+                  </View>
+                  <Text className="flex-1 text-text text-[13px] font-semibold" numberOfLines={1}>{item.label}</Text>
+                  <Text className="font-extrabold text-text text-[13px]">₹{Number(item.amount || 0).toLocaleString('en-IN')}</Text>
+                </View>
+              ))
+            )}
+            <View className="flex-row items-center mt-1 pt-2.5" style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+              <Text className="flex-1 font-extrabold text-text text-[13.5px]">Estimated Total</Text>
+              <Text className="font-extrabold text-[17px]" style={{ color: ACCENT_GREEN }}>
+                ₹{Number(estimatedTotal || 0).toLocaleString('en-IN')}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Service info ────────────────────────────────────── */}
+        <SectionHeader icon={Wrench} label="SERVICE INFO" />
+        <View className="px-4">
+          <View className="bg-card rounded-2xl p-4" style={cardShadow}>
+            {ticket.issueDescription ? (
+              <View className="mb-3">
+                <Text className="text-[11px] text-text-muted mb-1">Complaint</Text>
+                <Text className="text-[13px] text-text leading-5">{ticket.issueDescription}</Text>
+              </View>
+            ) : null}
+            <DetailRow icon={Clock} label="Est. Time" value={fmtInstant(ticket.estimatedReadyAt) || '-'} />
+            <DetailRow icon={Calendar} label="Delivery" value={fmtInstant(ticket.estimatedDeliveryAt) || '-'} />
+            <View className="flex-row items-center py-1.5">
+              <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F1F5F9' }}>
+                <CheckCircle2 size={14} color="#64748B" />
+              </View>
+              <Text className="flex-1 text-[12.5px] text-text-muted">Repair Approval</Text>
+              {ticket.customerApproval ? (
+                <View className="flex-row items-center">
+                  <CheckCircle2 size={13} color={BRAND_GREEN} />
+                  <Text className="text-[12.5px] font-extrabold text-success ml-1">Approved</Text>
+                </View>
+              ) : (
+                <View className="flex-row items-center">
+                  <AlertCircle size={13} color="#94A3B8" />
+                  <Text className="text-[12.5px] font-bold text-text-muted ml-1">Pending</Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
         {/* ── Technician section ─────────────────────────────── */}
@@ -636,7 +718,13 @@ export default function TicketDetailScreen({ route, navigation }) {
             </Text>
             {OWNER_PROGRESS_ROWS.map((row, idx) => {
               const entry = progressStatus[row.key];
-              const done = !!entry?.done;
+              // A step counts as done if it was explicitly recorded OR the
+              // ticket's status has already advanced at/past it in the lifecycle
+              // (e.g. once the invoice is generated, "Ready for Delivery" is
+              // behind us — so it shows done instead of looking stuck).
+              const lifeIdx = LIFECYCLE_ORDER.indexOf(row.key);
+              const lifecycleDone = lifeIdx >= 0 && statusIdx >= 0 && statusIdx >= lifeIdx;
+              const done = !!entry?.done || lifecycleDone;
               const checked = !!progressChecked[row.key];
               const busy = progressBusy === row.key;
               const stepNo = String(idx + 1).padStart(2, '0');
@@ -756,7 +844,61 @@ export default function TicketDetailScreen({ route, navigation }) {
             })}
           </View>
         </View>
+        </View>
       </ScrollView>
+
+      {/* ── Share Receipt chooser ───────────────────────────────── */}
+      <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setShareOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 16,
+            }}
+          >
+            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 999, backgroundColor: '#E2E8F0', marginBottom: 14 }} />
+            <Text className="text-[15px] font-extrabold text-gray-900 mb-3">Share Receipt</Text>
+
+            <Pressable
+              onPress={shareImage}
+              className="flex-row items-center rounded-2xl p-3 mb-2.5 active:opacity-80"
+              style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+            >
+              <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#DCFCE7' }}>
+                <Share2 size={18} color={BRAND_GREEN_DARK} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[13.5px] font-extrabold text-gray-900">Send image to WhatsApp</Text>
+                <Text className="text-[11px] text-gray-500 mt-0.5">Share the receipt image (WhatsApp & more)</Text>
+              </View>
+              <ChevronRight size={16} color="#CBD5E1" />
+            </Pressable>
+
+            <Pressable
+              onPress={shareSms}
+              className="flex-row items-center rounded-2xl p-3 active:opacity-80"
+              style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+            >
+              <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#DBEAFE' }}>
+                <MessageSquare size={18} color="#1D4ED8" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[13.5px] font-extrabold text-gray-900">Send details by SMS</Text>
+                <Text className="text-[11px] text-gray-500 mt-0.5">Share the booking details as a message</Text>
+              </View>
+              <ChevronRight size={16} color="#CBD5E1" />
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -782,6 +924,19 @@ function SectionHeader({ icon: Icon, label }) {
       <Icon size={14} color={BRAND_GREEN_DARK} />
       <Text className="text-text font-extrabold text-[12.5px] tracking-widest ml-1.5">{label}</Text>
       <View className="flex-1 h-px bg-border ml-2" />
+    </View>
+  );
+}
+
+// Icon + label + value row used in the redesigned section cards.
+function DetailRow({ icon: Icon, label, value }) {
+  return (
+    <View className="flex-row items-center py-1.5">
+      <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F1F5F9' }}>
+        <Icon size={14} color="#64748B" />
+      </View>
+      <Text className="text-[12px] text-text-muted" style={{ width: 78 }}>{label}</Text>
+      <Text className="text-[13px] text-text font-semibold flex-1" numberOfLines={2}>{value}</Text>
     </View>
   );
 }
@@ -870,6 +1025,8 @@ function buildEditParams(ticket, { lineItems, estimatedTotal }) {
 }
 
 const cardShadow = {
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
   shadowColor: '#0F172A',
   shadowOpacity: 0.05,
   shadowRadius: 10,

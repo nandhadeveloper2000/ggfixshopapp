@@ -312,7 +312,7 @@ export default function BillingScreen({ navigation }) {
             borderBottomRightRadius: 24,
           }}
         >
-          <Text className="text-white text-[22px] font-extrabold">Billing & Delivery</Text>
+          <Text className="text-white text-[22px] font-extrabold">Invoices</Text>
         </LinearGradient>
         <ActivityIndicator style={{ flex: 1 }} size="large" color={BRAND_GREEN} />
       </View>
@@ -339,7 +339,7 @@ export default function BillingScreen({ navigation }) {
         <View className="flex-row items-center">
           <View className="flex-1">
             <Text className="text-white text-[22px] font-extrabold" style={{ letterSpacing: 0.2 }}>
-              Billing & Delivery
+              Invoices
             </Text>
             <Text className="text-white/85 text-[12px] mt-1">
               {items.length} record{items.length === 1 ? '' : 's'}
