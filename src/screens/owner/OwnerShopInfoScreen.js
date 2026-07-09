@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import {
   ChevronLeft,
   Store,
@@ -26,6 +27,10 @@ import {
   Eye,
   CheckCircle2,
   Save,
+  Search,
+  Crosshair,
+  Phone,
+  Clock,
   Image as ImageIcon,
 } from 'lucide-react-native';
 import { fetchMe, updateOwnerShop } from '../../api/auth';
@@ -53,6 +58,65 @@ const softShadow = {
   elevation: 2,
 };
 
+const WORKING_DAYS_OPTIONS = [
+  { value: 'MON_FRI', label: 'Mon – Fri' },
+  { value: 'MON_SAT', label: 'Mon – Sat' },
+  { value: 'MON_SUN', label: 'Mon – Sun' },
+];
+
+const workingDaysLabel = (v) =>
+  WORKING_DAYS_OPTIONS.find((o) => o.value === v)?.label || '';
+
+// ── OpenStreetMap Nominatim address search ──────────────────────────────────
+// Free, no API key, ~1 req/s per their usage policy — the 400 ms debounce in
+// the caller keeps us well under that. `fetch` works natively in React Native.
+async function nominatimSearch(q) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&countrycodes=in&limit=6`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'Accept-Language': 'en', 'User-Agent': 'GGfixShopApp/1.0 (support@ggfix.in)' },
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
+
+function mapNominatimRows(rows) {
+  return (rows || []).map((r) => ({
+    displayName: r.display_name,
+    lat: Number(r.lat),
+    lng: Number(r.lon),
+    street:   r.address?.road || r.address?.pedestrian || r.address?.path || '',
+    area:     r.address?.suburb || r.address?.neighbourhood || r.address?.village || r.address?.town || '',
+    taluk:    r.address?.county || r.address?.subdistrict || '',
+    district: r.address?.state_district || r.address?.county || '',
+    state:    r.address?.state || '',
+    pincode:  r.address?.postcode || '',
+  }));
+}
+
+// Smart fallback: a brand-prefixed query ("Globo Green Cuddalore") often has no
+// OSM POI, so retry with the trailing two tokens, then just the last token, so
+// the city/pincode still surfaces.
+async function searchAddressSuggestions(query) {
+  const q = (query || '').trim();
+  if (q.length < 3) return [];
+  let rows = await nominatimSearch(q);
+  if (rows.length === 0) {
+    const tokens = q.split(/\s+/);
+    if (tokens.length >= 2) {
+      const tail = tokens.slice(-2).join(' ');
+      if (tail !== q) rows = await nominatimSearch(tail);
+    }
+  }
+  if (rows.length === 0) {
+    const tokens = q.split(/\s+/);
+    const last = tokens[tokens.length - 1];
+    if (last.length >= 3 && last !== q) rows = await nominatimSearch(last);
+  }
+  return mapNominatimRows(rows);
+}
+
 const ANDROID_SERVICES = [
   'Screen Repair',
   'Display Replacement',
@@ -74,11 +138,20 @@ export default function OwnerShopInfoScreen({ navigation }) {
   const [shopId, setShopId] = useState(null);
   const [shopName, setShopName] = useState('');
   const [shopSince, setShopSince] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [gstNumber, setGstNumber] = useState('');
   const [addressLine, setAddressLine] = useState('');
-  const [city, setCity] = useState('');
+  const [street, setStreet] = useState('');
+  const [area, setArea] = useState('');
+  const [taluk, setTaluk] = useState('');
   const [district, setDistrict] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [workingDays, setWorkingDays] = useState('MON_SAT');
+  const [openingTime, setOpeningTime] = useState('');
+  const [closingTime, setClosingTime] = useState('');
   const [frontImageUrl, setFrontImageUrl] = useState('');
   const [bannerImageUrl, setBannerImageUrl] = useState('');
   const [uploadingFront, setUploadingFront] = useState(false);
@@ -86,6 +159,13 @@ export default function OwnerShopInfoScreen({ navigation }) {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // OpenStreetMap address search + device geolocation
+  const [locSearch, setLocSearch] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const searchTimer = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -96,11 +176,20 @@ export default function OwnerShopInfoScreen({ navigation }) {
       if (fullShop) {
         setShopName(fullShop.name || '');
         setShopSince(fullShop.createdAt ? new Date(fullShop.createdAt).getFullYear().toString() : '');
-        setAddressLine([fullShop.street, fullShop.address].filter(Boolean).join(', '));
-        setCity(fullShop.area || fullShop.taluk || '');
+        setMobile(fullShop.mobile || '');
+        setGstNumber(fullShop.gstNumber || '');
+        setAddressLine(fullShop.address || '');
+        setStreet(fullShop.street || '');
+        setArea(fullShop.area || '');
+        setTaluk(fullShop.taluk || '');
         setDistrict(fullShop.district || '');
         setState(fullShop.state || '');
         setPincode(fullShop.pincode || '');
+        setLatitude(fullShop.latitude != null ? String(fullShop.latitude) : '');
+        setLongitude(fullShop.longitude != null ? String(fullShop.longitude) : '');
+        setWorkingDays(fullShop.workingDays || 'MON_SAT');
+        setOpeningTime(fullShop.openingTime || '');
+        setClosingTime(fullShop.closingTime || '');
         setFrontImageUrl(fullShop.frontImageUrl || '');
         setBannerImageUrl(fullShop.bannerImageUrl || '');
 
@@ -132,6 +221,9 @@ export default function OwnerShopInfoScreen({ navigation }) {
     })();
   }, []);
 
+  // Cancel any pending debounced search when the screen unmounts.
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
+
   const pickAndUpload = async (slot) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
@@ -159,6 +251,76 @@ export default function OwnerShopInfoScreen({ navigation }) {
     }
   };
 
+  // Debounced OpenStreetMap search as the owner types in the location box.
+  const onSearchChange = (value) => {
+    setLocSearch(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!value || value.trim().length < 3) {
+      setSuggestions([]);
+      setSearched(false);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      const list = await searchAddressSuggestions(value);
+      setSuggestions(list);
+      setSearched(true);
+      setSearching(false);
+    }, 400);
+  };
+
+  // Picking a result fills the address parts + coordinates. A dedicated search
+  // box means the owner's intent is to adopt the picked place, so we overwrite
+  // any field the suggestion provides a value for.
+  const applySuggestion = (sug) => {
+    if (sug.street) setStreet(sug.street);
+    if (sug.area) setArea(sug.area);
+    if (sug.taluk) setTaluk(sug.taluk);
+    if (sug.district) setDistrict(sug.district);
+    if (sug.state) setState(sug.state);
+    if (sug.pincode) setPincode(sug.pincode);
+    if (Number.isFinite(sug.lat)) setLatitude(String(sug.lat));
+    if (Number.isFinite(sug.lng)) setLongitude(String(sug.lng));
+    setSuggestions([]);
+    setSearched(false);
+    setLocSearch((sug.displayName || '').split(',').slice(0, 2).join(',').trim());
+  };
+
+  // Capture GPS coordinates on-device (expo-location) and best-effort fill any
+  // blank address fields via reverse geocoding.
+  const getCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        notify('Permission needed', 'Allow location access to auto-fill your shop coordinates.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const la = pos.coords.latitude;
+      const lo = pos.coords.longitude;
+      setLatitude(String(la));
+      setLongitude(String(lo));
+      try {
+        const geo = await Location.reverseGeocodeAsync({ latitude: la, longitude: lo });
+        const g = geo?.[0];
+        if (g) {
+          if (!street && (g.street || g.name)) setStreet(g.street || g.name);
+          if (!area && (g.district || g.city || g.subregion)) setArea(g.district || g.city || g.subregion);
+          if (!taluk && g.subregion) setTaluk(g.subregion);
+          if (!district && (g.subregion || g.city)) setDistrict(g.subregion || g.city);
+          if (!state && g.region) setState(g.region);
+          if (!pincode && g.postalCode) setPincode(g.postalCode);
+        }
+      } catch (_) { /* reverse geocode is a best-effort bonus */ }
+    } catch (e) {
+      notify('Location failed', e?.message || 'Could not get your current location. Enter coordinates manually.', { preset: 'error' });
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!ownerId || !shopId) {
       notify('Not ready', 'Could not resolve your shop. Pull to refresh and try again.', { preset: 'error' });
@@ -180,11 +342,22 @@ export default function OwnerShopInfoScreen({ navigation }) {
       });
       await updateOwnerShop(ownerId, shopId, {
         name: shopName,
+        mobile,
+        gstNumber,
         address: addressLine,
-        area: city,
+        street,
+        area,
+        taluk,
         district,
         state,
         pincode,
+        // Empty string → omit so the backend PATCH leaves the stored coord alone
+        // (Number('') would wrongly persist 0).
+        latitude: latitude !== '' ? Number(latitude) : undefined,
+        longitude: longitude !== '' ? Number(longitude) : undefined,
+        workingDays,
+        openingTime,
+        closingTime,
         frontImageUrl,
         bannerImageUrl,
         serviceCategoriesJson,
@@ -211,9 +384,9 @@ export default function OwnerShopInfoScreen({ navigation }) {
     setAppleSelected((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const fullAddress = useMemo(() => {
-    const parts = [addressLine, city, district, state, pincode].filter(Boolean);
+    const parts = [street, addressLine, area, taluk, district, state, pincode].filter(Boolean);
     return parts.join(', ');
-  }, [addressLine, city, district, state, pincode]);
+  }, [street, addressLine, area, taluk, district, state, pincode]);
 
   const activeAndroid = ANDROID_SERVICES.filter((s) => androidSelected[s]);
   const activeApple = APPLE_SERVICES.filter((s) => appleSelected[s]);
@@ -343,6 +516,25 @@ export default function OwnerShopInfoScreen({ navigation }) {
                 {fullAddress || '—'}
               </Text>
             </View>
+            {(mobile || openingTime || closingTime) ? (
+              <View className="flex-row flex-wrap mt-3">
+                {mobile ? (
+                  <View className="flex-row items-center mr-4 mt-1">
+                    <Phone size={12} color="#94A3B8" />
+                    <Text className="ml-1 text-[11.5px] text-gray-600">{mobile}</Text>
+                  </View>
+                ) : null}
+                {(openingTime || closingTime) ? (
+                  <View className="flex-row items-center mt-1">
+                    <Clock size={12} color="#94A3B8" />
+                    <Text className="ml-1 text-[11.5px] text-gray-600">
+                      {[openingTime, closingTime].filter(Boolean).join(' – ')}
+                      {workingDaysLabel(workingDays) ? ` · ${workingDaysLabel(workingDays)}` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
           {/* Photos */}
@@ -422,8 +614,24 @@ export default function OwnerShopInfoScreen({ navigation }) {
                 value={shopSince}
                 onChangeText={setShopSince}
                 keyboardType="number-pad"
-                last
               />
+              <View className="flex-row">
+                <Field
+                  small
+                  label="Mobile"
+                  value={mobile}
+                  onChangeText={setMobile}
+                  keyboardType="phone-pad"
+                />
+                <Field
+                  small
+                  last
+                  label="GST Number"
+                  value={gstNumber}
+                  onChangeText={(t) => setGstNumber(t.toUpperCase())}
+                  autoCapitalize="characters"
+                />
+              </View>
             </View>
 
             {/* Repair Categories (edit mode) */}
@@ -452,20 +660,213 @@ export default function OwnerShopInfoScreen({ navigation }) {
             {/* Address */}
             <View className="bg-white rounded-2xl p-4 mt-4" style={cardShadow}>
               <SectionHeader Icon={MapPin} label="SHOP ADDRESS" />
-              <Field label="Address" value={addressLine} onChangeText={setAddressLine} />
+
+              {/* Location search (OpenStreetMap) */}
+              <Text
+                className="text-[10.5px] uppercase font-bold text-gray-500 mb-1"
+                style={{ letterSpacing: 0.6 }}
+              >
+                Search location
+              </Text>
+              <View
+                className="flex-row items-center"
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: '#E5E7EB',
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Search size={16} color="#6B7280" />
+                <TextInput
+                  value={locSearch}
+                  onChangeText={onSearchChange}
+                  placeholder="Type shop name, area or pincode"
+                  placeholderTextColor="#9CA3AF"
+                  autoCorrect={false}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 10,
+                    paddingHorizontal: 8,
+                    fontSize: 13.5,
+                    color: '#0F172A',
+                  }}
+                />
+                {searching ? <ActivityIndicator size="small" color={BRAND_GREEN_DARK} /> : null}
+              </View>
+              <Text className="text-[10px] text-gray-400 mt-1">
+                Type 3+ characters to search OpenStreetMap. Pick a result to auto-fill the
+                address + coordinates.
+              </Text>
+
+              {suggestions.length > 0 ? (
+                <View
+                  style={{
+                    marginTop: 6,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                >
+                  {suggestions.map((sug, k) => (
+                    <Pressable
+                      key={k}
+                      onPress={() => applySuggestion(sug)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        borderBottomWidth: k < suggestions.length - 1 ? 1 : 0,
+                        borderBottomColor: '#F1F5F9',
+                      }}
+                    >
+                      <Text numberOfLines={1} className="text-[12px] font-semibold text-gray-800">
+                        {sug.displayName}
+                      </Text>
+                      <Text className="text-[10.5px] text-gray-500 mt-0.5" numberOfLines={1}>
+                        {Number.isFinite(sug.lat) ? `${sug.lat.toFixed(4)}, ${sug.lng.toFixed(4)}` : ''}
+                        {sug.pincode ? ` · ${sug.pincode}` : ''}
+                        {sug.district ? ` · ${sug.district}` : ''}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : searched && !searching ? (
+                <Text className="text-[11px] text-gray-400 mt-1.5">
+                  No matches. Try just the area or pincode, or fill the address manually below.
+                </Text>
+              ) : null}
+
+              {/* Get Current Location */}
+              <TouchableOpacity
+                onPress={getCurrentLocation}
+                disabled={locating}
+                activeOpacity={0.85}
+                style={{
+                  marginTop: 10,
+                  marginBottom: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#ECFDF5',
+                  borderWidth: 1.5,
+                  borderColor: '#86EFAC',
+                  borderRadius: 12,
+                  paddingVertical: 11,
+                }}
+              >
+                {locating ? (
+                  <ActivityIndicator size="small" color={BRAND_GREEN_DARK} />
+                ) : (
+                  <Crosshair size={15} color={BRAND_GREEN_DARK} />
+                )}
+                <Text className="ml-2 text-[12.5px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>
+                  {locating ? 'Locating…' : 'Get Current Location'}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 }} />
+
+              {/* Address fields */}
+              <Field label="Street" value={street} onChangeText={setStreet} placeholder="Street" />
+              <Field
+                label="Address line"
+                value={addressLine}
+                onChangeText={setAddressLine}
+                placeholder="Building / landmark"
+              />
               <View className="flex-row">
-                <Field small label="Area / City" value={city} onChangeText={setCity} />
-                <Field small last label="District" value={district} onChangeText={setDistrict} />
+                <Field small label="Area" value={area} onChangeText={setArea} />
+                <Field small last label="Taluk" value={taluk} onChangeText={setTaluk} />
               </View>
               <View className="flex-row">
-                <Field small label="State" value={state} onChangeText={setState} />
+                <Field small label="District" value={district} onChangeText={setDistrict} />
+                <Field small last label="State" value={state} onChangeText={setState} />
+              </View>
+              <Field
+                label="Pincode"
+                value={pincode}
+                onChangeText={(t) => setPincode(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+              />
+              <View className="flex-row">
+                <Field
+                  small
+                  label="Latitude"
+                  value={latitude}
+                  onChangeText={setLatitude}
+                  keyboardType="numbers-and-punctuation"
+                  placeholder="e.g. 13.0776"
+                />
                 <Field
                   small
                   last
-                  label="Pincode"
-                  value={pincode}
-                  onChangeText={setPincode}
-                  keyboardType="number-pad"
+                  label="Longitude"
+                  value={longitude}
+                  onChangeText={setLongitude}
+                  keyboardType="numbers-and-punctuation"
+                  placeholder="e.g. 80.2917"
+                />
+              </View>
+              <Text className="text-[10px] text-gray-400 -mt-1">
+                Latitude / longitude lets nearby customers discover your shop.
+              </Text>
+            </View>
+
+            {/* Working Hours */}
+            <View className="bg-white rounded-2xl p-4 mt-4" style={cardShadow}>
+              <SectionHeader Icon={Clock} label="WORKING HOURS" />
+              <Text
+                className="text-[10.5px] uppercase font-bold text-gray-500 mb-1.5"
+                style={{ letterSpacing: 0.6 }}
+              >
+                Working Days
+              </Text>
+              <View
+                className="flex-row mb-3"
+                style={{ backgroundColor: '#F1F5F9', borderRadius: 12, padding: 3 }}
+              >
+                {WORKING_DAYS_OPTIONS.map((o) => {
+                  const active = workingDays === o.value;
+                  return (
+                    <Pressable
+                      key={o.value}
+                      onPress={() => setWorkingDays(o.value)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        backgroundColor: active ? BRAND_GREEN_DARK : 'transparent',
+                      }}
+                    >
+                      <Text
+                        className="text-[11.5px] font-extrabold"
+                        style={{ color: active ? '#FFFFFF' : '#64748B' }}
+                      >
+                        {o.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View className="flex-row">
+                <Field
+                  small
+                  label="Opening Time"
+                  value={openingTime}
+                  onChangeText={setOpeningTime}
+                  placeholder="08:00 AM"
+                />
+                <Field
+                  small
+                  last
+                  label="Closing Time"
+                  value={closingTime}
+                  onChangeText={setClosingTime}
+                  placeholder="07:00 PM"
                 />
               </View>
             </View>

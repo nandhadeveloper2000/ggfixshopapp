@@ -371,6 +371,11 @@ export default function DashboardScreen({ navigation, onLogout }) {
   // SHOP-scoped sessions (shop-mobile login) are locked to one shop — never
   // show the switcher even if `shops.length > 1` for some reason.
   const hasMultipleShops = session?.loginScope !== 'SHOP' && shops.length > 1;
+  // Only a true shop OWNER (owner-wide session) may add another business
+  // location. Shop-mobile logins (loginScope === 'SHOP') and any non-owner role
+  // that falls through to the owner navigator must not see "Add Shop".
+  const canAddShop = session?.loginScope !== 'SHOP'
+    && (session?.roles || []).includes('SHOP_OWNER');
   const greeting = useMemo(() => greetingFor(), []);
 
   const handleSwitch = async (shopId) => {
@@ -939,16 +944,18 @@ export default function DashboardScreen({ navigation, onLogout }) {
                       <Text className="ml-2 text-[11px] text-text-muted">Switching…</Text>
                     </View>
                   ) : null}
-                  <Pressable
-                    onPress={() => { setShowSidebar(false); gotoParent('OwnerShopInfo'); }}
-                    className="flex-row items-center px-4 active:opacity-70"
-                    style={{ paddingVertical: 10 }}
-                  >
-                    <View className="h-8 w-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: '#F1F5F9' }}>
-                      <PlusCircle size={16} color="#0F172A" />
-                    </View>
-                    <Text className="text-[12.5px] font-extrabold" style={{ color: GREEN_DARK }}>Add Shop</Text>
-                  </Pressable>
+                  {canAddShop ? (
+                    <Pressable
+                      onPress={() => { setShowSidebar(false); gotoParent('OwnerShopInfo'); }}
+                      className="flex-row items-center px-4 active:opacity-70"
+                      style={{ paddingVertical: 10 }}
+                    >
+                      <View className="h-8 w-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: '#F1F5F9' }}>
+                        <PlusCircle size={16} color="#0F172A" />
+                      </View>
+                      <Text className="text-[12.5px] font-extrabold" style={{ color: GREEN_DARK }}>Add Shop</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ) : null}
 
