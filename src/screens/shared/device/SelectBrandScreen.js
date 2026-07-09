@@ -1,20 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { Check, Pencil } from 'lucide-react-native';
-import { EmptyState, Loader, ScreenHeader, SearchBar, SelectionCrumb } from '../../../components/rnr';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Check, Pencil, Search, ArrowLeft, X } from 'lucide-react-native';
+import { EmptyState, Loader, ScreenHeader } from '../../../components/rnr';
+import DeviceImage from '../../../components/DeviceImage';
+import { resolveDeviceImageSource } from '../../../utils/images';
 import { getBrandsForCategory } from '../../../api/masterData';
 
 // Canonical brand picker used by all flows (Booking / Sell / Owner-list /
-// Profile). Pixel-exact card width via useWindowDimensions: 3 columns on
-// phones, 4 on tablets, logo box at 55% of card width.
+// Profile). 3 columns on phones, 4 on tablets, logo box at 55% of card width.
 const HORIZONTAL_PAD = 16;
 const GRID_GAP = 12;
 function gridMetrics(screenWidth) {
   const numColumns = screenWidth >= 600 ? 4 : 3;
-  // Math.floor — RN's layout rounds subpixel widths UP when rendering. A
-  // cardWidth of 101.333 can render at 102, and 3*102 + 2*gap + padding then
-  // overflows the row by 1-2px, wrapping the 3rd card to row 2. Floor keeps
-  // the row a hair narrower than the available space so 3 fit reliably.
   const cardWidth = Math.floor((screenWidth - HORIZONTAL_PAD * 2 - GRID_GAP * (numColumns - 1)) / numColumns);
   return { numColumns, cardWidth };
 }
@@ -42,14 +40,13 @@ export default function SelectBrandScreen({ navigation, route }) {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  // Edit mode comes from two flows: Sell order edit (editSellOrderId +
-  // editHints.brandId) or Booking edit (editMode + brandId passed directly
-  // from TicketDetailScreen.buildEditParams).
+  const [searchOpen, setSearchOpen] = useState(false);
   const bookingEditMode = !!route?.params?.editMode;
   const isEditing = !!editSellOrderId || bookingEditMode;
   const currentBrandId = editHints?.brandId
     || (bookingEditMode ? route?.params?.brandId : null)
     || null;
+  const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const { cardWidth } = gridMetrics(screenWidth);
   const logoBox = Math.round(cardWidth * 0.55);
@@ -61,40 +58,109 @@ export default function SelectBrandScreen({ navigation, route }) {
     })();
   }, [categoryId]);
 
-  const filtered = useMemo(() => {
-    let list = brands;
+  const gridBrands = useMemo(() => {
     if (isEditing && currentBrandId) {
       const current = brands.find((b) => b.id === currentBrandId);
       const rest = brands.filter((b) => b.id !== currentBrandId);
-      list = current ? [current, ...rest] : brands;
+      return current ? [current, ...rest] : brands;
     }
-    if (!q.trim()) return list;
-    return list.filter((b) => (b.name || '').toLowerCase().includes(q.toLowerCase()));
-  }, [brands, q, isEditing, currentBrandId]);
+    return brands;
+  }, [brands, isEditing, currentBrandId]);
 
-  // Spread route.params so booking-flow extras (editMode, editTicketId,
-  // prefill*, customer, etc.) flow through to every downstream picker.
-  const onPick = (b) => navigation.navigate('SelectSeries', {
+  const searchResults = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return brands;
+    return brands.filter((b) => (b.name || '').toLowerCase().includes(needle));
+  }, [brands, q]);
+
+  const onPick = (b) => navigation.navigate('SelectModel', {
     ...(route?.params || {}),
     flow, categoryId, categoryCode, categoryName, deviceTypeId, deviceTypeName,
     brandId: b.id, brandName: b.name,
     editSellOrderId, editHints,
   });
 
-  const crumbs = [{ label: 'Category', value: categoryName }];
-  if (deviceTypeName) crumbs.push({ label: 'Device', value: deviceTypeName });
+  // ── Full-screen search mode ───────────────────────────────────────────────
+  if (searchOpen) {
+    return (
+      <View className="flex-1 bg-background">
+        <View
+          className="flex-row items-center px-2 pb-2 bg-card border-b border-border"
+          style={{ paddingTop: insets.top + 8 }}
+        >
+          <Pressable
+            onPress={() => { setSearchOpen(false); setQ(''); }}
+            className="h-10 w-10 items-center justify-center"
+            hitSlop={8}
+          >
+            <ArrowLeft size={22} color="#0F172A" />
+          </Pressable>
+          <View className="flex-1 flex-row items-center rounded-xl px-3" style={{ backgroundColor: '#EEF2F6' }}>
+            <Search size={18} color="#94A3B8" />
+            <TextInput
+              autoFocus
+              value={q}
+              onChangeText={setQ}
+              placeholder="Search brand"
+              placeholderTextColor="#94A3B8"
+              className="flex-1 py-2.5 ml-2 text-text text-[14px]"
+              returnKeyType="search"
+            />
+            {q ? (
+              <Pressable onPress={() => setQ('')} hitSlop={8}>
+                <X size={18} color="#64748B" />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
+          {searchResults.length === 0 ? (
+            <EmptyState title="No brands found" description={q ? `Nothing matches "${q.trim()}".` : 'Start typing to search.'} />
+          ) : (
+            searchResults.map((b) => {
+              const hasImg = !!(b.imageUrl || b.imageBase64);
+              const palette = paletteFor(b.name);
+              return (
+                <Pressable
+                  key={b.id}
+                  onPress={() => onPick(b)}
+                  className="flex-row items-center px-4 py-2.5 border-b border-border active:bg-primary/5"
+                >
+                  <View className="h-10 w-10 rounded-lg overflow-hidden bg-white border border-border items-center justify-center mr-3">
+                    {hasImg ? (
+                      <DeviceImage url={b.imageUrl} base64={b.imageBase64} style={{ width: 32, height: 32 }} />
+                    ) : (
+                      <View className={`h-10 w-10 items-center justify-center ${palette.bg}`}>
+                        <Text className={`text-[14px] font-extrabold ${palette.text}`}>{(b.name || '?').slice(0, 1).toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="flex-1 text-[14px] text-text" numberOfLines={1}>{b.name}</Text>
+                </Pressable>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
 
+  // ── Normal mode ───────────────────────────────────────────────────────────
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader
         title="Select Brand"
         onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
         sticky={false}
+        right={(
+          <Pressable onPress={() => setSearchOpen(true)} className="h-10 w-10 items-center justify-center" hitSlop={8}>
+            <Search size={22} color="#0F172A" />
+          </Pressable>
+        )}
       />
-      <View className="px-4 pt-3 pb-3 bg-card border-b border-border">
-        <SelectionCrumb items={crumbs} className="mb-3" />
-        {isEditing && editHints?.modelName ? (
-          <View className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2 mb-3 flex-row items-center">
+      {isEditing && editHints?.modelName ? (
+        <View className="px-4 pt-3 pb-3 bg-card border-b border-border">
+          <View className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2 flex-row items-center">
             <Pencil size={13} color="#F59E0B" />
             <View className="flex-1 ml-2">
               <Text className="text-[10px] font-extrabold text-warning tracking-wider">
@@ -105,9 +171,8 @@ export default function SelectBrandScreen({ navigation, route }) {
               </Text>
             </View>
           </View>
-        ) : null}
-        <SearchBar value={q} onChangeText={setQ} placeholder="Search brand" onClear={() => setQ('')} />
-      </View>
+        </View>
+      ) : null}
 
       {loading ? (
         <Loader label="Loading brands..." />
@@ -116,17 +181,14 @@ export default function SelectBrandScreen({ navigation, route }) {
           contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PAD, paddingTop: 16, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          {filtered.length === 0 ? (
-            <EmptyState
-              title="No brands found"
-              description={q ? `We don't recognize "${q}".` : 'No brands mapped to this category yet.'}
-            />
+          {gridBrands.length === 0 ? (
+            <EmptyState title="No brands found" description="No brands mapped to this category yet." />
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
-              {filtered.map((b) => {
+              {gridBrands.map((b) => {
                 const palette = paletteFor(b.name);
                 const initial = (b.name || '?').slice(0, 1).toUpperCase();
-                const logo = b.imageUrl || b.imageBase64;
+                const logo = resolveDeviceImageSource({ url: b.imageUrl, base64: b.imageBase64 });
                 const isCurrent = isEditing && b.id === currentBrandId;
                 return (
                   <Pressable
@@ -149,10 +211,10 @@ export default function SelectBrandScreen({ navigation, route }) {
                       style={{ height: logoBox, width: logoBox, marginBottom: 8 }}
                     >
                       {logo ? (
-                        <Image
-                          source={{ uri: logo }}
+                        <DeviceImage
+                          url={b.imageUrl}
+                          base64={b.imageBase64}
                           style={{ width: logoBox - 12, height: logoBox - 12 }}
-                          resizeMode="contain"
                         />
                       ) : (
                         <View className={`items-center justify-center ${palette.bg}`} style={{ height: logoBox, width: logoBox }}>

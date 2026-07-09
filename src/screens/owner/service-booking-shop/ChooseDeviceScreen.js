@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import {
   Smartphone, Tablet, Laptop, Watch, Headphones, Volume2,
 } from 'lucide-react-native';
 import {
   ScreenHeader, SearchBar, EmptyState, Loader, Badge,
 } from '../../../components/rnr';
+import DeviceImage from '../../../components/DeviceImage';
+import { resolveDeviceImageSource } from '../../../utils/images';
 import { getDeviceCategories } from '../../../api/masterData';
 
 const CODE_META = {
@@ -123,7 +125,7 @@ export default function ChooseDeviceScreen({ navigation, route }) {
                 const code = (c.code || '').toUpperCase();
                 const meta = CODE_META[code] || DEFAULT_META;
                 const Icon = meta.icon;
-                const thumb = c.imageUrl || c.imageBase64;
+                const thumb = resolveDeviceImageSource({ url: c.imageUrl, base64: c.imageBase64 });
                 return (
                   <Pressable
                     key={c.id}
@@ -145,7 +147,12 @@ export default function ChooseDeviceScreen({ navigation, route }) {
                       style={{ height: 64, width: 64, marginBottom: 10 }}
                     >
                       {thumb ? (
-                        <Image source={{ uri: thumb }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+                        <DeviceImage
+                          url={c.imageUrl}
+                          base64={c.imageBase64}
+                          style={{ width: 64, height: 64 }}
+                          contentFit="cover"
+                        />
                       ) : (
                         <Icon size={30} color={meta.color} strokeWidth={2} />
                       )}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, Text, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -125,46 +125,134 @@ const OWNER_TAB_ICONS = {
   MyAccount: Settings,
 };
 
-function OwnerTabs({ onLogout }) {
+// Routes registered on the tab navigator but intentionally NOT shown in the
+// bar. Billing (Invoices) stays navigable from the Dashboard, just off the bar.
+const HIDDEN_TABS = ['Billing'];
+
+/**
+ * iOS / WhatsApp-style bottom bar: black icons + black labels with a
+ * translucent "glass" pill that slides to the active tab (spring animation).
+ */
+function GlassTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
+  const routes = state.routes.filter((r) => !HIDDEN_TABS.includes(r.name));
+  const [barW, setBarW] = useState(0);
+
+  const HPAD = 6;         // container horizontal padding
+  const PILL_INSET = 8;   // gap between a slot edge and the pill
+  const count = routes.length || 1;
+  const slot = barW > 0 ? (barW - HPAD * 2) / count : 0;
+
+  const activeKey = state.routes[state.index]?.key;
+  const activeIndex = Math.max(0, routes.findIndex((r) => r.key === activeKey));
+
+  const anim = useRef(new Animated.Value(activeIndex)).current;
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: activeIndex,
+      useNativeDriver: true,
+      friction: 14,
+      tension: 120,
+    }).start();
+  }, [activeIndex, slot]);
+
+  const translateX = anim.interpolate({
+    inputRange: routes.map((_, i) => i),
+    outputRange: routes.map((_, i) => HPAD + i * slot + PILL_INSET),
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.background,
+        paddingTop: 8,
+        paddingBottom: insets.bottom || 10,
+        paddingHorizontal: 14,
+      }}
+    >
+      {/* Floating rounded capsule (iOS style) */}
+      <View
+        onLayout={(e) => setBarW(e.nativeEvent.layout.width)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#FFFFFF',
+          borderRadius: 30,
+          paddingHorizontal: HPAD,
+          height: 62,
+          borderWidth: 1,
+          borderColor: 'rgba(15, 23, 42, 0.06)',
+          shadowColor: '#0F172A',
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 12,
+        }}
+      >
+        {/* Sliding translucent "glass" pill */}
+        {slot > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 0,
+              width: slot - PILL_INSET * 2,
+              height: 46,
+              borderRadius: 18,
+              backgroundColor: 'rgba(15, 23, 42, 0.06)',
+              borderWidth: 1,
+              borderColor: 'rgba(15, 23, 42, 0.05)',
+              shadowColor: '#0F172A',
+              shadowOpacity: 0.05,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              transform: [{ translateX }],
+            }}
+          />
+        ) : null}
+
+        {routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const label = options.tabBarLabel ?? options.title ?? route.name;
+          const Icon = OWNER_TAB_ICONS[route.name] || LayoutGrid;
+          const isFocused = index === activeIndex;
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+          };
+          const onLongPress = () => navigation.emit({ type: 'tabLongPress', target: route.key });
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityState={isFocused ? { selected: true } : {}}
+              onPress={onPress}
+              onLongPress={onLongPress}
+              style={{ width: slot, height: 46, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Icon size={21} color="#0F172A" strokeWidth={isFocused ? 2.5 : 1.9} />
+              <Text
+                numberOfLines={1}
+                allowFontScaling={false}
+                style={{ fontSize: 10.5, marginTop: 3, color: '#0F172A', fontWeight: isFocused ? '800' : '600' }}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function OwnerTabs({ onLogout }) {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E2E8F0',
-          borderTopWidth: 1,
-          height: 70 + insets.bottom,
-          paddingBottom: 10 + insets.bottom,
-          paddingTop: 8,
-          elevation: 12,
-          shadowColor: '#0F172A',
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: -4 },
-        },
-        tabBarActiveTintColor: '#15803D',
-        tabBarInactiveTintColor: '#94A3B8',
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
-        tabBarIcon: ({ color, focused }) => {
-          const Icon = OWNER_TAB_ICONS[route.name] || LayoutGrid;
-          return (
-            <View
-              style={{
-                width: 44,
-                height: 30,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 12,
-                backgroundColor: focused ? '#DCFCE7' : 'transparent',
-              }}
-            >
-              <Icon size={20} color={color} strokeWidth={focused ? 2.4 : 2} />
-            </View>
-          );
-        },
-      })}
+      tabBar={(props) => <GlassTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" options={{ title: 'Home' }}>
         {(props) => <DashboardScreen {...props} onLogout={onLogout} />}

@@ -1,5 +1,11 @@
-import { Alert, Platform } from 'react-native';
-import * as Burnt from 'burnt';
+import { Alert, Platform, ToastAndroid } from 'react-native';
+
+// `burnt` is a native module and is NOT bundled into Expo Go — a static `import`
+// of it throws "Cannot find native module 'Burnt'" at load and crashes the whole
+// app (seen on iOS Expo Go). Load it defensively so notify() degrades to an
+// Alert when the native module isn't present (a custom dev/EAS build has it).
+let Burnt = null;
+try { Burnt = require('burnt'); } catch (_) { Burnt = null; }
 
 /**
  * Cross-platform confirm dialog. Works on iOS, Android AND web (Expo Web).
@@ -50,12 +56,21 @@ export function notify(title, message = '', options = {}) {
     haptic = 'none',
     from = 'bottom',
   } = options;
-  Burnt.toast({
-    title: String(title || ''),
-    message: message ? String(message) : undefined,
-    preset,
-    duration,
-    haptic,
-    from,
-  });
+  if (Burnt?.toast) {
+    Burnt.toast({
+      title: String(title || ''),
+      message: message ? String(message) : undefined,
+      preset,
+      duration,
+      haptic,
+      from,
+    });
+    return;
+  }
+  // Fallback when the native Burnt module is unavailable (e.g. Expo Go).
+  if (Platform.OS === 'android') {
+    const composed = message ? `${title}: ${message}` : String(title || '');
+    ToastAndroid.show(composed, ToastAndroid.SHORT);
+  }
+  // iOS in Expo Go has no lightweight native toast — skip silently (non-critical).
 }

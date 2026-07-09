@@ -5,6 +5,7 @@ import BackButton from '../../../components/BackButton';
 
 import NewBookingScreen from './NewBookingScreen';
 import CustomerDetailsScreen from './CustomerDetailsScreen';
+import IdentifyDeviceScreen from './IdentifyDeviceScreen';
 import ChooseDeviceScreen from './ChooseDeviceScreen';
 // The shared device pickers are ALSO registered here so the whole
 // ChooseDevice → SelectBrand → SelectSeries → SelectModel → DeviceColorStorage
@@ -53,6 +54,7 @@ export default function RepairServiceBookingShop() {
     >
       <Stack.Screen name="NewBooking" component={NewBookingScreen} options={{ title: 'New Booking' }} />
       <Stack.Screen name="CustomerDetails" component={CustomerDetailsScreen} options={{ title: 'Customer Details' }} />
+      <Stack.Screen name="IdentifyDevice" component={IdentifyDeviceScreen} options={{ title: 'Identify Device', headerShown: false }} />
       <Stack.Screen name="ChooseDevice" component={ChooseDeviceScreen} options={{ title: 'Choose a Device' }} />
       {/* Shared device pickers — same components OwnerNavigator uses, but
           registered here so ChooseDevice → SelectBrand → ... → DeviceColorStorage

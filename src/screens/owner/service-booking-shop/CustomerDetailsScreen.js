@@ -22,6 +22,12 @@ const TALUKS = ['Cuddalore', 'Chidambaram', 'Bhuvanagiri', 'Panruti', 'Virudhach
 
 const INPUT_CLS = 'py-2 text-[13px]';
 
+// The IMEI "Identify Device" step is hidden for now — the IMEI.info account
+// isn't funded yet, so the lookup always falls back to manual selection and the
+// extra screen is just friction. Flip to true (and fund the IMEI.info token /
+// set IMEI_API_SERVICE_ID) to re-enable scan → auto-detect. All the code stays.
+const IDENTIFY_DEVICE_ENABLED = false;
+
 function Field({ label, required, children, half = false, className }) {
   return (
     <View className={`${half ? 'flex-1' : ''} mb-2 ${className || ''}`}>
@@ -166,7 +172,12 @@ export default function CustomerDetailsScreen({ navigation, route }) {
           },
         });
       }
-      navigation.replace('ChooseDevice', { customerId: resolved.id, customer: resolved });
+      // Next step: the IMEI "Identify Device" screen when enabled, otherwise
+      // straight to the manual device picker (see IDENTIFY_DEVICE_ENABLED above).
+      navigation.replace(
+        IDENTIFY_DEVICE_ENABLED ? 'IdentifyDevice' : 'ChooseDevice',
+        { customerId: resolved.id, customer: resolved },
+      );
     } catch (e) {
       notify('Error', e?.message || 'Failed to save customer');
     } finally { setSaving(false); }

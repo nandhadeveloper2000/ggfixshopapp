@@ -55,6 +55,11 @@ const GREEN       = '#16A34A';
 const GREEN_LIGHT = '#22C55E';
 const GREEN_DARK  = '#15803D';
 
+// On regaining focus we refresh the Latest Bookings list silently, but only if
+// the cached data is older than this. Stops Home from visibly re-loading every
+// single time you return to it (e.g. right after the booking → assign flow).
+const HOME_REFRESH_STALE_MS = 15000;
+
 
 function useBookingCounts() {
   const [counts, setCounts] = useState(null);
@@ -213,6 +218,11 @@ export default function DashboardScreen({ navigation, onLogout }) {
   const [sidebarRendered, setSidebarRendered] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [hasKycDocs, setHasKycDocs] = useState(false);
+  // Timestamp of the last Latest-Bookings load + an in-flight guard, used to
+  // throttle/dedupe the on-focus refresh so returning to Home doesn't
+  // refetch/flicker on every focus (or double-load with the mount effect).
+  const latestLoadedAtRef = useRef(0);
+  const latestLoadingRef = useRef(false);
 
   // Fill the screen: phones keep the compact grid; tablets/large screens get
   // more columns so the content uses the full width instead of stretching a
@@ -223,7 +233,7 @@ export default function DashboardScreen({ navigation, onLogout }) {
   const empCols = isTablet ? 6 : 3;
   const buyTileW = isTablet
     ? Math.max(96, Math.floor((winW - 32 - 12 * Math.max(0, buyCats.length - 1)) / Math.max(1, buyCats.length)))
-    : 76;
+    : 84;
   const panelW = Math.min(360, winW * 0.82);
 
   // Slide the sidebar drawer in from the left; keep it mounted through the
@@ -260,6 +270,8 @@ export default function DashboardScreen({ navigation, onLogout }) {
   // Latest Bookings — most recent tickets, enriched with the model's catalog
   // image (same trick as BookingHistoryScreen), grouped by day with today first.
   const loadLatest = useCallback(async () => {
+    if (latestLoadingRef.current) return; // dedupe overlapping loads (mount + first focus)
+    latestLoadingRef.current = true;
     try {
       const data = await ticketApi.get('/tickets', { query: { page: 0, size: 20 } });
       const content = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
@@ -281,15 +293,27 @@ export default function DashboardScreen({ navigation, onLogout }) {
       });
       enriched.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setLatest(groupBookingsByDay(enriched.slice(0, 12)));
-    } catch { setLatest([]); }
+    } catch {
+      // Keep the cached list on a background refresh failure — don't blank the
+      // screen (that reads as a jarring reload).
+    } finally {
+      latestLoadedAtRef.current = Date.now();
+      latestLoadingRef.current = false;
+    }
   }, []);
 
   useEffect(() => { loadLatest(); }, [loadLatest]);
 
-  // Refresh the bell badge + latest bookings whenever the dashboard regains
-  // focus — e.g. after viewing the Notifications screen and marking some read.
+  // Refresh the bell badge whenever the dashboard regains focus. The heavier
+  // bookings-list refetch is throttled + silent (no loader, no blanking) so
+  // returning to Home — e.g. right after the booking/assign flow — doesn't
+  // visibly reload. The mount load above stamps the timestamp, so the first
+  // focus (fired right after mount) is skipped instead of double-loading.
   useEffect(() => {
-    const unsub = navigation.addListener('focus', () => { refreshNotifs(); loadLatest(); });
+    const unsub = navigation.addListener('focus', () => {
+      refreshNotifs();
+      if (Date.now() - latestLoadedAtRef.current > HOME_REFRESH_STALE_MS) loadLatest();
+    });
     return unsub;
   }, [navigation, refreshNotifs, loadLatest]);
 
@@ -662,7 +686,13 @@ export default function DashboardScreen({ navigation, onLogout }) {
                         <Text style={{ fontSize: 26 }}>{meta.emoji}</Text>
                       )}
                     </View>
-                    <Text className="text-[11px] font-bold text-text mt-1.5 text-center" numberOfLines={2}>
+                    <Text
+                      className="text-[11px] font-bold text-text mt-1.5 text-center"
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                      style={{ width: '100%' }}
+                    >
                       {c.name}
                     </Text>
                   </Pressable>
@@ -719,7 +749,13 @@ export default function DashboardScreen({ navigation, onLogout }) {
                         <Text style={{ fontSize: 26 }}>{meta.emoji}</Text>
                       )}
                     </View>
-                    <Text className="text-[11px] font-bold text-text mt-1.5 text-center" numberOfLines={2}>
+                    <Text
+                      className="text-[11px] font-bold text-text mt-1.5 text-center"
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                      style={{ width: '100%' }}
+                    >
                       {c.name}
                     </Text>
                   </Pressable>

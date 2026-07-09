@@ -1,8 +1,10 @@
-import React, { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Share, StatusBar, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { Pressable, ScrollView, Share, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import QRCode from 'react-native-qrcode-svg';
+import * as Print from 'expo-print';
 import {
   Minus,
   Plus,
@@ -11,10 +13,9 @@ import {
   Smartphone,
   Wrench,
   ChevronLeft,
-  Hash,
-  ScanLine,
-  User,
+  QrCode,
   Copy,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { Loader } from '../../../components/rnr';
 import { notify } from '../../../components/confirm';
@@ -22,7 +23,6 @@ import { ticketApi } from '../../../api/client';
 
 const BRAND_GREEN = '#22C55E';
 const BRAND_GREEN_DARK = '#15803D';
-const ACCENT_GREEN = '#16A34A';
 
 const cardShadow = {
   shadowColor: '#0F172A',
@@ -32,29 +32,28 @@ const cardShadow = {
   elevation: 6,
 };
 
-/**
- * Pure-RN faux barcode: deterministic bar-width pattern based on the input
- * string so the same tracking ID always renders the same pattern. Good
- * enough for visual print/share — not a scannable Code 128, but reads as
- * a barcode for the receipt header.
- */
-function CodePattern({ value, width = 280, height = 70 }) {
-  if (!value) return null;
-  const bars = [];
-  let h = 7;
-  for (let i = 0; i < (value.length || 1) * 10 && bars.length < 90; i++) {
-    h = (h * 31 + (value.charCodeAt(i % value.length) || 1)) >>> 0;
-    bars.push((h % 3) + 1);
-  }
-  const total = bars.reduce((s, w) => s + w, 0);
-  const unit = width / total;
-  return (
-    <View style={{ height, flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#FFFFFF' }}>
-      {bars.map((w, i) => (
-        <View key={i} style={{ width: w * unit, backgroundColor: i % 2 === 0 ? '#0F172A' : '#FFFFFF' }} />
-      ))}
-    </View>
-  );
+// Turn the stored device-security type/value into a human-readable line for the
+// slip. Pattern values are stored as "1,2,3,6" — kept as-is so the technician
+// can redraw them; PIN/password show the value inline.
+function formatSecurity(type, value) {
+  const t = String(type || 'NONE').toUpperCase();
+  if (t === 'NONE' || !t) return 'None';
+  const label =
+    t === 'PIN' ? 'PIN'
+    : t === 'PASSWORD' ? 'Password'
+    : t === 'PATTERN' ? 'Pattern'
+    : t.charAt(0) + t.slice(1).toLowerCase();
+  const v = value == null ? '' : String(value).trim();
+  return v ? `${label} · ${v}` : label;
+}
+
+// Escape dynamic values before dropping them into the print HTML.
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function SectionHeader({ icon: Icon, label, tint = '#DCFCE7', accent = BRAND_GREEN_DARK }) {
@@ -76,12 +75,29 @@ function SectionHeader({ icon: Icon, label, tint = '#DCFCE7', accent = BRAND_GRE
   );
 }
 
+// One labelled detail line on the right side of the slip.
+function SlipField({ label, value }) {
+  return (
+    <View className="mb-2">
+      <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
+        {label}
+      </Text>
+      <Text className="text-[12.5px] font-extrabold text-gray-900 mt-0.5" numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 export default function BarcodePrintScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const ticketId = route?.params?.ticketId;
   const [ticket, setTicket] = useState(null);
   const [copies, setCopies] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
+  // Ref to the on-screen QR so we can rasterise it to a PNG for the print HTML.
+  const qrRef = useRef(null);
 
   const load = useCallback(async () => {
     if (!ticketId) return;
@@ -96,7 +112,7 @@ export default function BarcodePrintScreen({ navigation, route }) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  if (loading) return <Loader label="Loading barcode..." />;
+  if (loading) return <Loader label="Loading QR slip..." />;
 
   const trackingId = ticket?.trackingId || ticketId || 'NO-ID';
   const deviceName = ticket?.deviceModelName || ticket?.modelName || 'Device';
@@ -104,28 +120,89 @@ export default function BarcodePrintScreen({ navigation, route }) {
     || ticket?.services?.map?.((s) => s.serviceName).join(', ')
     || '—';
   const customerName = ticket?.customerName || '—';
+  const security = formatSecurity(ticket?.deviceSecurityType, ticket?.deviceSecurityValue);
+
+  // Grab the QR as a base64 PNG from the rendered <QRCode/> so it can be
+  // embedded straight into the print HTML (no extra dependency needed).
+  const getQrPng = () =>
+    new Promise((resolve) => {
+      const ref = qrRef.current;
+      if (ref && typeof ref.toDataURL === 'function') {
+        try { ref.toDataURL((data) => resolve(data || null)); }
+        catch { resolve(null); }
+      } else {
+        resolve(null);
+      }
+    });
+
+  const buildSlipHtml = (qrBase64) => {
+    const qrCell = qrBase64
+      ? `<img class="qr" src="data:image/png;base64,${qrBase64}" />`
+      : `<div class="qr qr-fallback">${esc(String(trackingId).toUpperCase())}</div>`;
+    const slip = `
+      <div class="slip">
+        ${qrCell}
+        <div class="details">
+          <div class="device">${esc(deviceName)}</div>
+          <div class="row"><div class="label">Service No.</div><div class="value">${esc(trackingId)}</div></div>
+          <div class="row"><div class="label">Customer</div><div class="value">${esc(customerName)}</div></div>
+          <div class="row"><div class="label">Repair Services</div><div class="value">${esc(services)}</div></div>
+          <div class="row"><div class="label">Device Security</div><div class="value">${esc(security)}</div></div>
+        </div>
+      </div>`;
+    const slips = Array.from({ length: copies }, () => slip).join('');
+    return `<!DOCTYPE html><html><head>
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            font-family: -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif; }
+        body { margin: 0; padding: 0; color: #0F172A; }
+        .slip { display: flex; flex-direction: row; align-items: center;
+                border: 2px dashed #86EFAC; border-radius: 14px;
+                padding: 18px; margin: 14px; page-break-inside: avoid; }
+        .qr { width: 150px; height: 150px; margin-right: 18px; flex-shrink: 0; }
+        .qr-fallback { display: flex; align-items: center; justify-content: center; text-align: center;
+                       border: 1px solid #CBD5E1; border-radius: 8px; font-weight: 800; font-size: 13px;
+                       letter-spacing: 2px; word-break: break-all; padding: 6px; }
+        .details { flex: 1; min-width: 0; }
+        .device { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+        .row { margin-bottom: 9px; }
+        .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+                 color: #6B7280; font-weight: 700; }
+        .value { font-size: 14px; font-weight: 800; margin-top: 2px; word-break: break-word; }
+      </style></head><body>${slips}</body></html>`;
+  };
 
   const handleShare = async () => {
     const msg =
-      `📦 GGFix Barcode Slip\n\n` +
-      `Tracking: ${trackingId}\n` +
+      `📦 GGFix QR Slip\n\n` +
+      `Service No: ${trackingId}\n` +
       `Customer: ${customerName}\n` +
       `Device: ${deviceName}\n` +
       `Service: ${services}\n` +
+      `Device Security: ${security}\n` +
       `Copies: ${copies}\n\n` +
       `Stick this slip on the device before placing it on the workbench.`;
     try {
-      await Share.share({ message: msg, title: `Barcode ${trackingId}` });
+      await Share.share({ message: msg, title: `QR Slip ${trackingId}` });
     } catch (e) {
       notify('Share failed', e?.message || 'Try again');
     }
   };
 
-  const handlePrint = () => {
-    notify(
-      'Printing not configured',
-      `${copies} slip${copies > 1 ? 's' : ''} for ${trackingId}.\n\nNative print needs Expo Print — use the Share button for now and pick "Print" from the share sheet.`,
-    );
+  const handlePrint = async () => {
+    if (printing) return;
+    setPrinting(true);
+    try {
+      const qrBase64 = await getQrPng();
+      await Print.printAsync({ html: buildSlipHtml(qrBase64) });
+    } catch (e) {
+      const m = e?.message || '';
+      // A user-cancelled print dialog isn't an error worth surfacing.
+      if (!/cancel/i.test(m)) notify('Print failed', m || 'Could not open the printer.');
+    } finally {
+      setPrinting(false);
+    }
   };
 
   return (
@@ -153,7 +230,7 @@ export default function BarcodePrintScreen({ navigation, route }) {
             <ChevronLeft size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
-            Barcode E-Print
+            QR E-Print
           </Text>
           <View
             className="px-2.5 py-1 rounded-full"
@@ -209,15 +286,15 @@ export default function BarcodePrintScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Barcode slip preview */}
+        {/* QR slip preview — left QR, right details */}
         <View className="px-4 mt-4">
           <View
             className="bg-white rounded-2xl p-4"
             style={cardShadow}
           >
-            <SectionHeader icon={ScanLine} label="BARCODE SLIP" />
+            <SectionHeader icon={QrCode} label="QR SLIP" />
             <View
-              className="rounded-2xl p-4 items-center"
+              className="rounded-2xl p-4 flex-row items-center"
               style={{
                 backgroundColor: '#FFFFFF',
                 borderWidth: 1.5,
@@ -225,46 +302,37 @@ export default function BarcodePrintScreen({ navigation, route }) {
                 borderColor: '#86EFAC',
               }}
             >
-              <View className="flex-row mb-2 w-full">
-                <View className="flex-1">
-                  <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
-                    Service No.
-                  </Text>
-                  <Text className="text-[12.5px] font-extrabold text-gray-900 mt-0.5" numberOfLines={1}>
-                    {trackingId}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
-                    Device
-                  </Text>
-                  <Text className="text-[12.5px] font-extrabold text-gray-900 mt-0.5" numberOfLines={1}>
-                    {deviceName}
-                  </Text>
+              {/* Left — QR code */}
+              <View
+                className="rounded-xl p-2 mr-4"
+                style={{ backgroundColor: '#FFFFFF' }}
+              >
+                <QRCode
+                  value={String(trackingId)}
+                  size={116}
+                  color="#0F172A"
+                  backgroundColor="#FFFFFF"
+                  getRef={(c) => { qrRef.current = c; }}
+                />
+              </View>
+
+              {/* Right — details */}
+              <View className="flex-1">
+                <SlipField label="Service No." value={trackingId} />
+                <SlipField label="Customer" value={customerName} />
+                <SlipField label="Repair Services" value={services} />
+                <View className="flex-row items-center mt-0.5">
+                  <ShieldCheck size={13} color={BRAND_GREEN_DARK} />
+                  <View className="ml-1.5 flex-1">
+                    <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
+                      Device Security
+                    </Text>
+                    <Text className="text-[12.5px] font-extrabold text-gray-900 mt-0.5" numberOfLines={2}>
+                      {security}
+                    </Text>
+                  </View>
                 </View>
               </View>
-              <View className="flex-row mb-3 w-full">
-                <View className="flex-1">
-                  <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
-                    Customer
-                  </Text>
-                  <Text className="text-[12px] font-bold text-gray-900 mt-0.5" numberOfLines={1}>
-                    {customerName}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
-                    Service
-                  </Text>
-                  <Text className="text-[12px] font-bold text-gray-900 mt-0.5" numberOfLines={1}>
-                    {services}
-                  </Text>
-                </View>
-              </View>
-              <CodePattern value={trackingId} />
-              <Text className="text-[12px] tracking-widest font-bold text-gray-900 mt-1">
-                {String(trackingId).toUpperCase().split('').join(' ')}
-              </Text>
             </View>
           </View>
         </View>
@@ -330,7 +398,7 @@ export default function BarcodePrintScreen({ navigation, route }) {
               <Wrench size={13} color="#FFFFFF" />
             </View>
             <Text className="text-[11.5px] text-gray-700 flex-1 leading-4">
-              Stick this slip on the device before placing it on the workbench. The barcode encodes the tracking ID for quick scanning.
+              Stick this slip on the device before placing it on the workbench. The QR code encodes the service number for quick scanning.
             </Text>
           </View>
         </View>
@@ -365,6 +433,7 @@ export default function BarcodePrintScreen({ navigation, route }) {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={handlePrint}
+          disabled={printing}
           className="flex-1 ml-2"
           style={cardShadow}
         >
@@ -378,10 +447,13 @@ export default function BarcodePrintScreen({ navigation, route }) {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
+              opacity: printing ? 0.7 : 1,
             }}
           >
             <Printer size={16} color="#FFFFFF" />
-            <Text className="ml-2 text-white text-[14px] font-extrabold">Print</Text>
+            <Text className="ml-2 text-white text-[14px] font-extrabold">
+              {printing ? 'Printing…' : 'Print'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
