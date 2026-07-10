@@ -166,15 +166,21 @@ export default function OwnerEmployeeDetailScreen({ route, navigation }) {
       notify('Required', 'Enter employee name');
       return;
     }
-    const withLogin = form.email?.trim() && form.password?.trim();
-    if (withLogin && form.password.length < 4) {
+    const email = form.email?.trim() || null;
+    const password = form.password?.trim() || null;
+    const phone = form.phone?.trim() || null;
+    if (password && password.length < 4) {
       notify('Validation', 'Password must be at least 4 characters');
       return;
     }
+    // Provision an employee login whenever there's an identifier to key it on.
+    // A mobile number alone is enough — login is mobile + default OTP 123456.
+    // Only a name-only employee is created without a login.
+    const provisionLogin = !!(email || phone);
     setSaving(true);
     try {
       let userId = null;
-      if (withLogin) {
+      if (provisionLogin) {
         if (!shopId) {
           notify('Error', 'Session expired. Please log in again.', { preset: 'error', haptic: 'error' });
           setSaving(false);
@@ -183,8 +189,9 @@ export default function OwnerEmployeeDetailScreen({ route, navigation }) {
         try {
           const authRes = await authApi.post(`/auth/shops/${shopId}/technicians`, {
             body: {
-              email: form.email.trim(),
-              password: form.password,
+              email,
+              password,
+              phone,
               name: form.name.trim(),
               roleLabel: (form.roleLabel && form.roleLabel.trim()) || null,
             },
@@ -256,7 +263,7 @@ export default function OwnerEmployeeDetailScreen({ route, navigation }) {
       });
       setSaving(false);
       const message = withLogin
-        ? 'Employee added. They can log in with email and password.'
+        ? 'Employee added. They can log in to the employee app with their mobile number and OTP 123456.'
         : 'Employee added.';
       requestAnimationFrame(() => {
         navigation.navigate('OwnerEmployeeCreated', {
@@ -267,6 +274,27 @@ export default function OwnerEmployeeDetailScreen({ route, navigation }) {
     } catch (e) {
       notify('Error', e.message || 'Failed to add employee', { preset: 'error', haptic: 'error' });
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!employee?.id) return;
+    const ok = await confirm({
+      title: 'Delete employee?',
+      message: `This permanently removes ${form.name?.trim() || 'this employee'}, their app login, and all their attendance / leave data. This cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+    });
+    if (!ok) return;
+    setSaving(true);
+    try {
+      await ticketApi.del(`/technicians/${employee.id}`);
+      notify('Deleted', 'Employee removed.', { preset: 'done' });
+      navigation.goBack();
+    } catch (e) {
+      notify('Error', e.message || 'Failed to delete employee', { preset: 'error', haptic: 'error' });
       setSaving(false);
     }
   };
@@ -737,6 +765,18 @@ export default function OwnerEmployeeDetailScreen({ route, navigation }) {
                 </Text>
               </View>
             </View>
+
+            {isEdit ? (
+              <TouchableOpacity
+                onPress={handleDelete}
+                disabled={saving}
+                activeOpacity={0.85}
+                style={{ marginTop: 8, marginHorizontal: 4, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                <Text style={{ color: '#DC2626', fontWeight: '700', fontSize: 14, marginLeft: 8 }}>Delete Employee</Text>
+              </TouchableOpacity>
+            ) : null}
           </ScrollView>
 
           {/* Sticky footer */}
