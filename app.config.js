@@ -38,7 +38,19 @@ export default {
     plugins: [
       // Cleartext HTTP for the plain-http backend. The bare android.usesCleartextTraffic
       // key is ignored by Expo prebuild — it must be set via expo-build-properties.
-      ['expo-build-properties', { android: { usesCleartextTraffic: true } }],
+      [
+        'expo-build-properties',
+        {
+          android: {
+            usesCleartextTraffic: true,
+            // Ship native libraries for real phones only (arm64-v8a). This drops the
+            // emulator-only ABIs (x86/x86_64, ~52MB) and old 32-bit devices
+            // (armeabi-v7a, ~16MB), shrinking the universal APK from ~114MB to ~50MB.
+            // buildArchs writes `reactNativeArchitectures` into gradle.properties.
+            buildArchs: ['arm64-v8a'],
+          },
+        },
+      ],
       [
         'expo-location',
         {
