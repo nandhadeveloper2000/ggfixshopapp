@@ -157,35 +157,32 @@ export default function DeviceInformationScreen({ navigation, route }) {
 
   return (
     <View className="flex-1 bg-background">
-      {/* ── Hero gradient — same rhythm as siblings ─────────────────── */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16 }}
+      {/* ── White header — matches app's other white headers ─────── */}
+      <View
+        style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
       >
         <View className="relative flex-row items-center justify-center">
           <Pressable
             onPress={() => navigation.goBack()}
-            className="absolute left-0 h-10 w-10 rounded-full bg-white/20 items-center justify-center active:opacity-70"
+            className="absolute left-0 h-10 w-10 rounded-full bg-surface-muted items-center justify-center active:opacity-70"
           >
-            <ArrowLeft size={20} color="#fff" />
+            <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
 
           <View className="items-center px-12">
-            <Text className="text-white/80 text-[11px] font-bold tracking-widest text-center">
+            <Text className="text-text-muted text-[11px] font-bold tracking-widest text-center">
               DEVICE DETAILS
             </Text>
 
             <Text
-              className="text-white text-[19px] font-extrabold mt-0.5 text-center"
+              className="text-text text-[19px] font-extrabold mt-0.5 text-center"
               numberOfLines={1}
             >
               Photos & Confirmation
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         contentContainerStyle={{ paddingTop: 0, paddingBottom: 150 }}

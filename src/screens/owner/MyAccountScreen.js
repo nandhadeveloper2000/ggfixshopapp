@@ -33,6 +33,7 @@ import {
   LogOut,
   Sparkles,
   Crown,
+  CreditCard,
 } from 'lucide-react-native';
 import { getSession } from '../../auth/session';
 import { switchShop, fetchMe } from '../../api/auth';
@@ -130,40 +131,38 @@ export default function MyAccountScreen({ onLogout, navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Slim green hero — matches the rest of the owner-side Swiggy/Zomato
-          screens (back/title row + small badge). Subtitle and big copy have
-          been moved into the content area so the header band stays short. */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: BRAND_GREEN_DARK }}>
-        <LinearGradient
-          colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      {/* Slim white header — back/title row + small badge. Subtitle and big copy
+          have been moved into the content area so the header band stays short. */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
           style={{
+            backgroundColor: '#FFFFFF',
             paddingTop: 6,
             paddingBottom: 14,
             paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
           }}
         >
           <View className="flex-row items-center">
-            <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
               My Account
             </Text>
             <View
-              className="flex-row items-center px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              className="flex-row items-center px-2.5 py-1 rounded-full bg-surface-muted"
             >
-              <Crown size={11} color="#FFFFFF" />
+              <Crown size={11} color="#0F172A" />
               <Text
-                className="ml-1 text-white text-[10.5px] font-extrabold"
+                className="ml-1 text-text text-[10.5px] font-extrabold"
                 style={{ letterSpacing: 0.6 }}
               >
                 OWNER
               </Text>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       <ScrollView
@@ -336,6 +335,14 @@ export default function MyAccountScreen({ onLogout, navigation }) {
             label="Personal Information"
             sub="Name, mobile, email"
             onPress={() => navigation?.navigate?.('OwnerPersonalInfo')}
+          />
+          <MenuRow
+            Icon={CreditCard}
+            tint="#FFEDD5"
+            accent="#B45309"
+            label="Subscription"
+            sub="View your plan & upgrade"
+            onPress={() => navigation?.navigate?.('OwnerSubscription')}
           />
           <MenuRow
             Icon={QrCode}

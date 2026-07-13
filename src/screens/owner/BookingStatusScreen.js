@@ -175,17 +175,17 @@ export default function BookingStatusScreen({ navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Slim hero */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* Slim top header */}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingTop: insets.top + 6,
           paddingBottom: 14,
           paddingHorizontal: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View className="flex-row items-center">
@@ -193,25 +193,25 @@ export default function BookingStatusScreen({ navigation }) {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
             className="w-10 h-10 rounded-full items-center justify-center mr-3"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            style={{ backgroundColor: '#F1F5F9' }}
           >
-            <ChevronLeft size={22} color="#FFFFFF" />
+            <ChevronLeft size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+          <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
             Booking Status
           </Text>
           <Pressable
             onPress={() => navigation.navigate('BookingPreviousReport')}
             className="px-3 py-1.5 rounded-full flex-row items-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            style={{ backgroundColor: '#F1F5F9' }}
           >
-            <History size={12} color="#FFFFFF" />
-            <Text className="text-white text-[11px] font-extrabold ml-1.5" numberOfLines={1}>
+            <History size={12} color="#0F172A" />
+            <Text className="text-text text-[11px] font-extrabold ml-1.5" numberOfLines={1}>
               Previous
             </Text>
           </Pressable>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}

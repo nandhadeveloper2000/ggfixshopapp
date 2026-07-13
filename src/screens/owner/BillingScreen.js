@@ -299,21 +299,19 @@ export default function BillingScreen({ navigation }) {
   if (loading && items.length === 0) {
     return (
       <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-        <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
-        <LinearGradient
-          colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View
           style={{
+            backgroundColor: '#FFFFFF',
             paddingTop: insets.top + 12,
             paddingBottom: 28,
             paddingHorizontal: 16,
-            borderBottomLeftRadius: 24,
-            borderBottomRightRadius: 24,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
           }}
         >
-          <Text className="text-white text-[22px] font-extrabold">Invoices</Text>
-        </LinearGradient>
+          <Text className="text-text text-[22px] font-extrabold">Invoices</Text>
+        </View>
         <ActivityIndicator style={{ flex: 1 }} size="large" color={BRAND_GREEN} />
       </View>
     );
@@ -321,42 +319,40 @@ export default function BillingScreen({ navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Hero gradient with title + meta + search */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* Hero header with title + meta + search */}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingTop: insets.top + 12,
           paddingBottom: 56,
           paddingHorizontal: 16,
-          borderBottomLeftRadius: 24,
-          borderBottomRightRadius: 24,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View className="flex-row items-center">
           <View className="flex-1">
-            <Text className="text-white text-[22px] font-extrabold" style={{ letterSpacing: 0.2 }}>
+            <Text className="text-text text-[22px] font-extrabold" style={{ letterSpacing: 0.2 }}>
               Invoices
             </Text>
-            <Text className="text-white/85 text-[12px] mt-1">
+            <Text className="text-text-muted text-[12px] mt-1">
               {items.length} record{items.length === 1 ? '' : 's'}
               {totalAmount > 0 ? `  •  ${formatMoney(totalAmount)} total` : ''}
             </Text>
           </View>
           <View
             className="w-11 h-11 rounded-full items-center justify-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            style={{ backgroundColor: '#F1F5F9' }}
           >
-            <Receipt size={20} color="#FFFFFF" />
+            <Receipt size={20} color="#0F172A" />
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
-      {/* Floating search bar overlapping the hero */}
-      <View className="px-4" style={{ marginTop: -28 }}>
+      {/* Floating search bar below the hero */}
+      <View className="px-4" style={{ marginTop: 12 }}>
         <View
           className="bg-white rounded-2xl flex-row items-center px-3 py-2.5"
           style={cardShadow}

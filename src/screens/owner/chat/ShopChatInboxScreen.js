@@ -71,33 +71,32 @@ export default function ShopChatInboxScreen({ navigation }) {
 
   return (
     <View className="flex-1 bg-background">
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <View className="px-3 pt-1.5 pb-3" style={{ backgroundColor: GREEN_DARK }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View className="px-3 pt-1.5 pb-3 border-b border-border" style={{ backgroundColor: '#FFFFFF' }}>
           <View className="flex-row items-center">
             <Pressable
               onPress={() => navigation.goBack()}
               className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
-              style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+              style={{ backgroundColor: '#F1F3F5' }}
             >
-              <ChevronLeft size={20} color="#fff" />
+              <ChevronLeft size={20} color="#0F172A" />
             </Pressable>
             <View className="flex-1 ml-2">
-              <Text className="text-white text-[16px] font-extrabold">Messages</Text>
+              <Text className="text-text text-[16px] font-extrabold">Messages</Text>
               <View className="flex-row items-center mt-0.5">
-                <MessageCircle size={11} color="rgba(255,255,255,0.85)" />
-                <Text className="text-white/80 text-[11px] ml-1">
+                <MessageCircle size={11} color="#64748B" />
+                <Text className="text-text-muted text-[11px] ml-1">
                   {threads.length} chats {totalUnread > 0 ? `· ${totalUnread} unread` : ''}
                 </Text>
               </View>
             </View>
-            <View className="bg-white/15 rounded-full px-2 py-1 flex-row items-center">
-              <ShieldCheck size={11} color="#A7F3D0" />
-              <Text className="text-emerald-100 text-[10px] font-extrabold ml-1 tracking-wider">ENCRYPTED</Text>
+            <View className="bg-primary/10 rounded-full px-2 py-1 flex-row items-center">
+              <ShieldCheck size={11} color="#16A34A" />
+              <Text className="text-primary text-[10px] font-extrabold ml-1 tracking-wider">ENCRYPTED</Text>
             </View>
           </View>
 
-          <View className="mt-3 bg-white rounded-2xl px-3 py-2 flex-row items-center"
-                style={{ shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+          <View className="mt-3 bg-surface-muted border border-border rounded-2xl px-3 py-2 flex-row items-center">
             <Search size={16} color={GREEN_DARK} />
             <TextInput
               value={q}

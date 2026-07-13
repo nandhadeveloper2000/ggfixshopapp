@@ -205,34 +205,38 @@ export default function OwnerCartScreen({ navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 10, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingTop: 10,
+            paddingBottom: 16,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+          }}
         >
           <View className="flex-row items-center" style={{ paddingHorizontal: 16 }}>
             <Pressable
               onPress={() => navigation.goBack()}
               hitSlop={10}
-              className="h-9 w-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              className="h-9 w-9 rounded-full items-center justify-center bg-surface-muted"
             >
-              <ChevronLeft size={20} color="#FFFFFF" />
+              <ChevronLeft size={20} color="#0F172A" />
             </Pressable>
-            <Text className="flex-1 text-center text-white text-[18px] font-extrabold">My Cart</Text>
+            <Text className="flex-1 text-center text-text text-[18px] font-extrabold">My Cart</Text>
             {items.length ? (
-              <Pressable onPress={onClear} hitSlop={10} className="px-2 h-9 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}>
-                <Text className="text-white text-[11px] font-extrabold">Clear</Text>
+              <Pressable onPress={onClear} hitSlop={10} className="px-2 h-9 rounded-full items-center justify-center bg-surface-muted">
+                <Text className="text-text text-[11px] font-extrabold">Clear</Text>
               </Pressable>
             ) : (
               <View className="h-9 w-9" />
             )}
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {error ? (

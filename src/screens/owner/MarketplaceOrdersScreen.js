@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import {
@@ -183,36 +182,40 @@ export default function MarketplaceOrdersScreen({ navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: BRAND_GREEN_DARK }}>
-        <LinearGradient
-          colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 6, paddingBottom: 14, paddingHorizontal: 16 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingTop: 6,
+            paddingBottom: 14,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+          }}
         >
           <View className="flex-row items-center">
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               activeOpacity={0.7}
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              style={{ backgroundColor: '#F1F5F9' }}
             >
-              <ChevronLeft size={22} color="#FFFFFF" />
+              <ChevronLeft size={22} color="#0F172A" />
             </TouchableOpacity>
-            <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
               My Orders
             </Text>
             <Pressable
               hitSlop={8}
               className="w-9 h-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              style={{ backgroundColor: '#F1F5F9' }}
             >
-              <Search size={16} color="#FFFFFF" />
+              <Search size={16} color="#0F172A" />
             </Pressable>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {/* Tabs */}

@@ -222,31 +222,29 @@ export default function BookingHistoryScreen({ navigation }) {
 
   return (
     <View className="flex-1 bg-background">
-      {/* ── Hero gradient header ─────────────────────────────────── */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16 }}
+      {/* ── White header ─────────────────────────────────── */}
+      <View
+        className="border-b border-border"
+        style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16 }}
       >
         <View className="flex-row items-center">
           <Pressable
             onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}
-            className="h-10 w-10 rounded-full bg-white/20 items-center justify-center mr-3 active:opacity-70"
+            className="h-10 w-10 rounded-full bg-surface-muted items-center justify-center mr-3 active:opacity-70"
           >
-            <ArrowLeft size={20} color="#fff" />
+            <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-white/80 text-[11px] font-bold tracking-widest">ALL BOOKINGS</Text>
-            <Text className="text-white text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
+            <Text className="text-text-muted text-[11px] font-bold tracking-widest">ALL BOOKINGS</Text>
+            <Text className="text-text text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
               {counts.total} {counts.total === 1 ? 'booking' : 'bookings'}
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
-      {/* ── Search + filter row overlapping hero ────────────────── */}
-      <View className="px-4" style={{ marginTop: -14 }}>
+      {/* ── Search + filter row below header ────────────────── */}
+      <View className="px-4" style={{ marginTop: 12 }}>
         <View
           className="bg-card rounded-2xl p-2.5"
           style={{

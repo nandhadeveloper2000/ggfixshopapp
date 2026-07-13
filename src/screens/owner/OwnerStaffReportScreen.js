@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft,
   ChevronRight,
@@ -158,49 +157,46 @@ export default function OwnerStaffReportScreen({ navigation, route }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 10, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{ backgroundColor: '#FFFFFF', paddingTop: 10, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
         >
           <View className="flex-row items-center" style={{ paddingHorizontal: 16 }}>
             <Pressable
               onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}
               hitSlop={10}
               className="h-9 w-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              style={{ backgroundColor: '#F1F3F5' }}
             >
-              <ChevronLeft size={20} color="#FFFFFF" />
+              <ChevronLeft size={20} color="#0F172A" />
             </Pressable>
             <View className="flex-1 flex-row items-center justify-center">
-              <HeaderIcon size={16} color="#FFFFFF" />
-              <Text className="text-center text-white text-[18px] font-extrabold ml-1.5">{meta.title}</Text>
+              <HeaderIcon size={16} color="#0F172A" />
+              <Text className="text-center text-text text-[18px] font-extrabold ml-1.5">{meta.title}</Text>
             </View>
             <View className="h-9 w-9" />
           </View>
 
           {/* Month switcher + total */}
           <View className="flex-row items-center justify-between mt-3" style={{ paddingHorizontal: 16 }}>
-            <View className="flex-row items-center bg-white/15 rounded-full px-1 py-1">
+            <View className="flex-row items-center bg-surface-muted rounded-full px-1 py-1">
               <Pressable onPress={() => stepMonth(-1)} hitSlop={8} className="h-7 w-7 items-center justify-center">
-                <ChevronLeft size={16} color="#FFFFFF" />
+                <ChevronLeft size={16} color="#0F172A" />
               </Pressable>
-              <Text className="text-white text-[12.5px] font-extrabold px-1.5">{MONTHS[month - 1]} {year}</Text>
+              <Text className="text-text text-[12.5px] font-extrabold px-1.5">{MONTHS[month - 1]} {year}</Text>
               <Pressable onPress={() => stepMonth(1)} hitSlop={8} className="h-7 w-7 items-center justify-center">
-                <ChevronRight size={16} color="#FFFFFF" />
+                <ChevronRight size={16} color="#0F172A" />
               </Pressable>
             </View>
-            <View className="bg-white rounded-full px-3 py-1.5">
+            <View className="bg-surface-muted rounded-full px-3 py-1.5">
               <Text className="text-[11px] font-extrabold" style={{ color: GREEN_DARK }}>
                 Total {meta.title}: {total}{meta.unit ? ` ${meta.unit}` : ''}
               </Text>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {error ? (

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Bell, ChevronRight, CheckCheck } from 'lucide-react-native';
 import {
   listNotifications,
@@ -103,29 +102,33 @@ export default function OwnerNotificationsScreen({ navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 10, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingTop: 10,
+            paddingBottom: 16,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+          }}
         >
           <View className="flex-row items-center" style={{ paddingHorizontal: 16 }}>
             <Pressable
               onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}
               hitSlop={10}
-              className="h-9 w-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              className="h-9 w-9 rounded-full items-center justify-center bg-surface-muted"
             >
-              <ChevronLeft size={20} color="#FFFFFF" />
+              <ChevronLeft size={20} color="#0F172A" />
             </Pressable>
             <View className="flex-1 flex-row items-center justify-center">
-              <Text className="text-center text-white text-[18px] font-extrabold">Notifications</Text>
+              <Text className="text-center text-text text-[18px] font-extrabold">Notifications</Text>
               {unread > 0 ? (
-                <View className="ml-2 rounded-full px-2 py-0.5" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
-                  <Text className="text-white text-[10px] font-extrabold">{unread} new</Text>
+                <View className="ml-2 rounded-full px-2 py-0.5 bg-surface-muted">
+                  <Text className="text-text text-[10px] font-extrabold">{unread} new</Text>
                 </View>
               ) : null}
             </View>
@@ -133,16 +136,15 @@ export default function OwnerNotificationsScreen({ navigation }) {
               <Pressable
                 onPress={onMarkAll}
                 hitSlop={10}
-                className="h-9 px-2.5 rounded-full flex-row items-center justify-center"
-                style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+                className="h-9 px-2.5 rounded-full flex-row items-center justify-center bg-surface-muted"
               >
-                <CheckCheck size={14} color="#FFFFFF" />
+                <CheckCheck size={14} color="#0F172A" />
               </Pressable>
             ) : (
               <View className="h-9 w-9" />
             )}
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {loading && items.length === 0 ? (

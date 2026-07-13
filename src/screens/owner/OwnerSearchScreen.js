@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Search, Mic, X, Wrench, Tag, ShoppingBag, ArrowRight, Wand2 } from 'lucide-react-native';
 import { notify } from '../../components/confirm';
 
@@ -69,23 +68,20 @@ export default function OwnerSearchScreen({ navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 10, paddingBottom: 16, paddingHorizontal: 12 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{ backgroundColor: '#FFFFFF', paddingTop: 10, paddingBottom: 16, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
         >
           <View className="flex-row items-center">
             <Pressable
               onPress={() => navigation.goBack()}
               hitSlop={10}
               className="h-9 w-9 rounded-full items-center justify-center mr-1"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              style={{ backgroundColor: '#F1F3F5' }}
             >
-              <ChevronLeft size={20} color="#FFFFFF" />
+              <ChevronLeft size={20} color="#0F172A" />
             </Pressable>
             <View
               className="flex-1 flex-row items-center bg-white rounded-2xl px-3.5 py-2.5"
@@ -117,7 +113,7 @@ export default function OwnerSearchScreen({ navigation }) {
               </Pressable>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">

@@ -90,28 +90,25 @@ export default function DeviceMissingPartsScreen({ navigation, route }) {
 
   return (
     <View className="flex-1 bg-background">
-      {/* ── Hero gradient — matches sibling booking screens ─────────────── */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16 }}
+      {/* ── White header — matches app's other white headers ─────── */}
+      <View
+        style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
       >
         <View className="flex-row items-center">
           <Pressable
             onPress={() => navigation.goBack()}
-            className="h-10 w-10 rounded-full bg-white/20 items-center justify-center mr-3 active:opacity-70"
+            className="h-10 w-10 rounded-full bg-surface-muted items-center justify-center mr-3 active:opacity-70"
           >
-            <ArrowLeft size={20} color="#fff" />
+            <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-white/80 text-[11px] font-bold tracking-widest">INSPECTION</Text>
-            <Text className="text-white text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
+            <Text className="text-text-muted text-[11px] font-bold tracking-widest">INSPECTION</Text>
+            <Text className="text-text text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
               Missing or damaged parts
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 160 }} keyboardShouldPersistTaps="handled">
         {/* ── Status card overlapping hero ────────────────────────────── */}

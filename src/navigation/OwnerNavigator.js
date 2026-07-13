@@ -112,6 +112,7 @@ import ShopServiceStatusScreen from '../screens/owner/ShopServiceStatusScreen';
 import OwnerLeaveRequestsScreen from '../screens/owner/OwnerLeaveRequestsScreen';
 import ShopChatInboxScreen from '../screens/owner/chat/ShopChatInboxScreen';
 import ShopChatThreadScreen from '../screens/owner/chat/ShopChatThreadScreen';
+import SubscriptionScreen from '../screens/owner/SubscriptionScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -376,6 +377,7 @@ export default function OwnerNavigator({ session, onLogout }) {
       <Stack.Screen name="OwnerQrCode" component={OwnerQrCodeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ShopChatInbox" component={ShopChatInboxScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ShopChatThread" component={ShopChatThreadScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="OwnerSubscription" component={SubscriptionScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

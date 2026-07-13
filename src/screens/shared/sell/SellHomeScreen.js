@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TrendingUp, ShieldCheck, Sparkles } from 'lucide-react-native';
 import { SectionHeader, OfferBanner, EmptyState, Loader } from '../../../components/rnr';
@@ -61,19 +60,16 @@ export default function SellHomeScreen({ navigation }) {
 
   return (
     <View className="flex-1 bg-background">
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#059669' }}>
-        <LinearGradient
-          colors={['#059669', '#10B981']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 12, paddingBottom: 22, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{ backgroundColor: '#FFFFFF', paddingTop: 12, paddingBottom: 22, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
         >
           <View className="px-4">
-            <Text className="text-white text-[12px] font-bold tracking-widest">SELL & EARN</Text>
-            <Text className="text-white text-[24px] font-extrabold mt-1">Turn your old tech into cash</Text>
-            <Text className="text-white/85 text-[13px] mt-1">Best price from verified shops nearby.</Text>
+            <Text className="text-text-muted text-[12px] font-bold tracking-widest">SELL & EARN</Text>
+            <Text className="text-text text-[24px] font-extrabold mt-1">Turn your old tech into cash</Text>
+            <Text className="text-text-muted text-[13px] mt-1">Best price from verified shops nearby.</Text>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>

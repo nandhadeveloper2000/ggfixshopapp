@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft,
   ChevronRight,
@@ -109,40 +108,42 @@ export default function OwnerEmployeeListScreen({ navigation, route }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: BRAND_GREEN_DARK }}>
-        <LinearGradient
-          colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 6, paddingBottom: 14, paddingHorizontal: 16 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingTop: 6,
+            paddingBottom: 14,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+          }}
         >
           <View className="flex-row items-center">
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               activeOpacity={0.7}
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-surface-muted"
             >
-              <ChevronLeft size={22} color="#FFFFFF" />
+              <ChevronLeft size={22} color="#0F172A" />
             </TouchableOpacity>
-            <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
               {isPickupPicker ? 'Select Pickup Person' : 'Employees'}
             </Text>
             {!isPickupPicker ? (
               <Pressable
                 onPress={() => navigation.navigate('OwnerEmployeeAdd')}
                 hitSlop={6}
-                className="flex-row items-center px-2.5 py-1.5 rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+                className="flex-row items-center px-2.5 py-1.5 rounded-full bg-surface-muted"
               >
-                <UserPlus size={12} color="#FFFFFF" />
-                <Text className="ml-1 text-white text-[10.5px] font-extrabold">ADD</Text>
+                <UserPlus size={12} color="#0F172A" />
+                <Text className="ml-1 text-text text-[10.5px] font-extrabold">ADD</Text>
               </Pressable>
             ) : null}
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {loading && list.length === 0 ? (

@@ -361,34 +361,34 @@ export default function ShopChatThreadScreen({ navigation, route }) {
   return (
     <View className="flex-1 bg-background">
       {/* Header */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <View className="flex-row items-center px-3 py-2" style={{ backgroundColor: GREEN_DARK }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View className="flex-row items-center px-3 py-2 border-b border-border" style={{ backgroundColor: '#FFFFFF' }}>
           <Pressable
             onPress={() => navigation.goBack()}
             className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+            style={{ backgroundColor: '#F1F3F5' }}
           >
-            <ChevronLeft size={20} color="#fff" />
+            <ChevronLeft size={20} color="#0F172A" />
           </Pressable>
-          <View className="h-10 w-10 rounded-full items-center justify-center ml-2" style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}>
+          <View className="h-10 w-10 rounded-full items-center justify-center ml-2" style={{ backgroundColor: '#DCFCE7' }}>
             {head?.counterpartAvatarUrl ? (
               <Image source={{ uri: head.counterpartAvatarUrl }} style={{ height: 40, width: 40, borderRadius: 20 }} />
             ) : (
-              <Text className="text-white text-[13px] font-extrabold">{name.slice(0, 1).toUpperCase()}</Text>
+              <Text className="text-primary text-[13px] font-extrabold">{name.slice(0, 1).toUpperCase()}</Text>
             )}
           </View>
           <View className="flex-1 ml-2.5">
-            <Text className="text-white text-[14px] font-extrabold" numberOfLines={1}>{name}</Text>
+            <Text className="text-text text-[14px] font-extrabold" numberOfLines={1}>{name}</Text>
             <View className="flex-row items-center mt-0.5">
-              {online ? <View className="h-1.5 w-1.5 rounded-full bg-emerald-300 mr-1" /> : null}
-              <Text className="text-white/85 text-[10px]" numberOfLines={1}>
+              {online ? <View className="h-1.5 w-1.5 rounded-full bg-primary mr-1" /> : null}
+              <Text className="text-text-muted text-[10px]" numberOfLines={1}>
                 {typing ? 'typing…' : lastSeenLabel(online, head?.counterpartLastSeenAt)}
               </Text>
             </View>
           </View>
           {head?.counterpartPhone ? (
-            <View className="h-10 w-10 rounded-full items-center justify-center ml-1" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
-              <Phone size={16} color="#fff" />
+            <View className="h-10 w-10 rounded-full items-center justify-center ml-1" style={{ backgroundColor: '#F1F3F5' }}>
+              <Phone size={16} color="#16A34A" />
             </View>
           ) : null}
         </View>

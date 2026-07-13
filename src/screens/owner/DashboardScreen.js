@@ -424,56 +424,54 @@ export default function DashboardScreen({ navigation, onLogout }) {
   return (
     <View className="flex-1 bg-background">
       {/* ─── Hero header (compact greeting + search pill) ──────── */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
           style={{
+            backgroundColor: '#FFFFFF',
             paddingTop: 6,
             paddingBottom: 14,
-            borderBottomLeftRadius: 22,
-            borderBottomRightRadius: 22,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
           }}
         >
           {/* Top action row */}
           <View className="px-4 flex-row items-center py-1">
             <Pressable
               onPress={() => setShowSidebar(true)}
-              className="h-10 w-10 rounded-2xl bg-white/20 items-center justify-center mr-3 active:opacity-80"
-              style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' }}
+              className="h-10 w-10 rounded-2xl bg-surface-muted items-center justify-center mr-3 active:opacity-80"
+              style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
             >
-              <Text className="text-white text-[13px] font-extrabold">{shopInitial(shopName)}</Text>
+              <Text className="text-text text-[13px] font-extrabold">{shopInitial(shopName)}</Text>
             </Pressable>
             <View className="flex-1 mr-2">
-              <Text className="text-white/80 text-[11px] font-semibold" numberOfLines={1}>{greeting},</Text>
+              <Text className="text-text-muted text-[11px] font-semibold" numberOfLines={1}>{greeting},</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text
-                  className="text-white text-[16.5px] font-extrabold leading-5 mr-1.5"
+                  className="text-text text-[16.5px] font-extrabold leading-5 mr-1.5"
                   numberOfLines={1}
                   style={{ flexShrink: 1 }}
                 >
                   {shopName}
                 </Text>
                 <View
-                  className="flex-row items-center bg-white/15 px-1.5 py-[2px] rounded-full"
+                  className="flex-row items-center bg-surface-muted px-1.5 py-[2px] rounded-full"
                   style={{ flexShrink: 0 }}
                 >
-                  <ShieldCheck size={9} color="#A7F3D0" />
-                  <Text className="text-emerald-100 text-[8px] font-extrabold ml-0.5 tracking-wider">VERIFIED</Text>
+                  <ShieldCheck size={9} color={GREEN} />
+                  <Text className="text-[8px] font-extrabold ml-0.5 tracking-wider" style={{ color: GREEN_DARK }}>VERIFIED</Text>
                 </View>
               </View>
             </View>
 
             <Pressable
               onPress={() => navigation.navigate('OwnerNotifications')}
-              className="h-10 w-10 rounded-full bg-white/15 items-center justify-center active:opacity-80"
+              className="h-10 w-10 rounded-full bg-surface-muted items-center justify-center active:opacity-80"
             >
-              <Bell size={16} color="#fff" />
+              <Bell size={16} color="#0F172A" />
               {notifUnread > 0 ? (
                 <View
                   className="absolute -top-0.5 -right-0.5 rounded-full min-w-[16px] h-4 px-1 items-center justify-center"
-                  style={{ backgroundColor: '#F59E0B', borderWidth: 1.5, borderColor: GREEN_DARK }}
+                  style={{ backgroundColor: '#F59E0B', borderWidth: 1.5, borderColor: '#FFFFFF' }}
                 >
                   <Text className="text-white text-[9px] font-extrabold">
                     {notifUnread > 9 ? '9+' : notifUnread}
@@ -482,7 +480,7 @@ export default function DashboardScreen({ navigation, onLogout }) {
               ) : null}
             </Pressable>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {/* ─── Separated search bar (sits below the header, sticky) ── */}

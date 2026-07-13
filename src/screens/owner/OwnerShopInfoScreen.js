@@ -401,44 +401,41 @@ export default function OwnerShopInfoScreen({ navigation }) {
 
   // Shared green hero — slim single row + edit/view chip.
   const renderHero = () => (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: BRAND_GREEN_DARK }}>
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: 6, paddingBottom: 14, paddingHorizontal: 16 }}
+    <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+      <View
+        style={{ backgroundColor: '#FFFFFF', paddingTop: 6, paddingBottom: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
       >
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
             className="w-10 h-10 rounded-full items-center justify-center mr-3"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            style={{ backgroundColor: '#F1F3F5' }}
           >
-            <ChevronLeft size={22} color="#FFFFFF" />
+            <ChevronLeft size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+          <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
             Shop Information
           </Text>
           <Pressable
             onPress={() => setEditing((v) => !v)}
             hitSlop={6}
             className="px-2.5 py-1 rounded-full flex-row items-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            style={{ backgroundColor: '#F1F3F5' }}
           >
-            {editing ? <Eye size={12} color="#FFFFFF" /> : <Pencil size={12} color="#FFFFFF" />}
-            <Text className="ml-1 text-white text-[10.5px] font-extrabold">
+            {editing ? <Eye size={12} color="#0F172A" /> : <Pencil size={12} color="#0F172A" />}
+            <Text className="ml-1 text-text-muted text-[10.5px] font-extrabold">
               {editing ? 'PREVIEW' : 'EDIT'}
             </Text>
           </Pressable>
         </View>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {renderHero()}
 
       {!editing ? (

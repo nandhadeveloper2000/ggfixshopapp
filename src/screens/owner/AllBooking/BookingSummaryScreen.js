@@ -147,36 +147,34 @@ export default function BookingSummaryScreen({ route, navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Hero gradient */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* White header + hero */}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingTop: insets.top + 8,
           paddingBottom: 80,
           paddingHorizontal: 16,
           borderBottomLeftRadius: 28,
           borderBottomRightRadius: 28,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+            className="w-10 h-10 rounded-full items-center justify-center bg-surface-muted"
           >
-            <ChevronLeft size={22} color="#FFFFFF" />
+            <ChevronLeft size={22} color="#0F172A" />
           </TouchableOpacity>
           <View
-            className="flex-row items-center px-3 py-1.5 rounded-full"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+            className="flex-row items-center px-3 py-1.5 rounded-full bg-surface-muted"
           >
-            <Sparkles size={12} color="#FFFFFF" />
-            <Text className="ml-1.5 text-white text-[11px] font-bold tracking-wide">
+            <Sparkles size={12} color="#0F172A" />
+            <Text className="ml-1.5 text-text text-[11px] font-bold tracking-wide">
               BOOKING PLACED
             </Text>
           </View>
@@ -186,7 +184,7 @@ export default function BookingSummaryScreen({ route, navigation }) {
         <View className="items-center mt-5">
           <View
             className="w-20 h-20 rounded-full items-center justify-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+            style={{ backgroundColor: '#DCFCE7' }}
           >
             <View
               className="w-16 h-16 rounded-full items-center justify-center"
@@ -195,14 +193,14 @@ export default function BookingSummaryScreen({ route, navigation }) {
               <CheckCircle2 size={36} color={BRAND_GREEN_DARK} fill="#DCFCE7" />
             </View>
           </View>
-          <Text className="text-white text-2xl font-extrabold mt-3">
+          <Text className="text-text text-2xl font-extrabold mt-3">
             Thank You!
           </Text>
-          <Text className="text-white/85 text-[13px] mt-1">
+          <Text className="text-text-muted text-[13px] mt-1">
             Your booking has been placed successfully.
           </Text>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         className="flex-1"
@@ -210,7 +208,7 @@ export default function BookingSummaryScreen({ route, navigation }) {
         contentContainerStyle={{ paddingBottom: 32 }}
       >
         {/* Tracking ID floating card */}
-        <View className="px-4" style={{ marginTop: -50 }}>
+        <View className="px-4" style={{ marginTop: 12 }}>
           <View
             className="bg-white rounded-2xl px-4 py-4 flex-row items-center justify-between"
             style={cardShadow}

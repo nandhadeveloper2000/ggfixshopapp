@@ -569,14 +569,19 @@ export default function OwnerBuyListingScreen({ navigation, route }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 10, paddingBottom: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingTop: 10,
+            paddingBottom: 18,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+          }}
         >
           <View style={{ paddingHorizontal: padH }}>
             {/* Back · Buy · Cart */}
@@ -584,19 +589,17 @@ export default function OwnerBuyListingScreen({ navigation, route }) {
               <Pressable
                 onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'))}
                 hitSlop={10}
-                className="h-9 w-9 rounded-full items-center justify-center"
-                style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+                className="h-9 w-9 rounded-full items-center justify-center bg-surface-muted"
               >
-                <ChevronLeft size={20} color="#FFFFFF" />
+                <ChevronLeft size={20} color="#0F172A" />
               </Pressable>
-              <Text className="flex-1 text-center text-white text-[18px] font-extrabold">Buy</Text>
+              <Text className="flex-1 text-center text-text text-[18px] font-extrabold">Buy</Text>
               <Pressable
                 onPress={() => navigation.navigate('OwnerCart')}
                 hitSlop={10}
-                className="h-9 w-9 rounded-full items-center justify-center"
-                style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+                className="h-9 w-9 rounded-full items-center justify-center bg-surface-muted"
               >
-                <ShoppingCart size={18} color="#FFFFFF" />
+                <ShoppingCart size={18} color="#0F172A" />
                 {cartCount > 0 ? (
                   <View
                     className="absolute -top-1 -right-1 rounded-full min-w-[16px] h-4 px-1 items-center justify-center"
@@ -612,10 +615,9 @@ export default function OwnerBuyListingScreen({ navigation, route }) {
             <View
               style={{
                 flexDirection: 'row', alignItems: 'center',
-                backgroundColor: '#FFFFFF', borderRadius: 16,
+                backgroundColor: '#F1F5F9', borderRadius: 16,
+                borderWidth: 1, borderColor: '#E5E7EB',
                 paddingHorizontal: 14, paddingVertical: 12, marginTop: 14,
-                shadowColor: '#0F172A', shadowOpacity: 0.12, shadowRadius: 14,
-                shadowOffset: { width: 0, height: 6 }, elevation: 4,
               }}
             >
               <Search size={18} color={GREEN} />
@@ -639,7 +641,7 @@ export default function OwnerBuyListingScreen({ navigation, route }) {
               ) : null}
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {error ? (

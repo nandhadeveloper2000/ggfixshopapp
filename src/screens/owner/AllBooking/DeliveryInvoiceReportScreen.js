@@ -385,35 +385,34 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingTop: insets.top + 6,
           paddingBottom: 14,
           paddingHorizontal: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
-            className="w-10 h-10 rounded-full items-center justify-center mr-3"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-surface-muted"
           >
-            <ChevronLeft size={22} color="#FFFFFF" />
+            <ChevronLeft size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+          <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
             Deliver Invoice
           </Text>
           <View
-            className="px-2.5 py-1 rounded-full"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)', maxWidth: 160 }}
+            className="px-2.5 py-1 rounded-full bg-surface-muted"
+            style={{ maxWidth: 160 }}
           >
-            <Text className="text-white text-[11px] font-extrabold" numberOfLines={1}>
+            <Text className="text-text text-[11px] font-extrabold" numberOfLines={1}>
               #{invoice.invoiceNo}
             </Text>
           </View>
@@ -423,21 +422,21 @@ export default function DeliveryInvoiceReportScreen({ navigation, route }) {
             payable amount immediately, without scrolling to the summary. */}
         <View className="flex-row items-end justify-between mt-3">
           <View>
-            <Text className="text-[9.5px] font-bold" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: 0.8 }}>
+            <Text className="text-[9.5px] font-bold text-text-muted" style={{ letterSpacing: 0.8 }}>
               INVOICE TOTAL
             </Text>
-            <Text className="text-white text-[27px] font-extrabold" style={{ marginTop: 1, letterSpacing: -0.5 }}>
+            <Text className="text-text text-[27px] font-extrabold" style={{ marginTop: 1, letterSpacing: -0.5 }}>
               ₹{fmt(invoice.finalPayableAmount)}
             </Text>
           </View>
           <View className="items-end pb-1">
-            <Text className="text-[9.5px]" style={{ color: 'rgba(255,255,255,0.8)' }}>Delivery date</Text>
-            <Text className="text-white text-[11px] font-bold mt-0.5" numberOfLines={1}>
+            <Text className="text-[9.5px] text-text-muted">Delivery date</Text>
+            <Text className="text-text text-[11px] font-bold mt-0.5" numberOfLines={1}>
               {formatDateTime(invoice.generatedAt || invoice.deliveryDate)}
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         className="flex-1"

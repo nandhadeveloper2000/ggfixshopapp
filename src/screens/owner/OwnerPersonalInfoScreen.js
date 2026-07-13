@@ -160,28 +160,23 @@ export default function OwnerPersonalInfoScreen() {
           screens. Subtitle copy moved into the identity card below so the
           green band stays short and the avatar/stats card sits high on the
           screen instead of being pushed below a tall banner. */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: PRIMARY }}>
-        <LinearGradient
-          colors={[PRIMARY_LIGHT, PRIMARY]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.banner}
-        >
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View style={styles.banner}>
           <View style={styles.bannerTopRow}>
             <Pressable
               onPress={() => navigation.goBack()}
               hitSlop={10}
               style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="chevron-back" size={20} color="#fff" />
+              <Ionicons name="chevron-back" size={20} color="#0F172A" />
             </Pressable>
             <Text style={styles.bannerTitle} numberOfLines={1}>Personal Information</Text>
             <View style={styles.bannerKickerPill}>
-              <Ionicons name="shield-checkmark" size={10} color="#FFFFFF" />
+              <Ionicons name="shield-checkmark" size={10} color="#0F172A" />
               <Text style={styles.bannerKicker}>OWNER</Text>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       <ScrollView
@@ -406,9 +401,12 @@ const styles = StyleSheet.create({
 
   // Banner — slim single row (same shape as Booking Status, KYC View, etc).
   banner: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 6,
     paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   bannerTopRow: {
     flexDirection: 'row',
@@ -420,12 +418,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: '#F1F3F5',
     marginRight: 12,
   },
   bannerTitle: {
     flex: 1,
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -435,10 +433,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: '#F1F3F5',
   },
   bannerKicker: {
-    color: '#FFFFFF',
+    color: '#64748B',
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.7,

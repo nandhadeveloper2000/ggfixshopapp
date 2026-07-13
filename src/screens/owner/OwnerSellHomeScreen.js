@@ -9,7 +9,6 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   TrendingUp,
@@ -120,18 +119,16 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
 
   return (
     <View className="flex-1 bg-background">
-      <StatusBar barStyle="light-content" backgroundColor={GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <SafeAreaView edges={['top']} style={{ backgroundColor: GREEN_DARK }}>
-        <LinearGradient
-          colors={[GREEN_DARK, GREEN, GREEN_LIGHT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
+        <View
           style={{
+            backgroundColor: '#FFFFFF',
             paddingTop: 10,
             paddingBottom: 18,
-            borderBottomLeftRadius: 24,
-            borderBottomRightRadius: 24,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
           }}
         >
           <View style={{ paddingHorizontal: padH }}>
@@ -142,20 +139,20 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
                   hitSlop={8}
                   style={{
                     height: 36, width: 36, borderRadius: 18,
-                    backgroundColor: 'rgba(255,255,255,0.18)',
+                    backgroundColor: '#F1F3F5',
                     alignItems: 'center', justifyContent: 'center',
                     marginRight: 10,
                   }}
                 >
-                  <ChevronLeft size={20} color="#fff" />
+                  <ChevronLeft size={20} color="#0F172A" />
                 </Pressable>
               ) : null}
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Store size={14} color="#fff" />
+                  <Store size={14} color="#0F172A" />
                   <Text
                     style={{
-                      color: '#fff', fontWeight: '800', fontSize: 13,
+                      color: '#0F172A', fontWeight: '800', fontSize: 13,
                       marginLeft: 4, letterSpacing: 0.5,
                     }}
                   >
@@ -163,17 +160,17 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                  <MapPin size={13} color="rgba(255,255,255,0.9)" />
+                  <MapPin size={13} color="#64748B" />
                   <Text
                     numberOfLines={1}
                     style={{
-                      color: '#fff', fontWeight: '700', fontSize: 14,
+                      color: '#0F172A', fontWeight: '700', fontSize: 14,
                       marginLeft: 4, maxWidth: width - 180,
                     }}
                   >
                     Listings reach nearby buyers
                   </Text>
-                  <ChevronDown size={15} color="#fff" style={{ marginLeft: 4 }} />
+                  <ChevronDown size={15} color="#0F172A" style={{ marginLeft: 4 }} />
                 </View>
               </View>
               <Pressable
@@ -181,12 +178,12 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
                 style={{
                   paddingHorizontal: 10, paddingVertical: 5,
                   borderRadius: 999,
-                  backgroundColor: 'rgba(255,255,255,0.22)',
+                  backgroundColor: '#F1F3F5',
                   flexDirection: 'row', alignItems: 'center',
                 }}
               >
-                <Store size={12} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, marginLeft: 4 }}>
+                <Store size={12} color="#0F172A" />
+                <Text style={{ color: '#64748B', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, marginLeft: 4 }}>
                   MY LIST
                 </Text>
               </Pressable>
@@ -194,14 +191,14 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
 
             <Text
               style={{
-                color: '#fff', fontSize: 22, fontWeight: '800',
+                color: '#0F172A', fontSize: 22, fontWeight: '800',
                 marginTop: 14, letterSpacing: -0.3,
               }}
             >
               List a device for sale
             </Text>
             <Text
-              style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12.5, marginTop: 3 }}
+              style={{ color: '#64748B', fontSize: 12.5, marginTop: 3 }}
             >
               Reach verified buyers — quick listing, instant exposure.
             </Text>
@@ -241,7 +238,7 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
               </View>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
 
       {loading ? (

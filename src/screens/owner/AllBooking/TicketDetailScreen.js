@@ -271,24 +271,21 @@ export default function TicketDetailScreen({ route, navigation }) {
   if (loading && !ticket) {
     return (
       <View className="flex-1 bg-background">
-        <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
-        <LinearGradient
-          colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: insets.top + 8, paddingBottom: 20, paddingHorizontal: 16 }}
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View
+          className="border-b border-border"
+          style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 8, paddingBottom: 20, paddingHorizontal: 16 }}
         >
           <View className="flex-row items-center">
             <Pressable
               onPress={() => navigation.goBack()}
-              className="h-10 w-10 rounded-full items-center justify-center mr-3 active:opacity-70"
-              style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+              className="h-10 w-10 rounded-full items-center justify-center mr-3 active:opacity-70 bg-surface-muted"
             >
-              <ArrowLeft size={20} color="#fff" />
+              <ArrowLeft size={20} color="#0F172A" />
             </Pressable>
-            <Text className="flex-1 text-white text-[17px] font-extrabold">Booking Details</Text>
+            <Text className="flex-1 text-text text-[17px] font-extrabold">Booking Details</Text>
           </View>
-        </LinearGradient>
+        </View>
         <Loader label="Loading booking..." />
       </View>
     );
@@ -418,7 +415,7 @@ export default function TicketDetailScreen({ route, navigation }) {
 
   return (
     <View className="flex-1 bg-background">
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Hidden printable receipt — captured by view-shot when the user
           taps Share Receipt. Kept off-screen at left:-9999 so it lays out at
@@ -448,38 +445,37 @@ export default function TicketDetailScreen({ route, navigation }) {
         </ViewShot>
       </View>
 
-      {/* ── Green hero header (replaces native white nav header) ── */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* ── White header (replaces native white nav header) ── */}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingTop: insets.top + 6,
           paddingBottom: 14,
           paddingHorizontal: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View className="flex-row items-center">
           <Pressable
             onPress={() => navigation.goBack()}
-            className="h-10 w-10 rounded-full items-center justify-center mr-3 active:opacity-70"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
+            className="h-10 w-10 rounded-full items-center justify-center mr-3 active:opacity-70 bg-surface-muted"
           >
-            <ArrowLeft size={20} color="#fff" />
+            <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
-          <Text className="flex-1 text-white text-[17px] font-extrabold" numberOfLines={1}>
+          <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
             Booking Details
           </Text>
           <View
-            className="px-2.5 py-1 rounded-full"
-            style={{ backgroundColor: 'rgba(255,255,255,0.22)', maxWidth: 180 }}
+            className="px-2.5 py-1 rounded-full bg-surface-muted"
+            style={{ maxWidth: 180 }}
           >
-            <Text className="text-white text-[11px] font-extrabold" numberOfLines={1}>
+            <Text className="text-text text-[11px] font-extrabold" numberOfLines={1}>
               #{trackingId}
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 24 }}>
         <View style={{ width: contentW, alignSelf: 'center' }}>

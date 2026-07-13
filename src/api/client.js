@@ -10,6 +10,7 @@ import {
   PICKUP_BASE,
   ORDER_BASE,
   USER_BASE,
+  SUBSCRIPTION_BASE,
 } from './config';
 import { getToken, clearSession, notifyAuthExpired } from '../auth/session';
 
@@ -149,3 +150,4 @@ export const marketplaceApi = createClient(MARKETPLACE_BASE);
 export const pickupApi = createClient(PICKUP_BASE);
 export const orderApi = createClient(ORDER_BASE);
 export const userApi = createClient(USER_BASE);
+export const subscriptionApi = createClient(SUBSCRIPTION_BASE);

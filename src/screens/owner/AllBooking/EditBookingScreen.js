@@ -186,54 +186,52 @@ export default function EditBookingScreen({ route, navigation }) {
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND_GREEN_DARK} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Hero gradient */}
-      <LinearGradient
-        colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      {/* White header + hero */}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingTop: insets.top + 8,
           paddingBottom: 70,
           paddingHorizontal: 16,
           borderBottomLeftRadius: 28,
           borderBottomRightRadius: 28,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+            className="w-10 h-10 rounded-full items-center justify-center bg-surface-muted"
           >
-            <ChevronLeft size={22} color="#FFFFFF" />
+            <ChevronLeft size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text className="text-white text-[15px] font-extrabold">Edit Booking</Text>
+          <Text className="text-text text-[15px] font-extrabold">Edit Booking</Text>
           <View
-            className="px-3 py-1.5 rounded-full"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
+            className="px-3 py-1.5 rounded-full bg-surface-muted"
           >
             <View className="flex-row items-center">
-              <Pencil size={11} color="#FFFFFF" />
-              <Text className="ml-1 text-white text-[10.5px] font-bold tracking-wide">EDIT</Text>
+              <Pencil size={11} color="#0F172A" />
+              <Text className="ml-1 text-text text-[10.5px] font-bold tracking-wide">EDIT</Text>
             </View>
           </View>
         </View>
 
         <View className="mt-4">
-          <Text className="text-white/80 text-[11px] font-bold tracking-wider">
+          <Text className="text-text-muted text-[11px] font-bold tracking-wider">
             EDITING BOOKING
           </Text>
-          <Text className="text-white text-xl font-extrabold mt-1" numberOfLines={1}>
+          <Text className="text-text text-xl font-extrabold mt-1" numberOfLines={1}>
             {ticket?.deviceModelName || ticket?.modelName || 'Device'}
           </Text>
-          <Text className="text-white/85 text-[11.5px] mt-0.5" numberOfLines={1}>
+          <Text className="text-text-muted text-[11.5px] mt-0.5" numberOfLines={1}>
             #{ticket?.trackingId || ticketId}
           </Text>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -242,7 +240,7 @@ export default function EditBookingScreen({ route, navigation }) {
         contentContainerStyle={{ paddingBottom: 140 }}
       >
         {error ? (
-          <View className="px-4" style={{ marginTop: -40 }}>
+          <View className="px-4" style={{ marginTop: 12 }}>
             <View
               className="rounded-2xl px-4 py-3"
               style={{ backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FCA5A5' }}
@@ -256,7 +254,7 @@ export default function EditBookingScreen({ route, navigation }) {
 
         {/* Floating device card */}
         {ticket ? (
-          <View className="px-4" style={{ marginTop: error ? 12 : -40 }}>
+          <View className="px-4" style={{ marginTop: 12 }}>
             <View
               className="bg-white rounded-2xl p-4 flex-row items-center"
               style={cardShadow}

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, ScrollView, Image, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Smartphone,
@@ -54,17 +53,17 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6FA' }} edges={['top']}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
 
-      {/* Gradient Hero */}
-      <LinearGradient
-        colors={['#16A34A', '#22C55E']}
+      {/* White header */}
+      <View
         style={{
+          backgroundColor: '#FFFFFF',
           paddingHorizontal: 16,
           paddingTop: 12,
           paddingBottom: 22,
-          borderBottomLeftRadius: 22,
-          borderBottomRightRadius: 22,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
@@ -73,55 +72,56 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
             hitSlop={10}
             style={{
               width: 36, height: 36, borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.18)',
+              backgroundColor: '#F1F3F5',
               alignItems: 'center', justifyContent: 'center',
               marginRight: 12,
             }}
           >
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.2 }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#0F172A', letterSpacing: 0.2 }}>
               Sell on ggfix
             </Text>
-            <Text style={{ fontSize: 12, color: '#DCFCE7', marginTop: 2 }}>
+            <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
               Reach nearby buyers in minutes
             </Text>
           </View>
           <View
             style={{
               width: 38, height: 38, borderRadius: 19,
-              backgroundColor: 'rgba(255,255,255,0.18)',
+              backgroundColor: '#F1F3F5',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <Ionicons name="pricetag" size={20} color="#FFFFFF" />
+            <Ionicons name="pricetag" size={20} color="#0F172A" />
           </View>
         </View>
 
-        {/* Promo strip inside hero */}
+        {/* Promo strip inside header */}
         <View
           style={{
             flexDirection: 'row', alignItems: 'center',
-            backgroundColor: 'rgba(255,255,255,0.14)',
+            backgroundColor: '#F0FDF4',
             paddingHorizontal: 12, paddingVertical: 10,
             borderRadius: 12,
+            borderWidth: 1, borderColor: '#BBF7D0',
           }}
         >
           <View
             style={{
               width: 28, height: 28, borderRadius: 14,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: '#DCFCE7',
               alignItems: 'center', justifyContent: 'center', marginRight: 10,
             }}
           >
             <Ionicons name="flash" size={14} color="#16A34A" />
           </View>
-          <Text style={{ flex: 1, color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
+          <Text style={{ flex: 1, color: '#0F172A', fontSize: 12, fontWeight: '600' }}>
             Zero commission on first 10 listings
           </Text>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 18 }}>
         {modelName ? (
