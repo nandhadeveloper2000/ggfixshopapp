@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -180,7 +181,7 @@ export default function LoginScreen({ onLogin, navigation }) {
                   borderColor: '#DCFCE7',
                 }}
               >
-                <Smartphone size={30} color={GREEN} />
+                <Image source={require('../../assets/logo.png')} style={{ height: 46, width: 46, borderRadius: 12 }} resizeMode="contain" />
               </View>
               <Text style={{ fontSize: 20, fontWeight: '800', color: GREEN, letterSpacing: -0.3 }}>
                 GGFIX

@@ -18,7 +18,8 @@ export default {
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
     jsEngine: 'hermes',
-    splash: { resizeMode: 'contain', backgroundColor: '#202124' },
+    icon: './assets/logo.png',
+    splash: { image: './assets/logo.png', resizeMode: 'contain', backgroundColor: '#202124' },
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.ggfix.shopapp',
@@ -32,10 +33,11 @@ export default {
     },
     android: {
       package: 'com.ggfix.shopapp',
-      adaptiveIcon: { backgroundColor: '#202124' },
+      adaptiveIcon: { foregroundImage: './assets/logo.png', backgroundColor: '#202124' },
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
     },
     plugins: [
+      ['expo-local-authentication', { faceIDPermission: 'Use Face ID to unlock GGFIX.' }],
       // Cleartext HTTP for the plain-http backend. The bare android.usesCleartextTraffic
       // key is ignored by Expo prebuild — it must be set via expo-build-properties.
       [

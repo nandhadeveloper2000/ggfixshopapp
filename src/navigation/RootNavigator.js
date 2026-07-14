@@ -11,6 +11,7 @@ import ForgotPasswordOtpScreen from '../screens/ForgotPasswordOtpScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import OwnerNavigator from './OwnerNavigator';
 import TechnicianNavigator from './TechnicianNavigator';
+import AppLockGate from '../components/AppLockGate';
 
 const Stack = createNativeStackNavigator();
 
@@ -76,9 +77,11 @@ export default function RootNavigator() {
 
   const role = getRoleFromSession(session);
 
-  if (role === 'TECHNICIAN') {
-    return <TechnicianNavigator session={session} onLogout={handleLogout} />;
-  }
-
-  return <OwnerNavigator session={session} onLogout={handleLogout} />;
+  return (
+    <AppLockGate onLogout={handleLogout}>
+      {role === 'TECHNICIAN'
+        ? <TechnicianNavigator session={session} onLogout={handleLogout} />
+        : <OwnerNavigator session={session} onLogout={handleLogout} />}
+    </AppLockGate>
+  );
 }

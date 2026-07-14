@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
   StatusBar,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -34,10 +37,13 @@ import {
   Sparkles,
   Crown,
   CreditCard,
+  CircleCheck,
+  Fingerprint,
 } from 'lucide-react-native';
 import { getSession } from '../../auth/session';
 import { switchShop, fetchMe } from '../../api/auth';
 import { listShopKycDocuments } from '../../api/shops';
+import { isAppLockEnabled, setAppLockEnabled, isDeviceSecure, authenticate } from '../../auth/appLock';
 
 // Swiggy / Zomato green palette — shared with the rest of the owner app.
 const BRAND_GREEN      = '#22C55E';
@@ -193,14 +199,23 @@ export default function MyAccountScreen({ onLogout, navigation }) {
                   backgroundColor: BRAND_GREEN_DARK,
                   alignItems: 'center',
                   justifyContent: 'center',
+                  overflow: 'hidden',
                 }}
               >
-                <Text
-                  className="text-white font-extrabold"
-                  style={{ fontSize: 19, letterSpacing: 1 }}
-                >
-                  {initials}
-                </Text>
+                {user?.avatarUrl ? (
+                  <Image
+                    source={{ uri: user.avatarUrl }}
+                    style={{ width: 56, height: 56, borderRadius: 28 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text
+                    className="text-white font-extrabold"
+                    style={{ fontSize: 19, letterSpacing: 1 }}
+                  >
+                    {initials}
+                  </Text>
+                )}
               </View>
             </View>
             <View className="flex-1 ml-3">
@@ -337,9 +352,9 @@ export default function MyAccountScreen({ onLogout, navigation }) {
             onPress={() => navigation?.navigate?.('OwnerPersonalInfo')}
           />
           <MenuRow
-            Icon={CreditCard}
-            tint="#FFEDD5"
-            accent="#B45309"
+            Icon={CircleCheck}
+            tint="#DCFCE7"
+            accent="#16A34A"
             label="Subscription"
             sub="View your plan & upgrade"
             onPress={() => navigation?.navigate?.('OwnerSubscription')}
@@ -401,6 +416,12 @@ export default function MyAccountScreen({ onLogout, navigation }) {
             onPress={() => navigation?.navigate?.('OwnerLeaveRequests')}
             last
           />
+        </View>
+
+        {/* Security group */}
+        <SectionLabel>Security</SectionLabel>
+        <View className="bg-white rounded-2xl px-3 mt-1" style={softShadow}>
+          <AppLockRow />
         </View>
 
         {/* More group */}
@@ -571,6 +592,40 @@ function SectionLabel({ children }) {
   );
 }
 
+function AppLockRow() {
+  const [on, setOn] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => { (async () => { setOn(await isAppLockEnabled()); setReady(true); })(); }, []);
+  const toggle = async (next) => {
+    if (next) {
+      if (!(await isDeviceSecure())) {
+        Alert.alert('Set a screen lock', 'Add a fingerprint, pattern or PIN in your phone settings first, then turn on App Lock.');
+        return;
+      }
+      if (!(await authenticate())) return;
+    }
+    await setAppLockEnabled(next);
+    setOn(next);
+  };
+  return (
+    <View className="flex-row items-center px-3 py-3.5">
+      <View className="h-10 w-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: '#DCFCE7' }}>
+        <Fingerprint size={18} color={BRAND_GREEN_DARK} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-[14px] font-extrabold text-gray-900">App Lock</Text>
+        <Text className="text-[11.5px] text-gray-500 mt-0.5">Require fingerprint / pattern / PIN to open</Text>
+      </View>
+      <Switch
+        value={on}
+        onValueChange={toggle}
+        disabled={!ready}
+        trackColor={{ true: ACCENT_GREEN, false: '#CBD5E1' }}
+        thumbColor="#FFFFFF"
+      />
+    </View>
+  );
+}
 function MenuRow({ Icon, tint, accent, label, sub, onPress, last }) {
   return (
     <Pressable

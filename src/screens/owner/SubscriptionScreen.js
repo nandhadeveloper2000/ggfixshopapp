@@ -269,77 +269,67 @@ export default function SubscriptionScreen({ navigation, gated = false, onUnlock
             ))
           )}
 
-          {/* ---------- PRICING TABLE ---------- */}
-          <SectionLabel>Basic · Multi-shop Pricing</SectionLabel>
-          <View className="bg-white rounded-2xl overflow-hidden" style={softShadow}>
-            <View
-              className="flex-row px-4 py-2.5"
-              style={{ backgroundColor: tokens.primarySoft }}
-            >
-              <Text className="flex-1 text-[11px] font-extrabold uppercase" style={{ color: tokens.primaryDark, letterSpacing: 0.6 }}>
-                Total Shops
-              </Text>
-              <Text className="text-[11px] font-extrabold uppercase" style={{ color: tokens.primaryDark, letterSpacing: 0.6 }}>
-                Total Amount
-              </Text>
-            </View>
-            {PRICING_ROWS.map((row, i) => (
-              <View
-                key={row.shops}
-                className="flex-row items-center px-4 py-3"
-                style={{
-                  borderTopWidth: i === 0 ? 0 : 1,
-                  borderTopColor: '#F1F5F9',
-                }}
-              >
-                <View className="flex-1 flex-row items-center">
-                  <View
-                    className="w-6 h-6 rounded-full items-center justify-center mr-2"
-                    style={{ backgroundColor: '#F0FDF4' }}
-                  >
-                    <Store size={12} color={tokens.primaryDark} />
-                  </View>
-                  <Text className="text-[13px] font-bold text-gray-800">
-                    {row.shops} shop{row.shops === 1 ? '' : 's'}
-                  </Text>
-                </View>
-                <Text className="text-[13.5px] font-extrabold" style={{ color: tokens.primaryDark }}>
-                  {money(row.amount)}
-                </Text>
+          {/* ---------- MULTI-SHOP PICKER (interactive) ---------- */}
+          <SectionLabel>Basic · Multiple Shops</SectionLabel>
+          <View className="bg-white rounded-2xl p-4" style={softShadow}>
+            <View className="flex-row items-center">
+              <View className="w-9 h-9 rounded-xl items-center justify-center mr-2.5" style={{ backgroundColor: '#F0FDF4' }}>
+                <Store size={17} color={tokens.primaryDark} />
               </View>
-            ))}
-          </View>
-          <Text className="text-[11px] text-gray-400 mt-2 ml-1">
-            1 shop = ₹3,000 · 2 or more shops = ₹2,500 per shop.
-          </Text>
+              <Text className="flex-1 text-[13.5px] font-extrabold text-gray-900">How many shops?</Text>
+              <View className="flex-row items-center">
+                <Pressable
+                  onPress={() => setShopCount((n) => Math.max(1, n - 1))}
+                  disabled={shopCount <= 1}
+                  className="w-8 h-8 rounded-full items-center justify-center"
+                  style={{ backgroundColor: shopCount <= 1 ? '#F1F5F9' : tokens.primarySoft, opacity: shopCount <= 1 ? 0.5 : 1 }}
+                >
+                  <Minus size={16} color={tokens.primaryDark} strokeWidth={2.6} />
+                </Pressable>
+                <Text className="mx-4 text-[18px] font-extrabold text-gray-900" style={{ minWidth: 20, textAlign: 'center' }}>
+                  {shopCount}
+                </Text>
+                <Pressable
+                  onPress={() => setShopCount((n) => Math.min(5, n + 1))}
+                  disabled={shopCount >= 5}
+                  className="w-8 h-8 rounded-full items-center justify-center"
+                  style={{ backgroundColor: shopCount >= 5 ? '#F1F5F9' : tokens.primarySoft, opacity: shopCount >= 5 ? 0.5 : 1 }}
+                >
+                  <Plus size={16} color={tokens.primaryDark} strokeWidth={2.6} />
+                </Pressable>
+              </View>
+            </View>
 
-          {/* ---------- UPGRADE CTA / FLOW ---------- */}
+            <View className="flex-row items-center rounded-2xl px-3.5 py-3 mt-3" style={{ backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0' }}>
+              <Text className="flex-1 text-[13px] font-bold text-gray-700">{shopCount}× Basic subscription</Text>
+              <Text className="text-[17px] font-extrabold" style={{ color: tokens.primaryDark }}>{money(fallbackQuoteTotal)}</Text>
+            </View>
+            <Text className="text-[11px] text-gray-400 mt-2">
+              1 shop = ₹3,000 · 2 or more = ₹2,500 per shop / year.
+            </Text>
+          </View>
+
+          {/* ---------- UPGRADE CTA ---------- */}
           {canUpgrade ? (
             <View className="mt-5">
-              {!upgrading ? (
-                <Pressable
-                  onPress={openUpgrade}
-                  android_ripple={{ color: '#DCFCE7' }}
-                  className="flex-row items-center justify-center rounded-2xl py-4"
-                  style={{ backgroundColor: tokens.primary, ...cardShadow }}
-                >
-                  <Zap size={18} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text className="ml-2 text-white text-[15px] font-extrabold">Upgrade to Basic</Text>
-                </Pressable>
-              ) : (
-                <UpgradePanel
-                  shopCount={shopCount}
-                  onDec={() => setShopCount((n) => Math.max(1, n - 1))}
-                  onInc={() => setShopCount((n) => Math.min(5, n + 1))}
-                  onSet={setShopCount}
-                  quote={quote}
-                  quoteLoading={quoteLoading}
-                  quoteTotal={quoteTotal}
-                  activating={activating}
-                  onConfirm={handleActivate}
-                  onCancel={() => setUpgrading(false)}
-                />
-              )}
+              <Pressable
+                onPress={handleActivate}
+                disabled={activating}
+                android_ripple={{ color: '#DCFCE7' }}
+                className="flex-row items-center justify-center rounded-2xl py-4"
+                style={{ backgroundColor: tokens.primary, opacity: activating ? 0.6 : 1, ...cardShadow }}
+              >
+                {activating ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Zap size={18} color="#FFFFFF" strokeWidth={2.4} />
+                    <Text className="ml-2 text-white text-[15px] font-extrabold">
+                      Upgrade to Basic · {money(fallbackQuoteTotal)}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
             </View>
           ) : null}
         </ScrollView>
