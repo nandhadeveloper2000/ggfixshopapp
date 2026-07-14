@@ -74,7 +74,7 @@ function formatDate(value) {
 // FREE_TRIAL and BASIC plan visuals keyed by plan code.
 const PLAN_ICON = { FREE_TRIAL: Gift, BASIC: Crown };
 
-export default function SubscriptionScreen({ navigation }) {
+export default function SubscriptionScreen({ navigation, gated = false, onUnlock, onLogout }) {
   const [ownerUserId, setOwnerUserId] = useState(null);
   const [current, setCurrent] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -142,7 +142,7 @@ export default function SubscriptionScreen({ navigation }) {
   const currentType = current?.subscriptionType || null;
   const currentStatus = current?.status || null;
   // Upgrade CTA only when on trial or nothing active yet.
-  const canUpgrade = !current || currentStatus === 'FREE_TRIAL' || currentStatus === 'EXPIRED';
+  const canUpgrade = !current || currentStatus === 'FREE_TRIAL' || currentStatus === 'EXPIRED' || currentStatus === 'CANCELLED';
 
   const fallbackQuoteTotal = useMemo(() => {
     const row = PRICING_ROWS.find((r) => r.shops === shopCount);
@@ -179,7 +179,15 @@ export default function SubscriptionScreen({ navigation }) {
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <ScreenHeader title="Subscription" onBack={() => navigation.goBack()} />
+      <ScreenHeader
+        title="Subscription"
+        onBack={gated ? undefined : () => navigation?.goBack?.()}
+        right={gated ? (
+          <Pressable onPress={onLogout} hitSlop={8} className="px-2 py-1">
+            <Text className="text-[12.5px] font-extrabold" style={{ color: '#B91C1C' }}>Logout</Text>
+          </Pressable>
+        ) : undefined}
+      />
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
@@ -192,6 +200,20 @@ export default function SubscriptionScreen({ navigation }) {
           contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}
         >
+          {gated && !activated ? (
+            <View className="rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA' }}>
+              <View className="flex-row items-center">
+                <AlertCircle size={16} color="#B45309" />
+                <Text className="ml-2 flex-1 text-[13px] font-extrabold" style={{ color: '#B45309' }}>
+                  Your free trial has ended
+                </Text>
+              </View>
+              <Text className="text-[12px] text-gray-600 mt-1">
+                Choose a plan below to continue using GGFIX. You can log out anytime from the top-right.
+              </Text>
+            </View>
+          ) : null}
+
           {error ? (
             <View
               className="flex-row items-center rounded-2xl px-3.5 py-3 mb-3"
@@ -214,6 +236,17 @@ export default function SubscriptionScreen({ navigation }) {
                 Basic plan activated. You&apos;re all set!
               </Text>
             </View>
+          ) : null}
+
+          {gated && activated ? (
+            <Pressable
+              onPress={onUnlock}
+              className="flex-row items-center justify-center rounded-2xl py-4 mb-3"
+              style={{ backgroundColor: tokens.primary, ...cardShadow }}
+            >
+              <CheckCircle2 size={18} color="#FFFFFF" />
+              <Text className="ml-2 text-white text-[15px] font-extrabold">Continue to App</Text>
+            </Pressable>
           ) : null}
 
           {/* ---------- CURRENT PLAN ---------- */}

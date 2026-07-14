@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -113,6 +113,7 @@ import OwnerLeaveRequestsScreen from '../screens/owner/OwnerLeaveRequestsScreen'
 import ShopChatInboxScreen from '../screens/owner/chat/ShopChatInboxScreen';
 import ShopChatThreadScreen from '../screens/owner/chat/ShopChatThreadScreen';
 import SubscriptionScreen from '../screens/owner/SubscriptionScreen';
+import { subscriptionApi } from '../api/client';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -274,7 +275,56 @@ function OwnerTabs({ onLogout }) {
   );
 }
 
+// ── Subscription access gate ──────────────────────────────────────────────
+// After login, check the owner's subscription. If it is affirmatively EXPIRED
+// or CANCELLED, lock the app to the Subscription screen until a plan is
+// activated. CRITICAL: this FAILS OPEN — any error, timeout, missing id, null
+// row, or unknown status grants full access, so a subscription-service outage
+// can never lock owners out of the app.
+function useOwnerAccess(session) {
+  const [state, setState] = useState('loading'); // 'loading' | 'full' | 'blocked'
+
+  const check = useCallback(async () => {
+    const uid = session?.userId || session?.id || null;
+    if (!uid) { setState('full'); return; }
+    setState('loading');
+    try {
+      const timeout = new Promise((resolve) => setTimeout(() => resolve('__timeout__'), 5000));
+      const res = await Promise.race([
+        subscriptionApi.get(`/subscriptions/owner/${uid}`),
+        timeout,
+      ]);
+      if (res === '__timeout__') { setState('full'); return; }
+      const status = res?.status;
+      // Gate ONLY on an affirmative expired/cancelled status. ACTIVE, FREE_TRIAL,
+      // null (no row) and anything unexpected → full access.
+      setState(status === 'EXPIRED' || status === 'CANCELLED' ? 'blocked' : 'full');
+    } catch {
+      setState('full');
+    }
+  }, [session]);
+
+  useEffect(() => { check(); }, [check]);
+  return { state, recheck: check };
+}
+
+function GateLoader() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+      <ActivityIndicator size="large" color="#16A34A" />
+    </View>
+  );
+}
+
 export default function OwnerNavigator({ session, onLogout }) {
+  const { state, recheck } = useOwnerAccess(session);
+
+  if (state === 'loading') return <GateLoader />;
+  // Trial expired / subscription lapsed → lock to the Subscription screen.
+  if (state === 'blocked') {
+    return <SubscriptionScreen gated onUnlock={recheck} onLogout={onLogout} />;
+  }
+
   return (
     <Stack.Navigator
       screenOptions={({ navigation }) => ({
