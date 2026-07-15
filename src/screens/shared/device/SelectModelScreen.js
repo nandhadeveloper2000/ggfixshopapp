@@ -1,7 +1,14 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Modal, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  PinchGestureHandler,
+  TapGestureHandler,
+  State,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Smartphone, Check, Pencil, X, Search, ArrowLeft, Maximize2, Plus, Minus } from 'lucide-react-native';
+import { Smartphone, Check, Pencil, X, Search, ArrowLeft } from 'lucide-react-native';
 import { EmptyState, Loader, ScreenHeader } from '../../../components/rnr';
 import DeviceImage from '../../../components/DeviceImage';
 import { getModelsByBrand, getSeriesForCategoryBrand } from '../../../api/masterData';
@@ -22,162 +29,105 @@ function gridMetrics(screenWidth) {
   return { numColumns, cardWidth };
 }
 
-// Gallery-style image viewer: pinch-to-zoom + double-tap + drag, focused on the
-// touch point (like the native Android/iOS Gallery). Pure RN Animated +
-// PanResponder — no reanimated/worklets, so it runs in any build. zoomIn/zoomOut
-// are exposed via ref for the toolbar buttons.
-const ZoomableImage = forwardRef(function ZoomableImage({ url, base64, size }, ref) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const tx = useRef(new Animated.Value(0)).current;
-  const ty = useRef(new Animated.Value(0)).current;
-  const st = useRef({ scale: 1, tx: 0, ty: 0, W: size, H: size, originX: 0, originY: 0, last: null, tap: 0, quick: null, pinch: null }).current;
-  const viewRef = useRef(null);
-  const MIN = 1, MAX = 5;
+// Full-screen gallery image viewer: two-finger pinch-to-zoom, one-finger pan while
+// zoomed, double-tap to zoom in / reset, and a horizontal swipe (while un-zoomed) to
+// move to the prev/next image. Uses react-native-gesture-handler's component API for
+// RELIABLE native multi-touch (PanResponder pinch is flaky on Android) driving plain RN
+// Animated values with useNativeDriver — NO reanimated/worklets, so it can't hit the
+// worklets "installTurboModule" crash. Scale is clamped to [MIN_SCALE, MAX_SCALE] and the
+// pan offset to the image bounds. Zoom/position reset for free via the parent's `key={id}`.
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
+const DOUBLE_TAP_SCALE = 2;
 
-  // Keep the (scaled) image from panning past its own edges.
-  const clamp = (s, x, y) => {
-    const m = Math.max(0, (size * s - size) / 2);
-    return { x: Math.max(-m, Math.min(m, x)), y: Math.max(-m, Math.min(m, y)) };
+function ZoomableImage({ url, base64, size, onSwipe }) {
+  const pinchRef = useRef(null);
+  const panRef = useRef(null);
+
+  // Rendered scale = committed base * live pinch. Pan uses Animated offset accumulation.
+  const baseScale = useRef(new Animated.Value(1)).current;
+  const pinchScale = useRef(new Animated.Value(1)).current;
+  const scale = useRef(Animated.multiply(baseScale, pinchScale)).current;
+  const panX = useRef(new Animated.Value(0)).current;
+  const panY = useRef(new Animated.Value(0)).current;
+  const cur = useRef({ scale: 1, x: 0, y: 0 }).current; // committed values (JS side)
+
+  const panLimit = (s) => Math.max(0, (size * s - size) / 2);
+  const setOffset = (x, y) => {
+    cur.x = x; cur.y = y;
+    panX.setOffset(x); panX.setValue(0);
+    panY.setOffset(y); panY.setValue(0);
   };
-  const commit = (s, x, y, animate) => {
-    st.scale = s; st.tx = x; st.ty = y;
-    if (animate) {
-      Animated.parallel([
-        Animated.spring(scale, { toValue: s, useNativeDriver: true, friction: 7, tension: 70 }),
-        Animated.spring(tx, { toValue: x, useNativeDriver: true, friction: 7, tension: 70 }),
-        Animated.spring(ty, { toValue: y, useNativeDriver: true, friction: 7, tension: 70 }),
-      ]).start();
-    } else {
-      scale.setValue(s); tx.setValue(x); ty.setValue(y);
+
+  // Two-finger pinch — gesture-handler tracks both fingers natively (reliable on Android).
+  const onPinchEvent = Animated.event([{ nativeEvent: { scale: pinchScale } }], { useNativeDriver: true });
+  const onPinchStateChange = (e) => {
+    if (e.nativeEvent.oldState === State.ACTIVE) {
+      const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, cur.scale * e.nativeEvent.scale));
+      cur.scale = next;
+      baseScale.setValue(next);
+      pinchScale.setValue(1);
+      if (next <= MIN_SCALE + 0.001) setOffset(0, 0);
+      else { const l = panLimit(next); setOffset(Math.max(-l, Math.min(l, cur.x)), Math.max(-l, Math.min(l, cur.y))); }
     }
   };
-  // Scale toward `target`, keeping focal point (fx,fy relative to view center) fixed.
-  // t1 = f - (s1/s0)*(f - t0) keeps the pixel under the finger anchored.
-  const zoomToPoint = (target, fx, fy, animate) => {
-    const s1 = Math.max(MIN, Math.min(MAX, target));
-    if (s1 <= MIN) { commit(MIN, 0, 0, animate); return; }
-    const s0 = st.scale || 1;
-    const c = clamp(s1, fx - (s1 / s0) * (fx - st.tx), fy - (s1 / s0) * (fy - st.ty));
-    commit(s1, c.x, c.y, animate);
+
+  // One-finger drag: pan while zoomed, or (un-zoomed) a horizontal swipe to change image.
+  const onPanEvent = Animated.event([{ nativeEvent: { translationX: panX, translationY: panY } }], { useNativeDriver: true });
+  const onPanStateChange = (e) => {
+    if (e.nativeEvent.oldState === State.ACTIVE) {
+      const { translationX, translationY } = e.nativeEvent;
+      if (cur.scale <= MIN_SCALE + 0.02) {
+        setOffset(0, 0); // not zoomed → keep centred
+        if (Math.abs(translationX) > 55 && Math.abs(translationX) > Math.abs(translationY)) {
+          onSwipe?.(translationX < 0 ? 'next' : 'previous');
+        }
+        return;
+      }
+      const l = panLimit(cur.scale);
+      setOffset(
+        Math.max(-l, Math.min(l, cur.x + translationX)),
+        Math.max(-l, Math.min(l, cur.y + translationY)),
+      );
+    }
   };
 
-  useImperativeHandle(ref, () => ({
-    zoomIn: () => zoomToPoint(st.scale + 0.6, 0, 0, true),
-    zoomOut: () => zoomToPoint(st.scale - 0.6, 0, 0, true),
-  }));
-
-  const responder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (e, g) => e.nativeEvent.touches.length === 2 || !!st.quick || st.scale > 1 || Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
-      onPanResponderGrant: (e) => {
-        const touches = e.nativeEvent.touches;
-        if (touches.length === 1) {
-          const now = Date.now();
-          const t = touches[0];
-          const fx = t.locationX - st.W / 2;
-          const fy = t.locationY - st.H / 2;
-          if (now - st.tap < 300) {
-            // Second tap → arm one-finger zoom. If the finger now drags it becomes a
-            // drag-to-zoom (Google Photos style); a clean release = double-tap toggle.
-            st.quick = { scale: st.scale, tx: st.tx, ty: st.ty, fx, fy, startY: t.pageY, moved: false };
-            st.tap = 0;
-          } else {
-            st.tap = now; st.quick = null;
-          }
-        }
-        st.pinch = null; st.last = null;
-      },
-      onPanResponderMove: (e) => {
-        const touches = e.nativeEvent.touches;
-        // One-finger zoom: after a double-tap, drag up = zoom in, drag down = zoom out.
-        if (st.quick && touches.length === 1) {
-          const t = touches[0];
-          const dy = st.quick.startY - t.pageY;
-          if (Math.abs(dy) > 4) st.quick.moved = true;
-          const s0 = st.quick.scale || 1;
-          const s1 = Math.max(MIN, Math.min(MAX, s0 * Math.pow(2, dy / 300)));
-          const fx = st.quick.fx, fy = st.quick.fy;
-          const c = clamp(s1, fx - (s1 / s0) * (fx - st.quick.tx), fy - (s1 / s0) * (fy - st.quick.ty));
-          st.scale = s1; st.tx = c.x; st.ty = c.y;
-          scale.setValue(s1); tx.setValue(c.x); ty.setValue(c.y);
-          return;
-        }
-        // Two-finger pinch. Anchored to the gesture START (fixed focal + base scale) so it
-        // tracks the fingers smoothly instead of drifting frame-to-frame. Uses pageX/pageY
-        // (reliable for multitouch) — locationX is unreliable for the 2nd finger on Android.
-        if (touches.length === 2) {
-          st.quick = null; st.last = null;
-          const [a, b] = touches;
-          const dist = Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY) || 1;
-          const midX = (a.pageX + b.pageX) / 2;
-          const midY = (a.pageY + b.pageY) / 2;
-          if (!st.pinch) {
-            st.pinch = {
-              startDist: dist,
-              baseScale: st.scale,
-              baseTx: st.tx,
-              baseTy: st.ty,
-              fx: midX - st.originX - st.W / 2,
-              fy: midY - st.originY - st.H / 2,
-              startMidX: midX,
-              startMidY: midY,
-            };
-            return;
-          }
-          const p = st.pinch;
-          const s1 = Math.max(MIN, Math.min(MAX, p.baseScale * (dist / p.startDist)));
-          // hold the focal point fixed while scaling, then let the two fingers pan too
-          const nx = p.fx - (s1 / p.baseScale) * (p.fx - p.baseTx) + (midX - p.startMidX);
-          const ny = p.fy - (s1 / p.baseScale) * (p.fy - p.baseTy) + (midY - p.startMidY);
-          const c = clamp(s1, nx, ny);
-          st.scale = s1; st.tx = c.x; st.ty = c.y;
-          scale.setValue(s1); tx.setValue(c.x); ty.setValue(c.y);
-          return;
-        }
-        // One-finger pan while zoomed in.
-        if (touches.length === 1 && st.scale > 1) {
-          st.pinch = null;
-          const t = touches[0];
-          if (st.last) {
-            const c = clamp(st.scale, st.tx + (t.pageX - st.last.x), st.ty + (t.pageY - st.last.y));
-            st.tx = c.x; st.ty = c.y; tx.setValue(c.x); ty.setValue(c.y);
-          }
-          st.last = { x: t.pageX, y: t.pageY };
-        }
-      },
-      onPanResponderRelease: () => {
-        if (st.quick) {
-          if (!st.quick.moved) zoomToPoint(st.scale > 1 ? 1 : 2, st.quick.fx, st.quick.fy, true);
-          else if (st.scale <= MIN + 0.02) commit(MIN, 0, 0, true);
-          st.quick = null;
-        } else if (st.scale <= MIN + 0.02) {
-          commit(MIN, 0, 0, true);
-        }
-        st.pinch = null; st.last = null;
-      },
-      onPanResponderTerminate: () => { st.quick = null; st.pinch = null; st.last = null; },
-    }),
-  ).current;
+  // Double-tap toggles fit (1x) ↔ DOUBLE_TAP_SCALE, always re-centred.
+  const onDoubleTap = (e) => {
+    if (e.nativeEvent.state !== State.ACTIVE) return;
+    if (cur.scale > MIN_SCALE + 0.02) { cur.scale = MIN_SCALE; baseScale.setValue(MIN_SCALE); setOffset(0, 0); }
+    else { cur.scale = DOUBLE_TAP_SCALE; baseScale.setValue(DOUBLE_TAP_SCALE); }
+  };
 
   return (
-    <View
-      ref={viewRef}
-      style={{ flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
-      onLayout={(e) => {
-        st.W = e.nativeEvent.layout.width;
-        st.H = e.nativeEvent.layout.height;
-        // window-relative origin so pinch focal (from touch pageX/pageY) is accurate
-        viewRef.current?.measureInWindow?.((x, y, w, h) => { st.originX = x; st.originY = y; if (w) st.W = w; if (h) st.H = h; });
-      }}
-      {...responder.panHandlers}
+    <PanGestureHandler
+      ref={panRef}
+      minPointers={1}
+      maxPointers={1}
+      avgTouches
+      simultaneousHandlers={pinchRef}
+      onGestureEvent={onPanEvent}
+      onHandlerStateChange={onPanStateChange}
     >
-      <Animated.View style={{ transform: [{ translateX: tx }, { translateY: ty }, { scale }] }}>
-        <DeviceImage url={url} base64={base64} style={{ width: size, height: size }} contentFit="contain" />
+      <Animated.View collapsable={false} style={{ flex: 1, alignSelf: 'stretch' }}>
+        <PinchGestureHandler
+          ref={pinchRef}
+          simultaneousHandlers={panRef}
+          onGestureEvent={onPinchEvent}
+          onHandlerStateChange={onPinchStateChange}
+        >
+          <Animated.View collapsable={false} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <TapGestureHandler numberOfTaps={2} onHandlerStateChange={onDoubleTap}>
+              <Animated.View style={{ width: size, height: size, transform: [{ translateX: panX }, { translateY: panY }, { scale }] }}>
+                <DeviceImage url={url} base64={base64} style={{ width: size, height: size }} contentFit="contain" />
+              </Animated.View>
+            </TapGestureHandler>
+          </Animated.View>
+        </PinchGestureHandler>
       </Animated.View>
-    </View>
+    </PanGestureHandler>
   );
-});
+}
 
 export default function SelectModelScreen({ navigation, route }) {
   const flow = route?.params?.flow || 'PROFILE';
@@ -197,15 +147,15 @@ export default function SelectModelScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [preview, setPreview] = useState(null); // model whose image is shown full-screen
-  const zoomRef = useRef(null); // drives the preview's ＋ / − zoom buttons
+  const [previewIndex, setPreviewIndex] = useState(null); // index into imageModels for the full-screen viewer
   const [selSeriesId, setSelSeriesId] = useState(
     route?.params?.seriesId || editHints?.seriesId || null,
   );
 
   const { width: screenWidth } = useWindowDimensions();
   const { cardWidth } = gridMetrics(screenWidth);
-  const imgBox = Math.round(cardWidth * 0.66);
+  const imgBox = cardWidth - 16;   // image box / tap area (nearly the full card width)
+  const imgInner = imgBox;         // image fills the box → big images like the target screenshot
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +170,8 @@ export default function SelectModelScreen({ navigation, route }) {
         if (UUID_RE.test(String(categoryId || ''))) {
           ms = ms.filter((m) => !m.categoryId || m.categoryId === categoryId);
         }
+        // Sell flow only offers models the admin marked "Sell Active".
+        if (flow === 'SELL') ms = ms.filter((m) => m.sellActive !== false);
         setModels(ms);
         setSeries(seriesList || []);
       } catch (_) {
@@ -249,9 +201,29 @@ export default function SelectModelScreen({ navigation, route }) {
 
   const searchResults = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return models;
+    if (!needle) return [];  // empty query → show the "Start typing to search" prompt, not the full list
     return models.filter((m) => (m.name || '').toLowerCase().includes(needle));
   }, [models, q]);
+
+  // Only models with an image can be opened in the gallery; prev/next moves through
+  // this list so the viewer always shows a real image.
+  const imageModels = useMemo(
+    () => gridModels.filter((m) => m.imageUrl || m.imageBase64),
+    [gridModels],
+  );
+  const preview = previewIndex != null && previewIndex < imageModels.length ? imageModels[previewIndex] : null;
+  const openPreview = (m) => {
+    const i = imageModels.findIndex((x) => x.id === m.id);
+    if (i >= 0) setPreviewIndex(i);
+  };
+  const closePreview = () => setPreviewIndex(null);
+  const swipePreview = (direction) => {
+    setPreviewIndex((i) => {
+      if (i == null) return i;
+      if (direction === 'previous') return i > 0 ? i - 1 : i;
+      return i < imageModels.length - 1 ? i + 1 : i;
+    });
+  };
 
   const onPick = (m) => {
     const pickedSeries = (series || []).find((s) => s.id === m.seriesId);
@@ -319,9 +291,9 @@ export default function SelectModelScreen({ navigation, route }) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
           {searchResults.length === 0 ? (
             <EmptyState
-              icon={<Smartphone size={28} color="#16A34A" />}
-              title="No products found"
-              description={q ? `Nothing matches "${q.trim()}".` : 'Start typing to search.'}
+              icon={q ? <Smartphone size={28} color="#16A34A" /> : <Search size={28} color="#16A34A" />}
+              title={q ? 'No products found' : 'Search products'}
+              description={q ? `Nothing matches "${q.trim()}".` : `Type a model name to search ${brandName || 'products'}.`}
             />
           ) : (
             searchResults.map((m) => {
@@ -332,11 +304,11 @@ export default function SelectModelScreen({ navigation, route }) {
                   onPress={() => onPick(m)}
                   className="flex-row items-center px-4 py-2.5 border-b border-border active:bg-primary/5"
                 >
-                  <View className="h-10 w-10 rounded-lg overflow-hidden items-center justify-center mr-3" style={{ backgroundColor: '#F1F5F9' }}>
+                  <View className="h-14 w-14 rounded-lg overflow-hidden items-center justify-center mr-3">
                     {hasImg ? (
-                      <DeviceImage url={m.imageUrl} base64={m.imageBase64} style={{ width: 40, height: 40 }} contentFit="contain" />
+                      <DeviceImage url={m.imageUrl} base64={m.imageBase64} style={{ width: 56, height: 56 }} contentFit="contain" />
                     ) : (
-                      <Smartphone size={18} color="#16A34A" />
+                      <Smartphone size={26} color="#16A34A" />
                     )}
                   </View>
                   <Text className="flex-1 text-[14px] text-text" numberOfLines={1}>{m.name}</Text>
@@ -440,7 +412,7 @@ export default function SelectModelScreen({ navigation, route }) {
                     className={`bg-card border rounded-2xl active:opacity-80 ${isCurrent ? 'border-primary' : 'border-border'}`}
                     style={{
                       width: cardWidth,
-                      padding: 10,
+                      padding: 8,
                       alignItems: 'center',
                       shadowColor: '#0F172A',
                       shadowOpacity: 0.04,
@@ -450,23 +422,18 @@ export default function SelectModelScreen({ navigation, route }) {
                     }}
                   >
                     <Pressable
-                      onPress={() => setPreview(m)}
+                      onPress={() => openPreview(m)}
                       disabled={!hasImg}
                       className="rounded-xl items-center justify-center overflow-hidden"
-                      style={{ height: imgBox, width: imgBox, marginBottom: 8, backgroundColor: '#F1F5F9' }}
+                      style={{ height: imgBox, width: imgBox, marginBottom: 8 }}
                     >
                       {hasImg ? (
-                        <>
-                          <DeviceImage
-                            url={m.imageUrl}
-                            base64={m.imageBase64}
-                            style={{ width: imgBox - 6, height: imgBox - 6 }}
-                            contentFit="contain"
-                          />
-                          <View style={{ position: 'absolute', top: 4, right: 4, height: 20, width: 20, borderRadius: 10, backgroundColor: 'rgba(15,23,42,0.55)', alignItems: 'center', justifyContent: 'center' }}>
-                            <Maximize2 size={11} color="#FFFFFF" />
-                          </View>
-                        </>
+                        <DeviceImage
+                          url={m.imageUrl}
+                          base64={m.imageBase64}
+                          style={{ width: imgInner, height: imgInner }}
+                          contentFit="contain"
+                        />
                       ) : (
                         <Smartphone size={Math.round(imgBox * 0.4)} color="#16A34A" />
                       )}
@@ -492,50 +459,44 @@ export default function SelectModelScreen({ navigation, route }) {
         </ScrollView>
       )}
 
-      {/* Full-screen original image preview */}
-      <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
-        <View style={{ flex: 1 }}>
+      {/* Full-screen gallery image viewer (pinch / pan / double-tap + swipe) */}
+      <Modal visible={!!preview} transparent animationType="fade" onRequestClose={closePreview}>
+        {/* RN Modal renders in its own window; gesture-handler needs a local root here (Android). */}
+        <GestureHandlerRootView style={{ flex: 1 }}>
           <View style={{ flex: 1, backgroundColor: 'rgba(2,6,23,0.94)' }}>
+            {/* Header: gesture hint + close button */}
             <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text className="text-white/60 text-[11px] font-semibold">Pinch · double-tap · double-tap+drag · ＋ / −</Text>
+              <Text className="text-white/60 text-[11px] font-semibold">🤏 Pinch · double-tap · swipe</Text>
               <Pressable
-                onPress={() => setPreview(null)}
+                onPress={closePreview}
                 hitSlop={12}
                 style={{ height: 42, width: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}
               >
                 <X size={22} color="#FFFFFF" />
               </Pressable>
             </View>
+            {/* Zoomable image with swipe navigation */}
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {preview && (preview.imageUrl || preview.imageBase64) ? (
-                <ZoomableImage ref={zoomRef} key={preview.id} url={preview.imageUrl} base64={preview.imageBase64} size={screenWidth - 40} />
+                <ZoomableImage
+                  key={preview.id}
+                  url={preview.imageUrl}
+                  base64={preview.imageBase64}
+                  size={screenWidth - 40}
+                  onSwipe={swipePreview}
+                />
               ) : (
                 <Smartphone size={140} color="#FFFFFF" />
               )}
             </View>
+
+            {/* Footer: name + select */}
             <View style={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 16 }}>
-              {/* Zoom toolbar — kept outside the gesture surface so taps never fight the pan/pinch responder */}
-              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <Pressable
-                  onPress={() => zoomRef.current?.zoomOut()}
-                  hitSlop={8}
-                  style={{ height: 46, width: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16 }}
-                >
-                  <Minus size={24} color="#FFFFFF" />
-                </Pressable>
-                <Pressable
-                  onPress={() => zoomRef.current?.zoomIn()}
-                  hitSlop={8}
-                  style={{ height: 46, width: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16 }}
-                >
-                  <Plus size={24} color="#FFFFFF" />
-                </Pressable>
-              </View>
               <Text className="text-white text-[15px] font-extrabold mb-3 text-center" numberOfLines={2}>
                 {preview?.name}
               </Text>
               <Pressable
-                onPress={() => { const m = preview; setPreview(null); if (m) onPick(m); }}
+                onPress={() => { const m = preview; closePreview(); if (m) onPick(m); }}
                 className="rounded-2xl py-4 items-center active:opacity-80"
                 style={{ backgroundColor: '#16A34A' }}
               >
@@ -543,7 +504,7 @@ export default function SelectModelScreen({ navigation, route }) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </GestureHandlerRootView>
       </Modal>
     </View>
   );
