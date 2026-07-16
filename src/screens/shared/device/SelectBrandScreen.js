@@ -69,8 +69,14 @@ export default function SelectBrandScreen({ navigation, route }) {
 
   const searchResults = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return brands;
-    return brands.filter((b) => (b.name || '').toLowerCase().includes(needle));
+    if (!needle) return [];  // empty query → show the search prompt, not the full list
+    return brands.filter((b) => {
+      const name = (b.name || '').toLowerCase();
+      // Partial brand typing ("goo" → Google), and also a full model name that
+      // starts with the brand ("google pixel 10" → Google) so users who type the
+      // whole device name still land on the right brand.
+      return name.includes(needle) || needle.startsWith(name + ' ') || needle === name;
+    });
   }, [brands, q]);
 
   const onPick = (b) => navigation.navigate('SelectModel', {
@@ -115,7 +121,11 @@ export default function SelectBrandScreen({ navigation, route }) {
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
           {searchResults.length === 0 ? (
-            <EmptyState title="No brands found" description={q ? `Nothing matches "${q.trim()}".` : 'Start typing to search.'} />
+            <EmptyState
+              icon={<Search size={28} color="#16A34A" />}
+              title={q ? 'No brands found' : 'Search brands'}
+              description={q ? `Nothing matches "${q.trim()}".` : 'Type a brand name (e.g. Google, Vivo, Samsung).'}
+            />
           ) : (
             searchResults.map((b) => {
               const hasImg = !!(b.imageUrl || b.imageBase64);

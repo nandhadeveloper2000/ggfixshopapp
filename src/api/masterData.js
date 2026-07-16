@@ -118,6 +118,58 @@ export async function getModelVariants(modelId) {
   return unwrap(await masterApi.get(`/master/models/${modelId}/variants`));
 }
 
+/**
+ * A model's *configured* options, derived from its master_model_variant rows.
+ * Admin stores two kinds of rows per model: color-only ({ colorId }) and
+ * spec-only ({ ramOptionId, storageOptionId }). We resolve those ids to labels
+ * via the global master lists and return the model's distinct colors + combined
+ * RAM/storage specs — this is what the admin "Models" table shows per row.
+ * The full master lists come back too so callers can fall back to them when a
+ * model has nothing configured yet.
+ */
+export async function getModelOptions(modelId) {
+  const [allColors, allRams, allStorages, variants] = await Promise.all([
+    getColors().catch(() => []),
+    getRamOptions().catch(() => []),
+    getStorageOptions().catch(() => []),
+    modelId ? getModelVariants(modelId).catch(() => []) : Promise.resolve([]),
+  ]);
+  const colorById = new Map(allColors.map((c) => [c.id, c]));
+  const ramById = new Map(allRams.map((r) => [r.id, r]));
+  const stoById = new Map(allStorages.map((s) => [s.id, s]));
+  const labelOf = (o) => o?.label || (o?.valueGb != null ? `${o.valueGb} GB` : '');
+  const colors = [];
+  const specs = [];
+  const seenColor = new Set();
+  const seenSpec = new Set();
+  for (const v of (Array.isArray(variants) ? variants : [])) {
+    if (v.colorId && !seenColor.has(v.colorId)) {
+      const col = colorById.get(v.colorId);
+      if (col?.name) {
+        seenColor.add(v.colorId);
+        colors.push({ id: v.colorId, name: col.name, hexCode: col.hexCode });
+      }
+    }
+    if (v.ramOptionId && v.storageOptionId) {
+      const key = `${v.ramOptionId}|${v.storageOptionId}`;
+      if (!seenSpec.has(key)) {
+        seenSpec.add(key);
+        const rl = labelOf(ramById.get(v.ramOptionId));
+        const sl = labelOf(stoById.get(v.storageOptionId));
+        specs.push({
+          id: key,
+          ramOptionId: v.ramOptionId,
+          storageOptionId: v.storageOptionId,
+          ramLabel: rl,
+          storageLabel: sl,
+          label: [rl, sl].filter(Boolean).join('/'),
+        });
+      }
+    }
+  }
+  return { colors, specs, allColors, allRams, allStorages };
+}
+
 // Repair categories
 export async function getRepairCategories() {
   return unwrap(await masterApi.get('/master/repair-categories'));

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -68,6 +68,18 @@ export default function DeviceServicesScreen({ navigation, route }) {
   const [rows, setRows] = useState(seed.rowSeed); // { [serviceId]: { price, warranty } }
   const [pickedIds, setPickedIds] = useState(() => new Set(seed.idSeed));
   const [expanded, setExpanded] = useState({}); // { [groupId]: bool }
+  const scrollRef = useRef(null);
+
+  // Lift the focused price field above the keyboard. Android resizes the window
+  // when the keyboard opens but never scrolls to the focused input, so a field
+  // low on the list (and its warranty pills) would stay hidden. This is RN's
+  // built-in "scroll native handle above the keyboard" helper — no extra bottom
+  // padding needed, so nothing is left behind when the keyboard closes.
+  const scrollFocusedInputIntoView = (node) => {
+    if (!node) return;
+    const responder = scrollRef.current?.getScrollResponder?.();
+    responder?.scrollResponderScrollNativeHandleToKeyboard?.(node, 110, true);
+  };
 
   useEffect(() => {
     (async () => {
@@ -129,7 +141,7 @@ export default function DeviceServicesScreen({ navigation, route }) {
   };
 
   const addService = (s) => {
-    if (!(priceNum(ensureRow(s.id).price) > 0)) return;
+    // ₹0 is allowed (free / price-to-be-decided) — no minimum-price gate.
     setPickedIds((p) => { const n = new Set(p); n.add(s.id); return n; });
   };
   const removeService = (s) => {
@@ -199,12 +211,8 @@ export default function DeviceServicesScreen({ navigation, route }) {
           </Pressable>
 
           <View className="items-center px-12">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest text-center">
-              REPAIR MENU
-            </Text>
-
             <Text
-              className="text-text text-[19px] font-extrabold mt-0.5 text-center"
+              className="text-text text-[14px] font-extrabold text-center"
               numberOfLines={1}
             >
               Add Issue Services
@@ -214,13 +222,15 @@ export default function DeviceServicesScreen({ navigation, route }) {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: 0, paddingBottom: 130 }}
+        ref={scrollRef}
+        contentContainerStyle={{ paddingTop: 0, paddingBottom: 160 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* ── Device "restaurant card" — overlaps the gradient, Zomato-style ── */}
         <View className="px-4" style={{ marginTop: 14 }}>
           <View
-            className="bg-card rounded-2xl p-3.5"
+            className="bg-card rounded-2xl p-3"
             style={{
               shadowColor: '#0F172A',
               shadowOpacity: 0.12,
@@ -230,28 +240,28 @@ export default function DeviceServicesScreen({ navigation, route }) {
             }}
           >
             <View className="flex-row items-center">
-              <View className="h-16 w-16 rounded-2xl bg-primary/10 items-center justify-center overflow-hidden mr-3">
+              <View className="h-14 w-14 rounded-2xl bg-primary/10 items-center justify-center overflow-hidden mr-3">
                 {params.imageUrl ? (
-                  <Image source={{ uri: params.imageUrl }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+                  <Image source={{ uri: params.imageUrl }} style={{ width: 56, height: 56 }} resizeMode="cover" />
                 ) : (
-                  <Smartphone size={28} color="#00008B" />
+                  <Smartphone size={24} color="#00008B" />
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-[15px] font-extrabold text-text" numberOfLines={1}>
+                <Text className="text-[14px] font-extrabold text-text" numberOfLines={1}>
                   {params.modelName || 'Device'}
                 </Text>
-                <Text className="text-[11.5px] text-text-muted mt-0.5" numberOfLines={1}>
+                <Text className="text-[12px] text-text-muted mt-0.5" numberOfLines={1}>
                   {[params.ramLabel, params.storageLabel, params.color].filter(Boolean).join(' · ')}
                 </Text>
                 <View className="flex-row items-center mt-1.5">
                   <View className="flex-row items-center bg-success/10 rounded-md px-1.5 py-0.5 mr-1.5">
                     <Star size={10} color={ACCENT_GREEN} fill={ACCENT_GREEN} />
-                    <Text className="text-success text-[10px] font-extrabold ml-0.5">4.8</Text>
+                    <Text className="text-success text-[12px] font-extrabold ml-0.5">4.8</Text>
                   </View>
                   <View className="flex-row items-center">
                     <ShieldCheck size={11} color="#64748B" />
-                    <Text className="text-text-muted text-[10.5px] font-semibold ml-1">Genuine parts</Text>
+                    <Text className="text-text-muted text-[12px] font-semibold ml-1">Genuine parts</Text>
                   </View>
                 </View>
               </View>
@@ -260,9 +270,9 @@ export default function DeviceServicesScreen({ navigation, route }) {
         </View>
 
         {/* ── Section header — like Swiggy's "Recommended" rail ──────────── */}
-        <View className="px-4 pt-5 pb-2 flex-row items-center">
+        <View className="px-4 pt-4 pb-1.5 flex-row items-center">
           <Sparkles size={14} color={BRAND_GREEN} />
-          <Text className="text-text font-extrabold text-[13px] tracking-widest ml-1.5">RECOMMENDED REPAIRS</Text>
+          <Text className="text-text font-extrabold text-[12px] tracking-widest ml-1.5">RECOMMENDED REPAIRS</Text>
           <View className="flex-1 h-px bg-border ml-2" />
         </View>
 
@@ -275,7 +285,7 @@ export default function DeviceServicesScreen({ navigation, route }) {
             return (
               <View
                 key={g.id}
-                className="mb-3 bg-card rounded-2xl overflow-hidden"
+                className="mb-2.5 bg-card rounded-2xl overflow-hidden"
                 style={{
                   shadowColor: '#0F172A',
                   shadowOpacity: 0.05,
@@ -286,21 +296,21 @@ export default function DeviceServicesScreen({ navigation, route }) {
               >
                 <Pressable
                   onPress={() => toggleGroup(g.id)}
-                  className="flex-row items-center px-3.5 py-3.5 active:opacity-80"
+                  className="flex-row items-center px-3.5 py-3 active:opacity-80"
                 >
-                  <View className="h-10 w-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: 'rgba(34, 197, 94, 0.12)' }}>
-                    <Wrench size={17} color={BRAND_GREEN} />
+                  <View className="h-9 w-9 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: 'rgba(34, 197, 94, 0.12)' }}>
+                    <Wrench size={16} color={BRAND_GREEN} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-[14px] font-extrabold text-text" numberOfLines={1}>{g.name}</Text>
                     <View className="flex-row items-center mt-0.5">
-                      <Text className="text-[10.5px] text-text-muted">
+                      <Text className="text-[12px] text-text-muted">
                         {g.services.length} {g.services.length === 1 ? 'option' : 'options'}
                       </Text>
                       {pickedInGroup ? (
                         <>
                           <View className="h-1 w-1 rounded-full bg-text-muted mx-1.5" />
-                          <Text className="text-success text-[10.5px] font-extrabold">
+                          <Text className="text-success text-[12px] font-extrabold">
                             {pickedInGroup} added
                           </Text>
                         </>
@@ -311,12 +321,13 @@ export default function DeviceServicesScreen({ navigation, route }) {
                 </Pressable>
 
                 {open ? (
-                  <View className="px-3.5 pb-3.5 pt-1">
+                  <View className="px-3.5 pb-2.5 pt-1">
                     {g.services.map((s) => {
                       const r = ensureRow(s.id);
                       const isPicked = pickedIds.has(s.id);
                       const Icon = iconFor(s.code);
-                      const canAdd = priceNum(r.price) > 0;
+                      // ₹0 is a valid price now, so ADD is always enabled.
+                      const canAdd = true;
                       return (
                         <ServiceItem
                           key={s.id}
@@ -330,6 +341,7 @@ export default function DeviceServicesScreen({ navigation, route }) {
                           onWarrantyChange={(c) => setField(s.id, 'warranty', c)}
                           onAdd={() => addService(s)}
                           onRemove={() => removeService(s)}
+                          onPriceFocus={scrollFocusedInputIntoView}
                         />
                       );
                     })}
@@ -367,12 +379,12 @@ export default function DeviceServicesScreen({ navigation, route }) {
               style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center' }}
             >
               <View className="bg-white/20 rounded-full h-9 px-2.5 items-center justify-center flex-row mr-3">
-                <Text className="text-white text-[13px] font-extrabold">{totalSelected}</Text>
-                <Text className="text-white text-[10.5px] font-bold ml-1">item{totalSelected > 1 ? 's' : ''}</Text>
+                <Text className="text-white text-[12px] font-extrabold">{totalSelected}</Text>
+                <Text className="text-white text-[12px] font-bold ml-1">item{totalSelected > 1 ? 's' : ''}</Text>
               </View>
               <View className="flex-1">
                 <Text className="text-white text-[12px] font-bold opacity-90">Total estimated</Text>
-                <Text className="text-white text-[18px] font-extrabold">₹{formatINR(cartTotal)}</Text>
+                <Text className="text-white text-[14px] font-extrabold">₹{formatINR(cartTotal)}</Text>
               </View>
               <View className="flex-row items-center">
                 <Text className="text-white text-[14px] font-extrabold">Continue</Text>
@@ -404,40 +416,44 @@ export default function DeviceServicesScreen({ navigation, route }) {
 //                price input + warranty pills
 // ════════════════════════════════════════════════════════════════════════════
 function ServiceItem({
-  name, Icon, isPicked, canAdd, price, onPriceChange, warranty, onWarrantyChange, onAdd, onRemove,
+  name, Icon, isPicked, canAdd, price, onPriceChange, warranty, onWarrantyChange, onAdd, onRemove, onPriceFocus,
 }) {
   return (
     <View
-      className={`rounded-2xl mb-2.5 ${isPicked ? 'bg-success/5 border-success/40' : 'bg-background border-border'}`}
-      style={{ borderWidth: isPicked ? 1.5 : 1, padding: 12 }}
+      className={`rounded-2xl mb-2 ${isPicked ? 'bg-success/5 border-success/40' : 'bg-background border-border'}`}
+      style={{ borderWidth: isPicked ? 1.5 : 1, padding: 10 }}
     >
       <View className="flex-row items-start">
         <View
-          className={`h-12 w-12 rounded-xl items-center justify-center mr-3 ${isPicked ? '' : 'bg-card'}`}
+          className={`h-10 w-10 rounded-xl items-center justify-center mr-3 ${isPicked ? '' : 'bg-card'}`}
           style={isPicked ? { backgroundColor: ACCENT_GREEN } : null}
         >
-          <Icon size={20} color={isPicked ? '#fff' : '#0F172A'} />
+          <Icon size={18} color={isPicked ? '#fff' : '#0F172A'} />
         </View>
 
         <View className="flex-1 pr-1.5">
-          <Text className="font-extrabold text-text text-[13.5px]" numberOfLines={2}>{name}</Text>
+          <Text className="font-extrabold text-text text-[14px]" numberOfLines={2}>{name}</Text>
 
           {/* Price input — chip-style */}
-          <View className="flex-row items-center mt-2">
+          <View className="flex-row items-center mt-1.5">
             <View className={`flex-row items-center rounded-lg border px-2 ${isPicked ? 'border-success/40 bg-card' : 'border-border bg-card'}`}>
-              <Text className="text-text-muted text-[13px] mr-1">₹</Text>
+              <Text className="text-text-muted text-[12px] mr-1">₹</Text>
               <TextInput
                 placeholder="0"
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
                 value={String(price ?? '')}
                 onChangeText={onPriceChange}
-                className="text-text text-[13.5px] font-bold min-w-[80px]"
-                style={{ paddingVertical: 6 }}
+                onFocus={(e) => onPriceFocus?.(e?.nativeEvent?.target ?? e?.target)}
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="none"
+                className="text-text text-[14px] font-bold min-w-[80px]"
+                style={{ paddingVertical: 5 }}
               />
             </View>
             <Pressable className="ml-2 active:opacity-60">
-              <Text className="text-primary text-[10px] underline">Last 5 prices</Text>
+              <Text className="text-primary text-[12px] underline">Last 5 prices</Text>
             </Pressable>
           </View>
         </View>
@@ -451,7 +467,7 @@ function ServiceItem({
               style={{ backgroundColor: 'rgba(239, 68, 68, 0.10)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.35)' }}
             >
               <X size={12} color="#EF4444" />
-              <Text className="text-danger text-[11.5px] font-extrabold ml-1">REMOVE</Text>
+              <Text className="text-danger text-[12px] font-extrabold ml-1">REMOVE</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -468,23 +484,23 @@ function ServiceItem({
               }}
             >
               <Plus size={12} color="#fff" />
-              <Text className="text-white text-[11.5px] font-extrabold ml-0.5">ADD</Text>
+              <Text className="text-white text-[12px] font-extrabold ml-0.5">ADD</Text>
             </Pressable>
           )}
         </View>
       </View>
 
       {/* Warranty pills — like Swiggy's "Size" / Zomato's "Variant" chips */}
-      <View className="mt-3">
-        <Text className="text-[9.5px] font-extrabold text-text-muted tracking-widest mb-1.5">WARRANTY</Text>
+      <View className="mt-2">
+        <Text className="text-[12px] font-extrabold text-text-muted tracking-widest mb-1">WARRANTY</Text>
         <View className="flex-row -mx-1">
           {WARRANTY_OPTIONS.map((w) => {
             const active = warranty === w.code;
             return (
               <Pressable
                 key={w.code}
-                onPress={() => onWarrantyChange(w.code)}
-                className="flex-1 mx-1 py-2 rounded-full items-center"
+                onPress={() => onWarrantyChange(active ? '' : w.code)}
+                className="flex-1 mx-1 py-1.5 rounded-full items-center"
                 style={{
                   backgroundColor: active ? BRAND_GREEN : '#fff',
                   borderWidth: 1,
@@ -498,7 +514,7 @@ function ServiceItem({
               >
                 <Text
                   numberOfLines={1}
-                  className={`text-[11px] font-extrabold ${active ? 'text-white' : 'text-text'}`}
+                  className={`text-[12px] font-extrabold ${active ? 'text-white' : 'text-text'}`}
                 >
                   {w.label}
                 </Text>

@@ -45,21 +45,21 @@ export default function NewBookingScreen({ navigation }) {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title="New Booking" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerClassName="px-6 pt-6 pb-12" keyboardShouldPersistTaps="handled">
-        <View className="items-center my-6">
+      <ScrollView contentContainerClassName="px-6 pt-4 pb-12" keyboardShouldPersistTaps="handled">
+        <View className="items-center mt-2 mb-4">
           <Pressable
             onPress={() => navigation.navigate('CustomerDetails')}
             className="bg-primary rounded-2xl items-center justify-center active:opacity-80"
-            style={{ width: 160, height: 160 }}
+            style={{ width: 140, height: 140 }}
           >
-            <View className="bg-white/10 rounded-full p-4 mb-2">
-              <Ionicons name="people" size={48} color="#fff" />
+            <View className="bg-white/10 rounded-full p-3 mb-1">
+              <Ionicons name="people" size={42} color="#fff" />
             </View>
-            <Text className="text-white font-bold mt-2">New Customer</Text>
+            <Text className="text-white font-bold mt-1">New Customer</Text>
           </Pressable>
         </View>
 
-        <View className="bg-card border border-border rounded-full flex-row items-center px-4 py-3 mt-6">
+        <View className="bg-card border border-border rounded-xl flex-row items-center px-3" style={{ height: 44 }}>
           <Ionicons name="search" size={18} color="#64748B" />
           <TextInput
             placeholder="Search Existing Customer Name or Mobile Number..."
@@ -67,6 +67,7 @@ export default function NewBookingScreen({ navigation }) {
             value={q}
             onChangeText={setQ}
             className="flex-1 ml-2 text-text"
+            style={{ paddingVertical: 0, fontSize: 14 }}
           />
           {loading ? <ActivityIndicator size="small" color="#00008B" /> : null}
         </View>

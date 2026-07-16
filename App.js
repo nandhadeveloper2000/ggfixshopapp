@@ -1,4 +1,7 @@
 import './global.css';
+// Global responsive font scaling — must load before any screen renders so the
+// Text/TextInput patch is in place. See src/theme/fontScaling.js.
+import './src/theme/fontScaling';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';

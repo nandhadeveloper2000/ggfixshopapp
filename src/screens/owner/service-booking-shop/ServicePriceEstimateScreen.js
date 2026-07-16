@@ -254,7 +254,7 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
             </Text>
 
             <Text
-              className="text-text text-[19px] font-extrabold mt-0.5 text-center"
+              className="text-text text-[20px] font-extrabold mt-0.5 text-center"
               numberOfLines={1}
             >
               Price, IMEI & Timing
@@ -288,15 +288,15 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-[15px] font-extrabold text-text" numberOfLines={1}>
+                <Text className="text-[16px] font-extrabold text-text" numberOfLines={1}>
                   {params.modelName || 'Device'}
                 </Text>
-                <Text className="text-[11.5px] text-text-muted mt-0.5" numberOfLines={1}>
+                <Text className="text-[12px] text-text-muted mt-0.5" numberOfLines={1}>
                   {[params.ramLabel, params.storageLabel, params.color].filter(Boolean).join(' · ')}
                 </Text>
                 <View className="flex-row items-center mt-1.5">
                   <View className="bg-primary/10 rounded-md px-1.5 py-0.5">
-                    <Text className="text-primary text-[10px] font-extrabold">
+                    <Text className="text-primary text-[11px] font-extrabold">
                       {services.length} service{services.length > 1 ? 's' : ''} added
                     </Text>
                   </View>
@@ -313,7 +313,7 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
             {services.map((s, i) => (
               <View key={i} className="flex-row items-center mb-2.5">
                 <View className="h-6 w-6 rounded-md items-center justify-center mr-2" style={{ backgroundColor: 'rgba(34, 197, 94, 0.14)' }}>
-                  <Text className="text-[10.5px] font-extrabold" style={{ color: BRAND_GREEN }}>{i + 1}</Text>
+                  <Text className="text-[12px] font-extrabold" style={{ color: BRAND_GREEN }}>{i + 1}</Text>
                 </View>
                 <Text className="flex-1 text-text text-[13px]" numberOfLines={1}>{s.serviceName}</Text>
                 <Text className="text-text font-extrabold text-[13px]">₹{formatINR(s.price)}</Text>
@@ -330,10 +330,10 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
 
             <View className="flex-row items-center">
               <Tag size={13} color={BRAND_GREEN} />
-              <Text className="flex-1 text-text font-extrabold text-[13.5px] ml-1.5">Estimated Total</Text>
+              <Text className="flex-1 text-text font-extrabold text-[14px] ml-1.5">Estimated Total</Text>
               <Text className="text-[18px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>₹{formatINR(total)}</Text>
             </View>
-            <Text className="text-text-muted text-[10.5px] mt-1">
+            <Text className="text-text-muted text-[12px] mt-1">
               Final amount may vary slightly based on parts availability.
             </Text>
           </View>
@@ -364,10 +364,10 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                 accessibilityLabel="Scan IMEI barcode"
               >
                 <ScanLine size={14} color={BRAND_GREEN} />
-                <Text className="text-[11.5px] font-extrabold ml-1" style={{ color: BRAND_GREEN }}>SCAN</Text>
+                <Text className="text-[12px] font-extrabold ml-1" style={{ color: BRAND_GREEN }}>SCAN</Text>
               </Pressable>
             </View>
-            <Text className="text-text-muted text-[10.5px] mt-2 leading-4">
+            <Text className="text-text-muted text-[12px] mt-2 leading-4">
               Tip: dial <Text className="font-extrabold text-text">*#06#</Text> on the device to display IMEI as a barcode.
             </Text>
           </View>
@@ -396,7 +396,7 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                   (a) idle, no clip  → big green "Record" pill
                   (b) recording      → red pulse with timer + Stop button
                   (c) clip ready     → play/pause + duration + remove */}
-            <Text className="text-[10px] font-extrabold text-text-muted tracking-widest mb-2">VOICE NOTE</Text>
+            <Text className="text-[11px] font-extrabold text-text-muted tracking-widest mb-2">VOICE NOTE</Text>
 
             {isRecording ? (
               <View
@@ -435,8 +435,8 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                   )}
                 </Pressable>
                 <View className="flex-1 ml-2.5">
-                  <Text className="text-text text-[12.5px] font-extrabold">Voice note attached</Text>
-                  <Text className="text-text-muted text-[10.5px]">
+                  <Text className="text-text text-[13px] font-extrabold">Voice note attached</Text>
+                  <Text className="text-text-muted text-[12px]">
                     {uploadingAudio ? 'Uploading to cloud…' : (audioUrl ? 'Uploaded · tap play to preview' : 'Tap play to preview')}
                   </Text>
                 </View>
@@ -479,24 +479,24 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
             {/* Top: received "now" + duration selector */}
             <View className="flex-row">
               <View className="flex-1 mr-2">
-                <Text className="text-[10px] text-text-muted font-bold tracking-widest mb-1.5">RECEIVED ON</Text>
+                <Text className="text-[11px] text-text-muted font-bold tracking-widest mb-1.5">RECEIVED ON</Text>
                 <View
                   className="rounded-xl px-3 py-2.5"
                   style={{ backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.30)' }}
                 >
                   <View className="flex-row items-center">
                     <Calendar size={13} color={BRAND_GREEN} />
-                    <Text className="text-text text-[12.5px] font-extrabold ml-1.5">{dateLabel}</Text>
+                    <Text className="text-text text-[13px] font-extrabold ml-1.5">{dateLabel}</Text>
                   </View>
                   <View className="flex-row items-center mt-1">
                     <Clock size={13} color={BRAND_GREEN} />
-                    <Text className="text-text text-[12.5px] font-bold ml-1.5">{timeLabel}</Text>
+                    <Text className="text-text text-[13px] font-bold ml-1.5">{timeLabel}</Text>
                   </View>
                 </View>
               </View>
 
               <View className="w-28">
-                <Text className="text-[10px] text-text-muted font-bold tracking-widest mb-1.5">DURATION</Text>
+                <Text className="text-[11px] text-text-muted font-bold tracking-widest mb-1.5">DURATION</Text>
                 <View
                   className="rounded-xl"
                   style={{ borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.30)', backgroundColor: 'rgba(34, 197, 94, 0.08)' }}
@@ -515,14 +515,14 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                 <Timer size={18} color={BRAND_GREEN} />
               </View>
               <View className="flex-1">
-                <Text className="text-white/70 text-[10px] font-bold tracking-widest">READY BY</Text>
+                <Text className="text-white/70 text-[11px] font-bold tracking-widest">READY BY</Text>
                 <Text className="text-white text-[14px] font-extrabold mt-0.5" numberOfLines={1}>
                   {deliveryDateLabel} · {deliveryTimeLabel}
                 </Text>
               </View>
               <View className="bg-success/20 rounded-full px-2.5 py-1 flex-row items-center">
                 <ShieldCheck size={11} color={ACCENT_GREEN} />
-                <Text className="text-[10.5px] font-extrabold ml-1" style={{ color: '#86EFAC' }}>ON TIME</Text>
+                <Text className="text-[12px] font-extrabold ml-1" style={{ color: '#86EFAC' }}>ON TIME</Text>
               </View>
             </View>
 
@@ -543,22 +543,12 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
               )}
               <View className="flex-1 ml-2.5">
                 <Text className="text-[13px] font-extrabold text-text">Customer repair approval</Text>
-                <Text className="text-[10.5px] text-text-muted">Customer agreed to the estimated price & timing.</Text>
+                <Text className="text-[12px] text-text-muted">Customer agreed to the estimated price & timing.</Text>
               </View>
             </Pressable>
           </View>
         </View>
 
-        {/* ── Trust strip — like Swiggy's "Genuine ingredients" ───────── */}
-        <View className="px-4 mt-4">
-          <View className="flex-row items-center justify-around py-3 rounded-2xl bg-card" style={cardShadow}>
-            <TrustItem Icon={ShieldCheck} label="Genuine parts" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem Icon={Timer} label="On-time repair" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem Icon={CircleCheck} label="30-day warranty" />
-          </View>
-        </View>
       </ScrollView>
 
       {/* ── Sticky Swiggy-style "Place Order" CTA ──────────────────────── */}
@@ -589,7 +579,7 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
           >
             <View className="flex-1">
               <Text className="text-white text-[11px] font-bold opacity-90">ESTIMATED TOTAL</Text>
-              <Text className="text-white text-[19px] font-extrabold">₹{formatINR(total)}</Text>
+              <Text className="text-white text-[20px] font-extrabold">₹{formatINR(total)}</Text>
             </View>
             <View className="flex-row items-center">
               <Text className="text-white text-[14px] font-extrabold">Continue</Text>
@@ -598,7 +588,7 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
           </LinearGradient>
         </Pressable>
         {!isReady ? (
-          <Text className="text-text-muted text-[10.5px] text-center mt-2">
+          <Text className="text-text-muted text-[12px] text-center mt-2">
             {uploadingAudio
               ? 'Uploading voice note…'
               : isRecording
@@ -618,23 +608,17 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
 // ════════════════════════════════════════════════════════════════════════════
 // Helpers
 // ════════════════════════════════════════════════════════════════════════════
-function SectionHeader({ icon: Icon, label }) {
+function SectionHeader({ icon: Icon, label, subtitle }) {
   return (
-    <View className="px-4 pt-5 pb-2 flex-row items-center">
-      <Icon size={14} color={BRAND_GREEN} />
-      <Text className="text-text font-extrabold text-[12.5px] tracking-widest ml-1.5">{label}</Text>
-      <View className="flex-1 h-px bg-border ml-2" />
-    </View>
-  );
-}
-
-function TrustItem({ Icon, label }) {
-  return (
-    <View className="items-center flex-1">
-      <Icon size={16} color={ACCENT_GREEN} />
-      <Text className="text-text-muted text-[10px] font-extrabold mt-1 text-center" numberOfLines={1}>
-        {label}
-      </Text>
+    <View className="px-4 pt-5 pb-2">
+      <View className="flex-row items-center">
+        <Icon size={14} color={BRAND_GREEN} />
+        <Text className="text-text font-extrabold text-[13px] tracking-widest ml-1.5">{label}</Text>
+        <View className="flex-1 h-px bg-border ml-2" />
+      </View>
+      {subtitle ? (
+        <Text className="text-text-muted text-[12px] mt-1.5 ml-[22px]">{subtitle}</Text>
+      ) : null}
     </View>
   );
 }

@@ -170,8 +170,9 @@ export default function SelectModelScreen({ navigation, route }) {
         if (UUID_RE.test(String(categoryId || ''))) {
           ms = ms.filter((m) => !m.categoryId || m.categoryId === categoryId);
         }
-        // Sell flow only offers models the admin marked "Sell Active".
-        if (flow === 'SELL') ms = ms.filter((m) => m.sellActive !== false);
+        // Sell flows (customer trade-in SELL + shop-owner marketplace listing
+        // OWNER_LIST) only offer models the admin marked "Sell Active".
+        if (flow === 'SELL' || flow === 'OWNER_LIST') ms = ms.filter((m) => m.sellActive !== false);
         setModels(ms);
         setSeries(seriesList || []);
       } catch (_) {

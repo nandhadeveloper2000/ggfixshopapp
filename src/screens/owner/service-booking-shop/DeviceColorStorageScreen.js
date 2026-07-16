@@ -10,10 +10,9 @@ import {
   Check,
   ChevronRight,
   ArrowLeft,
-  Sparkles,
 } from 'lucide-react-native';
 import { Loader } from '../../../components/rnr';
-import { getColors, getRamOptions, getStorageOptions } from '../../../api/masterData';
+import { getModelOptions } from '../../../api/masterData';
 
 // Swiggy / Zomato-inspired palette — matches the other booking screens so the
 // whole flow feels like one continuous "order" journey, just in green.
@@ -54,6 +53,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [rams, setRams] = useState([]);
   const [storages, setStorages] = useState([]);
+  const [specs, setSpecs] = useState([]);
   const [colorsList, setColorsList] = useState([]);
   // Edit mode: hydrate color/RAM/storage from the existing ticket so they show
   // pre-selected. Picking a different option just overwrites the choice.
@@ -64,12 +64,14 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
   useEffect(() => {
     (async () => {
       try {
-        const [r, s, c] = await Promise.all([
-          getRamOptions(), getStorageOptions(), getColors().catch(() => []),
-        ]);
-        setRams(r);
-        setStorages(s);
-        setColorsList(c);
+        const opts = await getModelOptions(params.modelId);
+        // Show only THIS model's configured colors + RAM/storage variants (what
+        // the admin set for the model); fall back to the full master lists when
+        // the model has nothing configured yet.
+        setColorsList(opts.colors.length ? opts.colors : opts.allColors);
+        setSpecs(opts.specs);
+        setRams(opts.allRams);
+        setStorages(opts.allStorages);
       } catch (_) { }
       setLoading(false);
     })();
@@ -86,6 +88,20 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
       storageOptionId: storage,
       ramLabel,
       storageLabel,
+    });
+  };
+
+  // Skip lets the owner move on without picking color/RAM/storage — any partial
+  // selection is still forwarded, and downstream screens already treat these as
+  // optional (they render with `.filter(Boolean)`).
+  const onSkip = () => {
+    navigation.navigate('DeviceServices', {
+      ...params,
+      color: color.trim() || undefined,
+      ramOptionId: ram || undefined,
+      storageOptionId: storage || undefined,
+      ramLabel: rams.find((x) => x.id === ram)?.label,
+      storageLabel: storages.find((x) => x.id === storage)?.label,
     });
   };
 
@@ -121,17 +137,20 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
           </Pressable>
 
           <View className="items-center px-12">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest text-center">
-              CUSTOMIZE
-            </Text>
-
             <Text
-              className="text-text text-[19px] font-extrabold mt-0.5 text-center"
+              className="text-text text-[14px] font-extrabold text-center"
               numberOfLines={1}
             >
-              Color, RAM & Storage
+              Your Device
             </Text>
           </View>
+
+          <Pressable
+            onPress={onSkip}
+            className="absolute right-0 h-10 px-3.5 rounded-full bg-surface-muted items-center justify-center active:opacity-70"
+          >
+            <Text className="text-text-muted text-[12px] font-extrabold">Skip</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -151,29 +170,27 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
               elevation: 6,
             }}
           >
-            <View className="flex-row items-center">
-              <View className="h-16 w-16 rounded-2xl bg-success/10 items-center justify-center overflow-hidden mr-3">
+            <View className="items-center">
+              {/* Responsive image — scales with the card width, 2px inset padding
+                  so the artwork never touches the rounded corners. */}
+              <View
+                className="rounded-2xl bg-success/10 items-center justify-center overflow-hidden mb-3"
+                style={{ width: '40%', aspectRatio: 1, padding: 2 }}
+              >
                 {params.imageUrl ? (
-                  <Image source={{ uri: params.imageUrl }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+                  <Image source={{ uri: params.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
                 ) : (
-                  <Smartphone size={28} color={ACCENT_GREEN} />
+                  <Smartphone size={52} color={ACCENT_GREEN} />
                 )}
               </View>
-              <View className="flex-1">
-                <Text className="text-[15px] font-extrabold text-text" numberOfLines={1}>
-                  {params.modelName || 'Device'}
+              <Text className="text-[14px] font-extrabold text-text text-center" numberOfLines={2}>
+                {params.modelName || 'Device'}
+              </Text>
+              {params.brandName ? (
+                <Text className="text-[12px] text-text-muted mt-0.5 text-center" numberOfLines={1}>
+                  {params.brandName}
                 </Text>
-                <Text className="text-[11.5px] text-text-muted mt-0.5" numberOfLines={1}>
-                  {params.brandName || ''}
-                </Text>
-                {ready ? (
-                  <View className="bg-success/10 rounded-md px-1.5 py-0.5 self-start mt-1.5">
-                    <Text className="text-success text-[10px] font-extrabold">READY TO CONTINUE</Text>
-                  </View>
-                ) : (
-                  <Text className="text-text-muted text-[10.5px] mt-1.5">Pick color, RAM and storage</Text>
-                )}
-              </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -182,58 +199,31 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
         <SectionHeader icon={Palette} label="MODEL COLOR" />
         <View className="px-4">
           <View className="bg-card rounded-2xl p-3.5" style={cardShadow}>
-            {color ? (
-              <View className="flex-row items-center mb-3">
-                <View
-                  className="h-6 w-6 rounded-full border border-border mr-2"
-                  style={{ backgroundColor: swatchFor(color) }}
-                />
-                <Text className="flex-1 text-[13px] font-extrabold text-text">{color}</Text>
-                <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: 'rgba(22, 163, 74, 0.12)' }}>
-                  <Text className="text-[10px] font-extrabold" style={{ color: ACCENT_GREEN }}>SELECTED</Text>
-                </View>
-              </View>
-            ) : null}
-
             {colorsList.length > 0 ? (
+              /* Each option = colour swatch circle + colour name in one row. */
               <View className="flex-row flex-wrap -mx-1">
                 {colorsList.map((c) => {
                   const active = color === c.name;
-                  const sw = swatchFor(c.name);
+                  const sw = c.hexCode || swatchFor(c.name);
                   return (
-                    <View key={c.id || c.name} className="p-1" style={{ width: '33.333%' }}>
+                    <View key={c.id || c.name} className="p-1" style={{ width: '50%' }}>
                       <Pressable
-                        onPress={() => setColor(c.name)}
-                        className="rounded-xl items-center"
+                        onPress={() => setColor(color === c.name ? '' : c.name)}
+                        className="rounded-xl flex-row items-center"
                         style={{
                           borderWidth: active ? 2 : 1,
                           borderColor: active ? ACCENT_GREEN : '#E5E7EB',
-                          backgroundColor: active ? 'rgba(22, 163, 74, 0.06)' : '#FFFFFF',
+                          backgroundColor: '#FFFFFF',
                           paddingVertical: 10,
-                          paddingHorizontal: 6,
-                          shadowColor: active ? ACCENT_GREEN : 'transparent',
-                          shadowOpacity: active ? 0.18 : 0,
-                          shadowRadius: 8,
-                          shadowOffset: { width: 0, height: 3 },
-                          elevation: active ? 2 : 0,
+                          paddingHorizontal: 10,
                         }}
                       >
-                        <View className="flex-row items-center justify-center">
-                          <View
-                            className="h-6 w-6 rounded-full border border-border"
-                            style={{ backgroundColor: sw }}
-                          />
-                          {active ? (
-                            <View
-                              className="ml-1 h-5 w-5 rounded-full items-center justify-center"
-                              style={{ backgroundColor: ACCENT_GREEN }}
-                            >
-                              <Check size={11} color="#fff" strokeWidth={3} />
-                            </View>
-                          ) : null}
-                        </View>
+                        <View
+                          className="h-6 w-6 rounded-full border border-border"
+                          style={{ backgroundColor: sw }}
+                        />
                         <Text
-                          className={`text-[11px] font-extrabold mt-1.5 text-center ${active ? 'text-success' : 'text-text'}`}
+                          className="flex-1 text-[12px] font-extrabold text-text ml-2"
                           numberOfLines={1}
                         >
                           {c.name}
@@ -260,40 +250,54 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* ── RAM section ──────────────────────────────────────────── */}
-        <SectionHeader icon={Cpu} label="RAM" subtitle="Pick the memory size" />
-        <View className="px-4">
-          <VariantGrid
-            options={rams}
-            selected={ram}
-            onSelect={setRam}
-            getLabel={(r) => r.label}
-            keyOf={(r) => r.id}
-          />
-        </View>
+        {specs.length > 0 ? (
+          /* ── Model variants — combined RAM + Storage the model actually ships */
+          <>
+            <SectionHeader icon={HardDrive} label="RAM & STORAGE" subtitle="Pick a variant" />
+            <View className="px-4">
+              <VariantGrid
+                options={specs}
+                selected={specs.find((x) => x.ramOptionId === ram && x.storageOptionId === storage)?.id || null}
+                onSelect={(k) => {
+                  if (!k) { setRam(null); setStorage(null); return; }
+                  const sp = specs.find((x) => x.id === k);
+                  if (sp) { setRam(sp.ramOptionId); setStorage(sp.storageOptionId); }
+                }}
+                getLabel={(sp) => sp.label}
+                keyOf={(sp) => sp.id}
+                columns={2}
+                showCircle
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            {/* ── RAM section (fallback: model has no variants) ─────────── */}
+            <SectionHeader icon={Cpu} label="RAM" subtitle="Pick the memory size" />
+            <View className="px-4">
+              <VariantGrid
+                options={rams}
+                selected={ram}
+                onSelect={setRam}
+                getLabel={(r) => r.label}
+                keyOf={(r) => r.id}
+              />
+            </View>
 
-        {/* ── Storage section ──────────────────────────────────────── */}
-        <SectionHeader icon={HardDrive} label="STORAGE" subtitle="Pick the capacity" />
-        <View className="px-4">
-          <VariantGrid
-            options={storages}
-            selected={storage}
-            onSelect={setStorage}
-            getLabel={(s) => s.label}
-            keyOf={(s) => s.id}
-          />
-        </View>
+            {/* ── Storage section (fallback) ───────────────────────────── */}
+            <SectionHeader icon={HardDrive} label="STORAGE" subtitle="Pick the capacity" />
+            <View className="px-4">
+              <VariantGrid
+                options={storages}
+                selected={storage}
+                onSelect={setStorage}
+                getLabel={(s) => s.label}
+                keyOf={(s) => s.id}
+              />
+            </View>
+          </>
+        )}
 
-        {/* ── Trust strip — "Genuine ingredients" Swiggy pattern ───── */}
-        <View className="px-4 mt-4">
-          <View className="flex-row items-center justify-around py-3 rounded-2xl bg-card" style={cardShadow}>
-            <TrustItem icon={Sparkles} label="100% original" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={Check} label="Verified specs" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={Smartphone} label="Tested fit" />
-          </View>
-        </View>
       </ScrollView>
 
       {/* ── Sticky green-gradient CTA — matches sibling screens ─────── */}
@@ -323,7 +327,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
             style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center' }}
           >
             <View className="flex-1">
-              <Text className="text-white text-[11px] font-bold opacity-90">YOUR CONFIGURATION</Text>
+              <Text className="text-white text-[12px] font-bold opacity-90">YOUR CONFIGURATION</Text>
               <Text className="text-white text-[14px] font-extrabold" numberOfLines={1}>
                 {summaryLabel(color, rams.find((x) => x.id === ram)?.label, storages.find((x) => x.id === storage)?.label)}
               </Text>
@@ -334,11 +338,6 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
             </View>
           </LinearGradient>
         </Pressable>
-        {!ready ? (
-          <Text className="text-text-muted text-[10.5px] text-center mt-2">
-            Pick color, RAM and storage to continue.
-          </Text>
-        ) : null}
       </View>
     </View>
   );
@@ -352,17 +351,17 @@ function SectionHeader({ icon: Icon, label, subtitle }) {
     <View className="px-4 pt-5 pb-2">
       <View className="flex-row items-center">
         <Icon size={14} color={BRAND_GREEN_DARK} />
-        <Text className="text-text font-extrabold text-[12.5px] tracking-widest ml-1.5">{label}</Text>
+        <Text className="text-text font-extrabold text-[12px] tracking-widest ml-1.5">{label}</Text>
         <View className="flex-1 h-px bg-border ml-2" />
       </View>
       {subtitle ? (
-        <Text className="text-text-muted text-[10.5px] mt-1 ml-5">{subtitle}</Text>
+        <Text className="text-text-muted text-[12px] mt-1 ml-5">{subtitle}</Text>
       ) : null}
     </View>
   );
 }
 
-function VariantGrid({ options, selected, onSelect, getLabel, keyOf }) {
+function VariantGrid({ options, selected, onSelect, getLabel, keyOf, columns = 3, showCircle = false }) {
   return (
     <View className="bg-card rounded-2xl p-3.5" style={cardShadow}>
       <View className="flex-row flex-wrap -mx-1">
@@ -370,25 +369,37 @@ function VariantGrid({ options, selected, onSelect, getLabel, keyOf }) {
           const k = keyOf(o);
           const active = selected === k;
           return (
-            <View key={k} className="p-1" style={{ width: '33.333%' }}>
+            <View key={k} className="p-1" style={{ width: `${100 / columns}%` }}>
               <Pressable
-                onPress={() => onSelect(k)}
-                className="rounded-xl items-center"
+                onPress={() => onSelect(active ? null : k)}
+                className={`rounded-xl items-center justify-center ${showCircle ? 'flex-row' : ''}`}
                 style={{
-                  borderWidth: active ? 0 : 1,
-                  borderColor: '#E5E7EB',
-                  backgroundColor: active ? ACCENT_GREEN : '#FFFFFF',
+                  borderWidth: active ? 2 : 1,
+                  borderColor: active ? ACCENT_GREEN : '#E5E7EB',
+                  backgroundColor: '#FFFFFF',
                   paddingVertical: 12,
                   paddingHorizontal: 6,
-                  shadowColor: active ? ACCENT_GREEN : 'transparent',
-                  shadowOpacity: active ? 0.28 : 0,
-                  shadowRadius: 10,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: active ? 3 : 0,
                 }}
               >
+                {showCircle ? (
+                  <View
+                    style={{
+                      height: 18,
+                      width: 18,
+                      borderRadius: 9,
+                      borderWidth: 2,
+                      borderColor: active ? ACCENT_GREEN : '#CBD5E1',
+                      backgroundColor: 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 8,
+                    }}
+                  >
+                    {active ? <Check size={11} color={ACCENT_GREEN} strokeWidth={3} /> : null}
+                  </View>
+                ) : null}
                 <Text
-                  className={`text-[14px] font-extrabold ${active ? 'text-white' : 'text-text'}`}
+                  className={`text-[14px] font-extrabold ${active ? 'text-success' : 'text-text'}`}
                   numberOfLines={1}
                 >
                   {getLabel(o)}
@@ -398,17 +409,6 @@ function VariantGrid({ options, selected, onSelect, getLabel, keyOf }) {
           );
         })}
       </View>
-    </View>
-  );
-}
-
-function TrustItem({ icon: Icon, label }) {
-  return (
-    <View className="items-center flex-1">
-      <Icon size={16} color={ACCENT_GREEN} />
-      <Text className="text-text-muted text-[10px] font-extrabold mt-1 text-center" numberOfLines={1}>
-        {label}
-      </Text>
     </View>
   );
 }
