@@ -113,60 +113,67 @@ export async function getSeriesByBrand(brandId) {
 export async function getColors() {
   return unwrap(await masterApi.get('/master/colors'));
 }
-export async function getModelVariants(modelId) {
-  if (!modelId) return [];
-  return unwrap(await masterApi.get(`/master/models/${modelId}/variants`));
+
+/** Single model, incl. its inline `colors` + `ramStorage` JSON arrays. */
+export async function getModel(modelId) {
+  if (!modelId) return null;
+  return await masterApi.get(`/master/models/${modelId}`);
 }
 
 /**
- * A model's *configured* options, derived from its master_model_variant rows.
- * Admin stores two kinds of rows per model: color-only ({ colorId }) and
- * spec-only ({ ramOptionId, storageOptionId }). We resolve those ids to labels
- * via the global master lists and return the model's distinct colors + combined
- * RAM/storage specs — this is what the admin "Models" table shows per row.
- * The full master lists come back too so callers can fall back to them when a
- * model has nothing configured yet.
+ * A model's *configured* options, read from its inline JSON arrays:
+ *   colors      -> ["Diamond Black","Skyline Blue"]
+ *   ramStorage  -> ["6 GB + 128 GB","8 GB + 128 GB"]
+ * Colours resolve to a swatch hex via the global palette (matched by name);
+ * each RAM+storage label resolves to real option UUIDs when those GB values
+ * exist in the master lists, so the booking/sell payloads keep their FKs. The
+ * full master lists come back too so callers can fall back to them when a model
+ * has nothing configured yet.
  */
 export async function getModelOptions(modelId) {
-  const [allColors, allRams, allStorages, variants] = await Promise.all([
+  const [allColors, allRams, allStorages, model] = await Promise.all([
     getColors().catch(() => []),
     getRamOptions().catch(() => []),
     getStorageOptions().catch(() => []),
-    modelId ? getModelVariants(modelId).catch(() => []) : Promise.resolve([]),
+    modelId ? getModel(modelId).catch(() => null) : Promise.resolve(null),
   ]);
-  const colorById = new Map(allColors.map((c) => [c.id, c]));
-  const ramById = new Map(allRams.map((r) => [r.id, r]));
-  const stoById = new Map(allStorages.map((s) => [s.id, s]));
-  const labelOf = (o) => o?.label || (o?.valueGb != null ? `${o.valueGb} GB` : '');
+  const colorByName = new Map(allColors.map((c) => [String(c.name).toLowerCase(), c]));
+
+  const rawColors = Array.isArray(model?.colors) ? model.colors : [];
+  const rawSpecs = Array.isArray(model?.ramStorage) ? model.ramStorage : [];
+
   const colors = [];
-  const specs = [];
   const seenColor = new Set();
-  const seenSpec = new Set();
-  for (const v of (Array.isArray(variants) ? variants : [])) {
-    if (v.colorId && !seenColor.has(v.colorId)) {
-      const col = colorById.get(v.colorId);
-      if (col?.name) {
-        seenColor.add(v.colorId);
-        colors.push({ id: v.colorId, name: col.name, hexCode: col.hexCode });
-      }
-    }
-    if (v.ramOptionId && v.storageOptionId) {
-      const key = `${v.ramOptionId}|${v.storageOptionId}`;
-      if (!seenSpec.has(key)) {
-        seenSpec.add(key);
-        const rl = labelOf(ramById.get(v.ramOptionId));
-        const sl = labelOf(stoById.get(v.storageOptionId));
-        specs.push({
-          id: key,
-          ramOptionId: v.ramOptionId,
-          storageOptionId: v.storageOptionId,
-          ramLabel: rl,
-          storageLabel: sl,
-          label: [rl, sl].filter(Boolean).join('/'),
-        });
-      }
-    }
+  for (const name of rawColors) {
+    const key = String(name || '').toLowerCase();
+    if (!key || seenColor.has(key)) continue;
+    seenColor.add(key);
+    const hit = colorByName.get(key);
+    colors.push({ id: hit?.id || name, name, hexCode: hit?.hexCode });
   }
+
+  const specs = [];
+  const seenSpec = new Set();
+  for (const raw of rawSpecs) {
+    const label = String(raw || '').trim();
+    if (!label || seenSpec.has(label)) continue;
+    seenSpec.add(label);
+    // "6 GB + 128 GB" -> ram / storage halves; match to real option rows by GB.
+    const [ramPart = '', stoPart = ''] = label.split('+').map((x) => x.trim());
+    const ramGb = parseInt(ramPart, 10);
+    const stoGb = parseInt(stoPart, 10);
+    const ramOpt = allRams.find((r) => r.valueGb === ramGb);
+    const stoOpt = allStorages.find((s) => s.valueGb === stoGb);
+    specs.push({
+      id: label,
+      ramOptionId: ramOpt?.id || `ram:${ramPart}`,
+      storageOptionId: stoOpt?.id || `sto:${stoPart}`,
+      ramLabel: ramOpt?.label || ramPart,
+      storageLabel: stoOpt?.label || stoPart,
+      label,
+    });
+  }
+
   return { colors, specs, allColors, allRams, allStorages };
 }
 
