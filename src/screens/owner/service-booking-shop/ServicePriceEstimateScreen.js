@@ -249,15 +249,11 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
           </Pressable>
 
           <View className="items-center px-12">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest text-center">
-              REVIEW & CONFIRM
-            </Text>
-
             <Text
-              className="text-text text-[20px] font-extrabold mt-0.5 text-center"
+              className="text-text text-[16px] font-bold text-center"
               numberOfLines={1}
             >
-              Price, IMEI & Timing
+              Service Price & Issue Estimate
             </Text>
           </View>
         </View>
@@ -280,9 +276,9 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
             }}
           >
             <View className="flex-row items-center">
-              <View className="h-16 w-16 rounded-2xl bg-primary/10 items-center justify-center overflow-hidden mr-3">
+              <View className="h-[67px] w-[67px] rounded-2xl bg-primary/10 items-center justify-center overflow-hidden mr-3">
                 {params.imageUrl ? (
-                  <Image source={{ uri: params.imageUrl }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+                  <Image source={{ uri: params.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 ) : (
                   <Smartphone size={28} color="#00008B" />
                 )}
@@ -479,29 +475,25 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
             {/* Top: received "now" + duration selector */}
             <View className="flex-row">
               <View className="flex-1 mr-2">
-                <Text className="text-[11px] text-text-muted font-bold tracking-widest mb-1.5">RECEIVED ON</Text>
+                <Text className="text-[10px] text-text-muted font-bold tracking-widest mb-1.5">RECEIVED ON</Text>
                 <View
-                  className="rounded-xl px-3 py-2.5"
-                  style={{ backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.30)' }}
+                  className="rounded-xl px-3 justify-center"
+                  style={{ height: 35, backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.30)' }}
                 >
                   <View className="flex-row items-center">
                     <Calendar size={13} color={BRAND_GREEN} />
-                    <Text className="text-text text-[13px] font-extrabold ml-1.5">{dateLabel}</Text>
-                  </View>
-                  <View className="flex-row items-center mt-1">
-                    <Clock size={13} color={BRAND_GREEN} />
-                    <Text className="text-text text-[13px] font-bold ml-1.5">{timeLabel}</Text>
+                    <Text className="text-text text-[11px] font-extrabold ml-1.5">{dateLabel} - {timeLabel}</Text>
                   </View>
                 </View>
               </View>
 
               <View className="w-28">
-                <Text className="text-[11px] text-text-muted font-bold tracking-widest mb-1.5">DURATION</Text>
+                <Text className="text-[10px] text-text-muted font-bold tracking-widest mb-1.5">DURATION</Text>
                 <View
-                  className="rounded-xl"
-                  style={{ borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.30)', backgroundColor: 'rgba(34, 197, 94, 0.08)' }}
+                  className="rounded-xl overflow-hidden"
+                  style={{ height: 35, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.30)', backgroundColor: 'rgba(34, 197, 94, 0.08)' }}
                 >
-                  <Select value={duration} options={DURATIONS} onChange={(v) => setDuration(v)} className="py-2.5" />
+                  <Select value={duration} options={DURATIONS} onChange={(v) => setDuration(v)} className="h-full py-0" />
                 </View>
               </View>
             </View>
@@ -515,14 +507,14 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                 <Timer size={18} color={BRAND_GREEN} />
               </View>
               <View className="flex-1">
-                <Text className="text-white/70 text-[11px] font-bold tracking-widest">READY BY</Text>
-                <Text className="text-white text-[14px] font-extrabold mt-0.5" numberOfLines={1}>
+                <Text className="text-white/70 text-[10px] font-bold tracking-widest">READY BY</Text>
+                <Text className="text-white text-[11px] font-extrabold mt-0.5" numberOfLines={1}>
                   {deliveryDateLabel} · {deliveryTimeLabel}
                 </Text>
               </View>
               <View className="bg-success/20 rounded-full px-2.5 py-1 flex-row items-center">
                 <ShieldCheck size={11} color={ACCENT_GREEN} />
-                <Text className="text-[12px] font-extrabold ml-1" style={{ color: '#86EFAC' }}>ON TIME</Text>
+                <Text className="text-[10px] font-extrabold ml-1" style={{ color: '#86EFAC' }}>ON TIME</Text>
               </View>
             </View>
 
@@ -542,8 +534,8 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
                 <Circle size={20} color="#CBD5E1" />
               )}
               <View className="flex-1 ml-2.5">
-                <Text className="text-[13px] font-extrabold text-text">Customer repair approval</Text>
-                <Text className="text-[12px] text-text-muted">Customer agreed to the estimated price & timing.</Text>
+                <Text className="text-[11px] font-extrabold text-text">Customer repair approval</Text>
+                <Text className="text-[11px] text-text-muted">Customer agreed to the estimated price & timing.</Text>
               </View>
             </Pressable>
           </View>
@@ -587,14 +579,12 @@ export default function ServicePriceEstimateScreen({ navigation, route }) {
             </View>
           </LinearGradient>
         </Pressable>
-        {!isReady ? (
+        {!isReady && (uploadingAudio || isRecording || hasIssue) ? (
           <Text className="text-text-muted text-[12px] text-center mt-2">
             {uploadingAudio
               ? 'Uploading voice note…'
               : isRecording
               ? 'Stop the recording first.'
-              : !hasIssue
-              ? 'Describe the issue (text or voice note) to continue.'
               : !approval
               ? 'Confirm customer approval to continue.'
               : 'Add an issue description to continue.'}

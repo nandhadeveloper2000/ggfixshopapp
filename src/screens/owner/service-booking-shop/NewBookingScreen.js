@@ -67,7 +67,7 @@ export default function NewBookingScreen({ navigation }) {
             value={q}
             onChangeText={setQ}
             className="flex-1 ml-2 text-text"
-            style={{ paddingVertical: 0, fontSize: 14 }}
+            style={{ paddingVertical: 0, fontSize: 11 }}
           />
           {loading ? <ActivityIndicator size="small" color="#00008B" /> : null}
         </View>

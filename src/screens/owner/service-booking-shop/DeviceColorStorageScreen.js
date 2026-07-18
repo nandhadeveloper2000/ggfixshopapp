@@ -61,6 +61,9 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
   const [ram, setRam] = useState(params.ramOptionId || null);
   const [storage, setStorage] = useState(params.storageOptionId || null);
 
+  // Storage-only models ("128 GB", no "+") don't require a RAM pick.
+  const specsStorageOnly = specs.length > 0 && specs.every((sp) => sp.storageOnly);
+
   useEffect(() => {
     (async () => {
       try {
@@ -78,7 +81,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
   }, []);
 
   const onContinue = () => {
-    if (!color.trim() || !ram || !storage) return;
+    if (!color.trim() || !storage || (!specsStorageOnly && !ram)) return;
     const ramLabel = rams.find((x) => x.id === ram)?.label;
     const storageLabel = storages.find((x) => x.id === storage)?.label;
     navigation.navigate('DeviceServices', {
@@ -105,7 +108,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
     });
   };
 
-  const ready = !!color && !!ram && !!storage;
+  const ready = !!color && !!storage && (specsStorageOnly || !!ram);
 
   if (loading) {
     return (
@@ -253,7 +256,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
         {specs.length > 0 ? (
           /* ── Model variants — combined RAM + Storage the model actually ships */
           <>
-            <SectionHeader icon={HardDrive} label="RAM & STORAGE" subtitle="Pick a variant" />
+            <SectionHeader icon={HardDrive} label={specsStorageOnly ? 'STORAGE' : 'RAM & STORAGE'} subtitle="Pick a variant" />
             <View className="px-4">
               <VariantGrid
                 options={specs}

@@ -158,20 +158,37 @@ export async function getModelOptions(modelId) {
     const label = String(raw || '').trim();
     if (!label || seenSpec.has(label)) continue;
     seenSpec.add(label);
-    // "6 GB + 128 GB" -> ram / storage halves; match to real option rows by GB.
-    const [ramPart = '', stoPart = ''] = label.split('+').map((x) => x.trim());
-    const ramGb = parseInt(ramPart, 10);
-    const stoGb = parseInt(stoPart, 10);
-    const ramOpt = allRams.find((r) => r.valueGb === ramGb);
-    const stoOpt = allStorages.find((s) => s.valueGb === stoGb);
-    specs.push({
-      id: label,
-      ramOptionId: ramOpt?.id || `ram:${ramPart}`,
-      storageOptionId: stoOpt?.id || `sto:${stoPart}`,
-      ramLabel: ramOpt?.label || ramPart,
-      storageLabel: stoOpt?.label || stoPart,
-      label,
-    });
+    // Two shapes share this column: a "6 GB + 128 GB" combo (has a "+") and a
+    // storage-only "128 GB" (no "+"). Storage-only specs carry no RAM half, so
+    // the pickers render a plain Storage grid and don't require a RAM choice.
+    if (label.includes('+')) {
+      const [ramPart = '', stoPart = ''] = label.split('+').map((x) => x.trim());
+      const ramGb = parseInt(ramPart, 10);
+      const stoGb = parseInt(stoPart, 10);
+      const ramOpt = allRams.find((r) => r.valueGb === ramGb);
+      const stoOpt = allStorages.find((s) => s.valueGb === stoGb);
+      specs.push({
+        id: label,
+        storageOnly: false,
+        ramOptionId: ramOpt?.id || `ram:${ramPart}`,
+        storageOptionId: stoOpt?.id || `sto:${stoPart}`,
+        ramLabel: ramOpt?.label || ramPart,
+        storageLabel: stoOpt?.label || stoPart,
+        label,
+      });
+    } else {
+      const stoGb = parseInt(label, 10);
+      const stoOpt = allStorages.find((s) => s.valueGb === stoGb);
+      specs.push({
+        id: label,
+        storageOnly: true,
+        ramOptionId: null,
+        storageOptionId: stoOpt?.id || `sto:${label}`,
+        ramLabel: null,
+        storageLabel: stoOpt?.label || label,
+        label,
+      });
+    }
   }
 
   return { colors, specs, allColors, allRams, allStorages };

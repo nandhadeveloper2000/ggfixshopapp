@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 import {
   Minus,
   Plus,
@@ -15,7 +17,6 @@ import {
   ChevronLeft,
   QrCode,
   Copy,
-  ShieldCheck,
 } from 'lucide-react-native';
 import { Loader } from '../../../components/rnr';
 import { notify } from '../../../components/confirm';
@@ -98,6 +99,8 @@ export default function BarcodePrintScreen({ navigation, route }) {
   const [printing, setPrinting] = useState(false);
   // Ref to the on-screen QR so we can rasterise it to a PNG for the print HTML.
   const qrRef = useRef(null);
+  // Ref to the whole slip card so Share can rasterise it to a PNG image file.
+  const slipRef = useRef(null);
 
   const load = useCallback(async () => {
     if (!ticketId) return;
@@ -158,30 +161,43 @@ export default function BarcodePrintScreen({ navigation, route }) {
             font-family: -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif; }
         body { margin: 0; padding: 0; color: #0F172A; }
         .slip { display: flex; flex-direction: row; align-items: center;
-                border: 2px dashed #86EFAC; border-radius: 14px;
-                padding: 18px; margin: 14px; page-break-inside: avoid; }
-        .qr { width: 150px; height: 150px; margin-right: 18px; flex-shrink: 0; }
+                border: 2px dashed #86EFAC; border-radius: 12px;
+                padding: 12px; margin: 10px; page-break-inside: avoid; }
+        .qr { width: 96px; height: 96px; margin-right: 14px; flex-shrink: 0; }
         .qr-fallback { display: flex; align-items: center; justify-content: center; text-align: center;
-                       border: 1px solid #CBD5E1; border-radius: 8px; font-weight: 800; font-size: 13px;
-                       letter-spacing: 2px; word-break: break-all; padding: 6px; }
+                       border: 1px solid #CBD5E1; border-radius: 8px; font-weight: 800; font-size: 11px;
+                       letter-spacing: 1.5px; word-break: break-all; padding: 5px; }
         .details { flex: 1; min-width: 0; }
-        .device { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
-        .row { margin-bottom: 9px; }
-        .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+        .device { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
+        .row { margin-bottom: 5px; }
+        .label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;
                  color: #6B7280; font-weight: 700; }
-        .value { font-size: 14px; font-weight: 800; margin-top: 2px; word-break: break-word; }
+        .value { font-size: 10px; font-weight: 800; margin-top: 2px; word-break: break-word; }
       </style></head><body>${slips}</body></html>`;
   };
 
   const handleShare = async () => {
+    // Rasterise the slip card to a PNG and share the image file so WhatsApp,
+    // Gmail, etc. attach it as a picture (not plain text). Falls back to a
+    // text share on any capture / sharing failure (older builds / web).
+    try {
+      const uri = await captureRef(slipRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: `QR Slip ${trackingId}`,
+          UTI: 'public.png',
+        });
+        return;
+      }
+    } catch (_) { /* fall through to text share */ }
     const msg =
       `📦 GGFix QR Slip\n\n` +
       `Service No: ${trackingId}\n` +
       `Customer: ${customerName}\n` +
       `Device: ${deviceName}\n` +
       `Service: ${services}\n` +
-      `Device Security: ${security}\n` +
-      `Copies: ${copies}\n\n` +
+      `Device Security: ${security}\n\n` +
       `Stick this slip on the device before placing it on the workbench.`;
     try {
       await Share.share({ message: msg, title: `QR Slip ${trackingId}` });
@@ -293,7 +309,9 @@ export default function BarcodePrintScreen({ navigation, route }) {
           >
             <SectionHeader icon={QrCode} label="QR SLIP" />
             <View
-              className="rounded-2xl p-4 flex-row items-center"
+              ref={slipRef}
+              collapsable={false}
+              className="rounded-2xl p-3 flex-row items-center"
               style={{
                 backgroundColor: '#FFFFFF',
                 borderWidth: 1.5,
@@ -301,36 +319,26 @@ export default function BarcodePrintScreen({ navigation, route }) {
                 borderColor: '#86EFAC',
               }}
             >
-              {/* Left — QR code */}
+              {/* Left — QR code (medium) */}
               <View
-                className="rounded-xl p-2 mr-4"
+                className="rounded-xl p-1.5 mr-3"
                 style={{ backgroundColor: '#FFFFFF' }}
               >
                 <QRCode
                   value={String(trackingId)}
-                  size={116}
+                  size={120}
                   color="#0F172A"
                   backgroundColor="#FFFFFF"
                   getRef={(c) => { qrRef.current = c; }}
                 />
               </View>
 
-              {/* Right — details */}
+              {/* Right — details (uniform fields, balanced with the QR height) */}
               <View className="flex-1">
                 <SlipField label="Service No." value={trackingId} />
                 <SlipField label="Customer" value={customerName} />
                 <SlipField label="Repair Services" value={services} />
-                <View className="flex-row items-center mt-0.5">
-                  <ShieldCheck size={13} color={BRAND_GREEN_DARK} />
-                  <View className="ml-1.5 flex-1">
-                    <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.6 }}>
-                      Device Security
-                    </Text>
-                    <Text className="text-[12.5px] font-extrabold text-gray-900 mt-0.5" numberOfLines={2}>
-                      {security}
-                    </Text>
-                  </View>
-                </View>
+                <SlipField label="Device Security" value={security} />
               </View>
             </View>
           </View>

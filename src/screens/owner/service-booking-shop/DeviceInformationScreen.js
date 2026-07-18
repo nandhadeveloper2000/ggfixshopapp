@@ -170,15 +170,11 @@ export default function DeviceInformationScreen({ navigation, route }) {
           </Pressable>
 
           <View className="items-center px-12">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest text-center">
-              DEVICE DETAILS
-            </Text>
-
             <Text
-              className="text-text text-[19px] font-extrabold mt-0.5 text-center"
+              className="text-text text-[16px] font-bold text-center"
               numberOfLines={1}
             >
-              Photos & Confirmation
+              Device Information
             </Text>
           </View>
         </View>
@@ -201,9 +197,9 @@ export default function DeviceInformationScreen({ navigation, route }) {
             }}
           >
             <View className="flex-row items-center">
-              <View className="h-16 w-16 rounded-2xl bg-success/10 items-center justify-center overflow-hidden mr-3">
+              <View className="h-[67px] w-[67px] rounded-2xl bg-success/10 items-center justify-center overflow-hidden mr-3">
                 {params.imageUrl ? (
-                  <Image source={{ uri: params.imageUrl }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+                  <Image source={{ uri: params.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 ) : (
                   <Smartphone size={28} color={ACCENT_GREEN} />
                 )}
@@ -436,16 +432,6 @@ export default function DeviceInformationScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* ── Trust strip ──────────────────────────────────────────── */}
-        <View className="px-4 mt-4">
-          <View className="flex-row items-center justify-around py-3 rounded-2xl bg-card" style={cardShadow}>
-            <TrustItem icon={ShieldCheck} label="Genuine parts" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={Timer} label="On-time repair" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={CircleCheck} label="30-day warranty" />
-          </View>
-        </View>
       </ScrollView>
 
       {/* ── Sticky green CTA ─────────────────────────────────────── */}
@@ -490,11 +476,9 @@ export default function DeviceInformationScreen({ navigation, route }) {
             </View>
           </LinearGradient>
         </Pressable>
-        {!isReady ? (
+        {!isReady && uploading ? (
           <Text className="text-text-muted text-[10.5px] text-center mt-2">
-            {uploading
-              ? 'Uploading photo… please wait.'
-              : `Add ${requiredMissing.map((k) => k === 'front' ? 'Front' : 'Back').join(' & ')} photo${requiredMissing.length > 1 ? 's' : ''} to continue.`}
+            Uploading photo… please wait.
           </Text>
         ) : null}
       </View>
@@ -516,17 +500,6 @@ function SectionHeader({ icon: Icon, label, subtitle }) {
       {subtitle ? (
         <Text className="text-text-muted text-[10.5px] mt-1 ml-5" numberOfLines={1}>{subtitle}</Text>
       ) : null}
-    </View>
-  );
-}
-
-function TrustItem({ icon: Icon, label }) {
-  return (
-    <View className="items-center flex-1">
-      <Icon size={16} color={ACCENT_GREEN} />
-      <Text className="text-text-muted text-[10px] font-extrabold mt-1 text-center" numberOfLines={1}>
-        {label}
-      </Text>
     </View>
   );
 }

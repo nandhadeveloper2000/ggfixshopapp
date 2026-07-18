@@ -1,6 +1,6 @@
 // App Lock — gate the app behind the device's own biometric / pattern / PIN
-// (PhonePe / Google Pay style). Opt-in: enabled by default when the device has
-// a secure lock; the user can turn it off in Settings. Uses the OS credential,
+// (PhonePe / Google Pay style). Opt-in: disabled by default; the user can turn
+// it on in Settings when their device has a secure lock. Uses the OS credential,
 // so we never store a PIN ourselves.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -21,11 +21,11 @@ export async function isDeviceSecure() {
   }
 }
 
-// Enabled by default when the device is secure and the user hasn't chosen.
+// Disabled by default until the user explicitly turns it on in Settings.
 export async function isAppLockEnabled() {
   try {
     const v = await AsyncStorage.getItem(KEY);
-    if (v === null) return await isDeviceSecure();
+    if (v === null) return false;
     return v === '1';
   } catch {
     return false;

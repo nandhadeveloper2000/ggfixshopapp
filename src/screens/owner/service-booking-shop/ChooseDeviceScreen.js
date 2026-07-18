@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import {
   Smartphone, Tablet, Laptop, Watch, Headphones, Volume2,
 } from 'lucide-react-native';
 import {
-  ScreenHeader, SearchBar, EmptyState, Loader, Badge,
+  ScreenHeader, EmptyState, Loader, Badge,
 } from '../../../components/rnr';
 import DeviceImage from '../../../components/DeviceImage';
 import { resolveDeviceImageSource } from '../../../utils/images';
@@ -46,7 +46,6 @@ export default function ChooseDeviceScreen({ navigation, route }) {
 
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -65,15 +64,6 @@ export default function ChooseDeviceScreen({ navigation, route }) {
     })();
   }, []);
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return cats;
-    return cats.filter((c) => {
-      const hay = [c.name, c.code].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(needle);
-    });
-  }, [cats, q]);
-
   // Hand off to the consolidated shared device picker. `flow: 'BOOKING'` is
   // what tells shared/device/SelectModelScreen to route to DeviceColorStorage
   // (rather than SelectVariant or OwnerSellChooseSalesCategory) at the end.
@@ -89,9 +79,9 @@ export default function ChooseDeviceScreen({ navigation, route }) {
     <View className="flex-1 bg-background">
       <ScreenHeader title="Select Category" onBack={() => navigation.goBack()} />
 
-      <View className="px-4 pt-3 pb-3 bg-card border-b border-border">
-        {params.customer ? (
-          <View className="bg-card border border-border rounded-2xl p-3 mb-3 flex-row items-center">
+      {params.customer ? (
+        <View className="px-4 pt-3 pb-3 bg-card border-b border-border">
+          <View className="bg-card border border-border rounded-2xl p-3 flex-row items-center">
             <View className="h-9 w-9 rounded-full bg-primary/10 items-center justify-center mr-2.5">
               <Text className="text-[13px] font-extrabold text-primary">
                 {(params.customer.name || '?').slice(0, 1).toUpperCase()}
@@ -103,9 +93,8 @@ export default function ChooseDeviceScreen({ navigation, route }) {
             </View>
             <Badge variant="softSuccess">CUSTOMER</Badge>
           </View>
-        ) : null}
-        <SearchBar value={q} onChangeText={setQ} placeholder="Search category" onClear={() => setQ('')} />
-      </View>
+        </View>
+      ) : null}
 
       {loading ? (
         <Loader label="Loading categories..." />
@@ -114,14 +103,14 @@ export default function ChooseDeviceScreen({ navigation, route }) {
           contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingTop: 16, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          {filtered.length === 0 ? (
+          {cats.length === 0 ? (
             <EmptyState
-              title={q.trim() ? 'No matches' : 'No categories'}
-              description={q.trim() ? `Nothing matches "${q.trim()}".` : 'No device categories published yet.'}
+              title="No categories"
+              description="No device categories published yet."
             />
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
-              {filtered.map((c) => {
+              {cats.map((c) => {
                 const code = (c.code || '').toUpperCase();
                 const meta = CODE_META[code] || DEFAULT_META;
                 const Icon = meta.icon;
@@ -143,22 +132,22 @@ export default function ChooseDeviceScreen({ navigation, route }) {
                     }}
                   >
                     <View
-                      className={`rounded-2xl items-center justify-center overflow-hidden ${meta.bg}`}
-                      style={{ height: 64, width: 64, marginBottom: 10 }}
+                      className="rounded-2xl items-center justify-center overflow-hidden bg-white"
+                      style={{ height: 104, width: '100%', marginBottom: 10, padding: 4 }}
                     >
                       {thumb ? (
                         <DeviceImage
                           url={c.imageUrl}
                           base64={c.imageBase64}
-                          style={{ width: 64, height: 64 }}
-                          contentFit="cover"
+                          style={{ width: '100%', height: '100%' }}
+                          contentFit="contain"
                         />
                       ) : (
                         <Icon size={30} color={meta.color} strokeWidth={2} />
                       )}
                     </View>
                     <Text
-                      className="text-[14px] font-extrabold text-text"
+                      className="text-[11px] font-extrabold text-text"
                       numberOfLines={1}
                       style={{ textAlign: 'center' }}
                     >

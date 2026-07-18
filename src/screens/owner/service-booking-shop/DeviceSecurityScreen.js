@@ -212,9 +212,8 @@ export default function DeviceSecurityScreen({ navigation, route }) {
             <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest">SCREEN LOCK</Text>
-            <Text className="text-text text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
-              How is the device locked?
+            <Text className="text-text text-[16px] font-bold" numberOfLines={1}>
+              Device Security Lock
             </Text>
           </View>
         </View>
@@ -309,29 +308,17 @@ export default function DeviceSecurityScreen({ navigation, route }) {
                     {active ? 'In use · tap to change' : opt.desc}
                   </Text>
                 </View>
-                {active ? (
-                  <View
-                    className="h-7 w-7 rounded-full items-center justify-center"
-                    style={{ backgroundColor: ACCENT_GREEN }}
-                  >
-                    <ShieldCheck size={14} color="#fff" />
-                  </View>
-                ) : null}
+                <View
+                  className="h-6 w-6 rounded-full items-center justify-center"
+                  style={{ borderWidth: 2, borderColor: active ? ACCENT_GREEN : '#CBD5E1' }}
+                >
+                  {active ? <View className="h-3 w-3 rounded-full" style={{ backgroundColor: ACCENT_GREEN }} /> : null}
+                </View>
               </Pressable>
             );
           })}
         </View>
 
-        {/* ── Trust strip ──────────────────────────────────────── */}
-        <View className="px-4 mt-4">
-          <View className="flex-row items-center justify-around py-3 rounded-2xl bg-card" style={cardShadow}>
-            <TrustItem icon={ShieldCheck} label="Encrypted at rest" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={Lock} label="Tech-only access" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={KeyRound} label="Wiped at delivery" />
-          </View>
-        </View>
       </ScrollView>
 
       {/* ── Sticky green CTA ─────────────────────────────────── */}
@@ -555,17 +542,6 @@ function DialogSaveButton({ disabled, onPress }) {
         <Text className="text-white text-[14px] font-extrabold ml-2">Save</Text>
       </LinearGradient>
     </Pressable>
-  );
-}
-
-function TrustItem({ icon: Icon, label }) {
-  return (
-    <View className="items-center flex-1">
-      <Icon size={16} color={ACCENT_GREEN} />
-      <Text className="text-text-muted text-[10px] font-extrabold mt-1 text-center" numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
   );
 }
 

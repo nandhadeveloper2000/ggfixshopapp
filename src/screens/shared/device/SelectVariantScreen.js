@@ -96,6 +96,10 @@ export default function SelectVariantScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // When a model's variants are storage-only ("128 GB", no "+"), the picker shows
+  // a single Storage grid and doesn't require a RAM selection.
+  const specsStorageOnly = specs.length > 0 && specs.every((sp) => sp.storageOnly);
+
   useEffect(() => {
     (async () => {
       try {
@@ -133,7 +137,7 @@ export default function SelectVariantScreen({ navigation, route }) {
 
   const onContinue = async () => {
     if (!color) return;
-    if (!noRamStorage && (!ram || !storage)) return;
+    if (!noRamStorage && (!storage || (!specsStorageOnly && !ram))) return;
 
     // Only send UUID-typed fields the backend can parse. Hardcoded category
     // codes like 'SMARTPHONE' (from Home tiles / fallback list) would fail
@@ -202,7 +206,7 @@ export default function SelectVariantScreen({ navigation, route }) {
 
   const ready =
     color &&
-    (noRamStorage || (ram && storage)) &&
+    (noRamStorage || (storage && (specsStorageOnly || ram))) &&
     (flow !== 'SELL' || noImei || imei.trim());
   const ctaLabel = flow === 'PROFILE'
     ? (isEdit ? 'Update Device' : 'Save Device')
@@ -316,24 +320,26 @@ export default function SelectVariantScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* Model variants — combined RAM + Storage the model actually ships */}
+        {/* Model variants — RAM + Storage combos, or storage-only sizes the model ships */}
         {!noRamStorage && specs.length > 0 ? (
         <View className="bg-card border border-border rounded-2xl p-3 mb-3">
           <View className="flex-row items-center mb-2.5">
             <View className="h-8 w-8 rounded-full bg-primary/10 items-center justify-center mr-2">
               <HardDrive size={14} color="#00008B" />
             </View>
-            <Text className="text-[13px] font-extrabold text-text flex-1">RAM &amp; Storage</Text>
+            <Text className="text-[13px] font-extrabold text-text flex-1">{specsStorageOnly ? 'Storage' : 'RAM & Storage'}</Text>
             <Text className="text-[11px] text-text-muted">Variant</Text>
           </View>
           <View className="flex-row flex-wrap -mx-1">
             {specs.map((sp) => {
-              const active = ram?.id === sp.ramOptionId && storage?.id === sp.storageOptionId;
+              const active = sp.storageOnly
+                ? storage?.id === sp.storageOptionId
+                : (ram?.id === sp.ramOptionId && storage?.id === sp.storageOptionId);
               return (
                 <View key={sp.id} className="p-1" style={{ width: '50%' }}>
                   <Pressable
                     onPress={() => {
-                      setRam({ id: sp.ramOptionId, label: sp.ramLabel });
+                      setRam(sp.storageOnly ? null : { id: sp.ramOptionId, label: sp.ramLabel });
                       setStorage({ id: sp.storageOptionId, label: sp.storageLabel });
                     }}
                     className={`rounded-xl border py-3 items-center ${active ? 'bg-primary border-primary' : 'bg-card border-border'}`}

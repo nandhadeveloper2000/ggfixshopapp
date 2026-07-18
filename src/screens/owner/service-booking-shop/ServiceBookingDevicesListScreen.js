@@ -7,8 +7,6 @@ import {
   ChevronRight,
   Smartphone,
   Plus,
-  ShieldCheck,
-  Timer,
   CircleCheck,
   ReceiptText,
   Tag,
@@ -179,19 +177,16 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
       <View
         style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
       >
-        <View className="flex-row items-center">
+        <View className="relative flex-row items-center justify-center">
           <Pressable
             onPress={() => navigation.goBack()}
-            className="h-10 w-10 rounded-full bg-surface-muted items-center justify-center mr-3 active:opacity-70"
+            className="absolute left-0 h-10 w-10 rounded-full bg-surface-muted items-center justify-center active:opacity-70"
           >
             <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
-          <View className="flex-1">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest">
-              {params.editMode ? 'EDIT BOOKING' : 'FINAL REVIEW'}
-            </Text>
-            <Text className="text-text text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
-              {params.editMode ? 'Update & re-submit' : 'Confirm & submit'}
+          <View className="items-center px-12">
+            <Text className="text-text text-[16px] font-bold text-center" numberOfLines={1}>
+              Service Booking Devices List
             </Text>
           </View>
         </View>
@@ -264,7 +259,7 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
                 <View className="flex-row items-center px-3.5 pt-3.5 pb-2">
                   <View className="h-14 w-14 rounded-2xl bg-success/10 items-center justify-center overflow-hidden mr-3">
                     {d.imageUrl ? (
-                      <Image source={{ uri: d.imageUrl }} style={{ width: 56, height: 56 }} resizeMode="cover" />
+                      <Image source={{ uri: d.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                       <Smartphone size={26} color={ACCENT_GREEN} />
                     )}
@@ -415,16 +410,6 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
           </>
         ) : null}
 
-        {/* ── Trust strip ───────────────────────────────────── */}
-        <View className="px-4 mt-4">
-          <View className="flex-row items-center justify-around py-3 rounded-2xl bg-card" style={cardShadow}>
-            <TrustItem icon={ShieldCheck} label="Genuine parts" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={Timer} label="On-time repair" />
-            <View className="h-8 w-px bg-border" />
-            <TrustItem icon={CircleCheck} label="30-day warranty" />
-          </View>
-        </View>
       </ScrollView>
 
       {/* ── Sticky green CTA ───────────────────────────────── */}
@@ -491,17 +476,6 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
 // ════════════════════════════════════════════════════════════════════════════
 // Helpers
 // ════════════════════════════════════════════════════════════════════════════
-function TrustItem({ icon: Icon, label }) {
-  return (
-    <View className="items-center flex-1">
-      <Icon size={16} color={ACCENT_GREEN} />
-      <Text className="text-text-muted text-[10px] font-extrabold mt-1 text-center" numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 const cardShadow = {
   shadowColor: '#0F172A',
   shadowOpacity: 0.05,

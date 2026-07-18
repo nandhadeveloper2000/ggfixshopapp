@@ -94,17 +94,16 @@ export default function DeviceMissingPartsScreen({ navigation, route }) {
       <View
         style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
       >
-        <View className="flex-row items-center">
+        <View className="relative flex-row items-center justify-center">
           <Pressable
             onPress={() => navigation.goBack()}
-            className="h-10 w-10 rounded-full bg-surface-muted items-center justify-center mr-3 active:opacity-70"
+            className="absolute left-0 h-10 w-10 rounded-full bg-surface-muted items-center justify-center active:opacity-70"
           >
             <ArrowLeft size={20} color="#0F172A" />
           </Pressable>
-          <View className="flex-1">
-            <Text className="text-text-muted text-[11px] font-bold tracking-widest">INSPECTION</Text>
-            <Text className="text-text text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
-              Missing or damaged parts
+          <View className="items-center px-12">
+            <Text className="text-text text-[16px] font-bold text-center" numberOfLines={1}>
+              Device Missing Parts
             </Text>
           </View>
         </View>
@@ -113,30 +112,21 @@ export default function DeviceMissingPartsScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 160 }} keyboardShouldPersistTaps="handled">
         {/* ── Status card overlapping hero ────────────────────────────── */}
         <View className="px-4" style={{ marginTop: 14 }}>
-          <View
-            className="bg-card rounded-2xl p-3.5"
-            style={{
-              shadowColor: '#0F172A',
-              shadowOpacity: 0.12,
-              shadowRadius: 18,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 6,
-            }}
-          >
+          <View className="bg-card rounded-2xl p-3" style={cardShadow}>
             <View className="flex-row items-center">
               <View
-                className="h-14 w-14 rounded-2xl items-center justify-center mr-3"
+                className="h-10 w-10 rounded-xl items-center justify-center mr-3"
                 style={{ backgroundColor: allClear ? 'rgba(22, 163, 74, 0.15)' : 'rgba(239, 68, 68, 0.10)' }}
               >
                 {allClear ? (
-                  <CircleCheck size={26} color={ACCENT_GREEN} />
+                  <CircleCheck size={20} color={ACCENT_GREEN} />
                 ) : (
-                  <AlertTriangle size={26} color={COLOR_MISSING} />
+                  <AlertTriangle size={20} color={COLOR_MISSING} />
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-[11px] text-text-muted font-bold tracking-widest">INSPECTION STATUS</Text>
-                <Text className="text-[15px] font-extrabold text-text mt-0.5" numberOfLines={1}>
+                <Text className="text-[10px] text-text-muted font-bold tracking-widest">INSPECTION STATUS</Text>
+                <Text className="text-[14px] font-extrabold text-text mt-0.5" numberOfLines={1}>
                   {allClear
                     ? 'All parts present & intact'
                     : `${flaggedTotal} part${flaggedTotal === 1 ? '' : 's'} flagged`}
