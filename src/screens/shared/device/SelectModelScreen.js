@@ -16,6 +16,16 @@ import { resolveDeviceImageSource } from '../../../utils/images';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// A model's "model number" is now a jsonb array of codes (e.g. Vivo T1 →
+// ["V2153","V2168"]); older records may still arrive as a single slash / comma
+// separated string. Normalise both to a clean array so a single code renders
+// inline and multiple codes offer a dropdown pick.
+function parseModelNumbers(mn) {
+  if (!mn) return [];
+  if (Array.isArray(mn)) return mn.map((s) => String(s).trim()).filter(Boolean);
+  return String(mn).split(/[/,]+/).map((s) => s.trim()).filter(Boolean);
+}
+
 // Canonical "Select Product" picker used by all flows. Series chips at the top
 // FILTER the full model grid below (Cashify-style). Search is a header icon that
 // opens a full-screen results list (no persistent search box). Routes to
@@ -226,15 +236,17 @@ export default function SelectModelScreen({ navigation, route }) {
     });
   };
 
-  const onPick = (m) => {
+  const onPick = (m, chosenModelNumber) => {
     const pickedSeries = (series || []).find((s) => s.id === m.seriesId);
+    const numbers = parseModelNumbers(m.modelNumber);
+    const modelNumber = chosenModelNumber || numbers[0] || undefined;
     const baseParams = {
       ...(route?.params || {}),
       flow, categoryId, categoryCode, categoryName, deviceTypeId, deviceTypeName,
       brandId, brandName,
       seriesId: m.seriesId || selSeriesId || undefined,
       seriesName: pickedSeries?.name || routeSeriesName || undefined,
-      modelId: m.id, modelName: m.name,
+      modelId: m.id, modelName: m.name, modelNumber,
       modelImageUrl: resolveDeviceImageSource({ url: m.imageUrl, base64: m.imageBase64 }) || undefined,
       editSellOrderId, editHints,
       ...(editSellOrderId && editHints?.modelId === m.id ? {
@@ -254,6 +266,11 @@ export default function SelectModelScreen({ navigation, route }) {
     }
     navigation.navigate('SelectVariant', baseParams);
   };
+
+  // Model number is no longer surfaced on this screen, so every selection goes
+  // straight to the next step with the model's default number — onPick still
+  // forwards that number to the booking/sell payload.
+  const handleSelect = (m) => onPick(m, null);
 
   // ── Full-screen search mode ───────────────────────────────────────────────
   if (searchOpen) {
@@ -302,7 +319,7 @@ export default function SelectModelScreen({ navigation, route }) {
               return (
                 <Pressable
                   key={m.id}
-                  onPress={() => onPick(m)}
+                  onPress={() => handleSelect(m)}
                   className="flex-row items-center px-4 py-2.5 border-b border-border active:bg-primary/5"
                 >
                   <View className="h-14 w-14 rounded-lg overflow-hidden items-center justify-center mr-3">
@@ -409,7 +426,7 @@ export default function SelectModelScreen({ navigation, route }) {
                 return (
                   <Pressable
                     key={m.id}
-                    onPress={() => onPick(m)}
+                    onPress={() => handleSelect(m)}
                     className={`bg-card border rounded-2xl active:opacity-80 ${isCurrent ? 'border-primary' : 'border-border'}`}
                     style={{
                       width: cardWidth,
@@ -497,7 +514,7 @@ export default function SelectModelScreen({ navigation, route }) {
                 {preview?.name}
               </Text>
               <Pressable
-                onPress={() => { const m = preview; closePreview(); if (m) onPick(m); }}
+                onPress={() => { const m = preview; closePreview(); if (m) handleSelect(m); }}
                 className="rounded-2xl py-4 items-center active:opacity-80"
                 style={{ backgroundColor: '#16A34A' }}
               >
