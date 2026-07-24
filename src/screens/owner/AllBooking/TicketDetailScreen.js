@@ -13,18 +13,23 @@ import {
   Share2,
   QrCode,
   FileText,
-  UserCog,
   UserPlus,
   RefreshCcw,
+  RotateCw,
+  MoreHorizontal,
+  ArrowDown,
   CheckCircle2,
   AlertCircle,
   Check,
   X,
-  ListChecks,
   User,
+  Users,
   Phone,
   MapPin,
-  Receipt,
+  IndianRupee,
+  ShieldCheck,
+  ClipboardList,
+  Zap,
   Calendar,
   Wrench,
   MessageSquare,
@@ -104,6 +109,37 @@ const ACTION_TILES = [
   { key: 'barcode', label: 'Barcode',       icon: QrCode,   tint: 'rgba(245, 158, 11, 0.16)', fg: '#B45309' },
 ];
 
+// "Update Status" auto-advances the booking one stage at a time along this
+// owner-facing flow — the owner no longer hand-picks an arbitrary status.
+// Cancelled sits outside the linear flow (reached via the Cancel action).
+const ADVANCE_FLOW = ['CREATED', 'IN_DIAGNOSIS', 'QUOTED', 'APPROVED', 'IN_REPAIR', 'READY', 'DELIVERED'];
+
+// Rank every lifecycle status so we can resolve "the next stage" even for
+// statuses that sit off the linear owner flow (ASSIGNED, INVOICE_*, etc.).
+const STATUS_RANK = {
+  CREATED: 0, ASSIGNED: 0.5, IN_DIAGNOSIS: 1, QUOTED: 2, APPROVED: 3, IN_REPAIR: 4,
+  READY: 5, INVOICE_GENERATED: 5.5, INVOICE_READY: 5.6, RETURN_DELIVERY: 5.7,
+  DELIVERED_PROCESSING: 5.8, DELIVERED: 6,
+};
+
+// The stage to auto-advance to from the current status — or null when the
+// booking is already delivered or cancelled (nothing further to advance to).
+function nextStage(statusKey) {
+  const key = String(statusKey || '').toUpperCase();
+  if (key === 'CANCELLED' || key === 'DELIVERED') return null;
+  const rank = STATUS_RANK[key] ?? 0;
+  return ADVANCE_FLOW.find((s) => (STATUS_RANK[s] ?? 0) > rank) || null;
+}
+
+// Splits a tracking id into its letter prefix and trailing digits so the header
+// pill can render the digits in brand green (e.g. #CSPEN·7627519), matching the
+// design. Non-conforming ids fall back to an all-dark render.
+function splitTrackingId(id) {
+  const s = String(id ?? '');
+  const m = s.match(/^(\D*)(\d.*)$/);
+  return m ? { prefix: m[1], digits: m[2] } : { prefix: s, digits: '' };
+}
+
 function priceItemsFromTicket(ticket) {
   if (Array.isArray(ticket.priceItems)) return ticket.priceItems;
   if (ticket.priceItemsJson) {
@@ -130,6 +166,9 @@ export default function TicketDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const receiptRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -189,6 +228,43 @@ export default function TicketDetailScreen({ route, navigation }) {
   }, [ticketId]);
 
   useEffect(() => { refreshProgress(); }, [refreshProgress]);
+
+  // Pull-to-reload via the floating refresh chip on the Service Info card — pulls
+  // both the ticket record and the Service Progress events back in sync.
+  const onRefresh = useCallback(() => { load(); refreshProgress(); }, [load, refreshProgress]);
+
+  // Bottom-bar "Update Status" — same PATCH /tickets/{id}/status the technician
+  // Update Status screen uses, exposed here as a light-themed bottom sheet so the
+  // owner can jump the booking to any lifecycle state without walking the
+  // Service Progress ticks one by one.
+  const applyStatus = useCallback(async (nextStatus) => {
+    if (!ticketId) return;
+    setStatusBusy(nextStatus);
+    try {
+      await ticketApi.patch(`/tickets/${ticketId}/status`, { query: { status: nextStatus } });
+      setStatusOpen(false);
+      const label = STATUS_VARIANT[nextStatus]?.label || nextStatus;
+      notify('Status updated', `Booking moved to "${label}".`, { preset: 'done' });
+      load();
+      refreshProgress();
+    } catch (e) {
+      notify('Update failed', e?.message || 'Try again', { preset: 'error', haptic: 'error' });
+    } finally {
+      setStatusBusy(null);
+    }
+  }, [ticketId, load, refreshProgress]);
+
+  // Cancelling sits outside the linear auto-advance flow, so it stays an
+  // explicit, confirmed action rather than a stage the owner advances into.
+  const cancelBooking = useCallback(async () => {
+    const ok = await confirm({
+      title: 'Cancel booking',
+      message: 'Cancel this booking? This moves it to Cancelled and can\'t be undone.',
+      confirmText: 'Cancel booking',
+      destructive: true,
+    });
+    if (ok) applyStatus('CANCELLED');
+  }, [applyStatus]);
 
   const submitProgress = useCallback(async (row) => {
     setProgressBusy(row.key);
@@ -304,6 +380,7 @@ export default function TicketDetailScreen({ route, navigation }) {
   }
 
   const trackingId = ticket.trackingId || ticket.id;
+  const tid = splitTrackingId(trackingId);
   const deviceName = ticket.deviceDisplayName || ticket.deviceModelName || ticket.modelName || 'Device';
   const color = ticket.color;
   const ramLabel = ticket.ramLabel;
@@ -320,6 +397,7 @@ export default function TicketDetailScreen({ route, navigation }) {
   const statusKey = String(ticket.status || '').toUpperCase();
   const statusMeta = STATUS_VARIANT[statusKey] || { label: ticket.status || 'Pending', tone: 'amber' };
   const statusTone = TONE[statusMeta.tone] || TONE.amber;
+  const StatusIcon = statusKey === 'CANCELLED' ? AlertCircle : CheckCircle2;
   const statusIdx = LIFECYCLE_ORDER.indexOf(statusKey);
   const hasTechnician = !!ticket.assignedTechnicianId;
   const techAccepted = hasTechnician && ACCEPTED_STATUSES.has(statusKey);
@@ -371,6 +449,18 @@ export default function TicketDetailScreen({ route, navigation }) {
       destructive: true,
     });
     if (ok) goToAssign();
+  };
+
+  // Bottom-bar "Contact Customer" — opens the dialer pre-filled with the
+  // customer's number. No-op with a toast when the booking has no phone.
+  const contactCustomer = () => {
+    if (!phone) {
+      notify('No number', 'This booking has no customer phone on file.');
+      return;
+    }
+    Linking.openURL(`tel:${phone}`).catch(() =>
+      notify('Unable to call', 'Could not open the phone dialer.'),
+    );
   };
 
   const onAction = async (key) => {
@@ -467,17 +557,18 @@ export default function TicketDetailScreen({ route, navigation }) {
             Booking Details
           </Text>
           <View
-            className="px-2.5 py-1 rounded-full bg-surface-muted"
-            style={{ maxWidth: 180 }}
+            className="px-2.5 py-1 rounded-full"
+            style={{ maxWidth: 180, backgroundColor: '#DCFCE7' }}
           >
-            <Text className="text-text text-[11px] font-extrabold" numberOfLines={1}>
-              #{trackingId}
+            <Text className="text-[11px] font-extrabold" numberOfLines={1}>
+              <Text style={{ color: '#0F172A' }}>#{tid.prefix}</Text>
+              <Text style={{ color: BRAND_GREEN_DARK }}>{tid.digits}</Text>
             </Text>
           </View>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 0, paddingBottom: 128 }}>
         <View style={{ width: contentW, alignSelf: 'center' }}>
         {/* ── Device hero ─────────────────────────────────────── */}
         <View className="px-4" style={{ marginTop: 12 }}>
@@ -501,10 +592,11 @@ export default function TicketDetailScreen({ route, navigation }) {
                   </Text>
                 ) : null}
                 <View
-                  className="self-start rounded-full px-2.5 py-1 mt-2"
+                  className="self-start flex-row items-center rounded-full px-2.5 py-1 mt-2"
                   style={{ backgroundColor: statusTone.bg, borderWidth: 1, borderColor: statusTone.border }}
                 >
-                  <Text className="text-[10px] font-extrabold" style={{ color: statusTone.fg }}>
+                  <StatusIcon size={12} color={statusTone.fg} />
+                  <Text className="text-[10px] font-extrabold ml-1" style={{ color: statusTone.fg }}>
                     {statusMeta.label.toUpperCase()}
                   </Text>
                 </View>
@@ -518,8 +610,11 @@ export default function TicketDetailScreen({ route, navigation }) {
               </View>
               {ticket.createdAt ? (
                 <View className="items-end">
-                  <Text className="text-[10px] text-text-muted">Booked</Text>
-                  <Text className="text-[12px] font-bold text-text">{fmtInstant(ticket.createdAt) || '-'}</Text>
+                  <Text className="text-[10px] text-text-muted">Booked on</Text>
+                  <View className="flex-row items-center mt-0.5">
+                    <Calendar size={12} color="#64748B" />
+                    <Text className="text-[12px] font-bold text-text ml-1">{fmtInstant(ticket.createdAt) || '-'}</Text>
+                  </View>
                 </View>
               ) : null}
             </View>
@@ -541,7 +636,7 @@ export default function TicketDetailScreen({ route, navigation }) {
         ) : null}
 
         {/* ── Price summary ───────────────────────────────────── */}
-        <SectionHeader icon={Receipt} label="PRICE SUMMARY" />
+        <SectionHeader icon={IndianRupee} label="PRICE SUMMARY" />
         <View className="px-4">
           <View className="bg-card rounded-2xl p-4" style={cardShadow}>
             {lineItems.length === 0 ? (
@@ -553,8 +648,8 @@ export default function TicketDetailScreen({ route, navigation }) {
                   className="flex-row items-center py-2"
                   style={{ borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: '#F1F5F9' }}
                 >
-                  <View className="w-6 h-6 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F1F5F9' }}>
-                    <Text className="text-text text-[11px] font-extrabold">{idx + 1}</Text>
+                  <View className="w-6 h-6 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#DCFCE7' }}>
+                    <Text className="text-[11px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>{idx + 1}</Text>
                   </View>
                   <Text className="flex-1 text-text text-[13px] font-semibold" numberOfLines={1}>{item.label}</Text>
                   <Text className="font-extrabold text-text text-[13px]">₹{Number(item.amount || 0).toLocaleString('en-IN')}</Text>
@@ -573,29 +668,58 @@ export default function TicketDetailScreen({ route, navigation }) {
         {/* ── Service info ────────────────────────────────────── */}
         <SectionHeader icon={Wrench} label="SERVICE INFO" />
         <View className="px-4">
-          <View className="bg-card rounded-2xl p-4" style={cardShadow}>
+          <View className="bg-card rounded-2xl p-4" style={[cardShadow, { position: 'relative' }]}>
+            {/* Floating refresh + overflow cluster — matches the design's corner
+                control. Refresh re-pulls the ticket; the dots open the options sheet. */}
+            <View style={{ position: 'absolute', right: -6, top: -16, zIndex: 5 }}>
+              <View style={floatingCluster}>
+                <TouchableOpacity
+                  onPress={onRefresh}
+                  disabled={loading}
+                  hitSlop={8}
+                  className="items-center justify-center"
+                  style={{ width: 40, height: 34 }}
+                >
+                  {loading
+                    ? <ActivityIndicator size="small" color={ACCENT_GREEN} />
+                    : <RotateCw size={16} color={ACCENT_GREEN} />}
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#EEF2F6' }} />
+                <TouchableOpacity
+                  onPress={() => setMoreOpen(true)}
+                  hitSlop={8}
+                  className="items-center justify-center"
+                  style={{ width: 40, height: 34 }}
+                >
+                  <MoreHorizontal size={16} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {ticket.issueDescription ? (
-              <View className="mb-3">
-                <Text className="text-[11px] text-text-muted mb-1">Complaint</Text>
-                <Text className="text-[13px] text-text leading-5">{ticket.issueDescription}</Text>
+              <View className="flex-row items-start py-1.5 pr-12">
+                <Text className="text-[12.5px] text-text-muted" style={{ width: 96 }}>Complaint</Text>
+                <Text className="flex-1 text-[13px] text-text font-bold leading-5" numberOfLines={3}>
+                  {ticket.issueDescription}
+                </Text>
               </View>
             ) : null}
             <DetailRow icon={Clock} label="Est. Time" value={fmtInstant(ticket.estimatedReadyAt) || '-'} />
             <DetailRow icon={Calendar} label="Delivery" value={fmtInstant(ticket.estimatedDeliveryAt) || '-'} />
             <View className="flex-row items-center py-1.5">
-              <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F1F5F9' }}>
-                <CheckCircle2 size={14} color="#64748B" />
+              <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F0FDF4' }}>
+                <ShieldCheck size={14} color={ACCENT_GREEN} />
               </View>
               <Text className="flex-1 text-[12.5px] text-text-muted">Repair Approval</Text>
               {ticket.customerApproval ? (
-                <View className="flex-row items-center">
-                  <CheckCircle2 size={13} color={BRAND_GREEN} />
-                  <Text className="text-[12.5px] font-extrabold text-success ml-1">Approved</Text>
+                <View className="flex-row items-center rounded-full px-2.5 py-1" style={{ backgroundColor: '#DCFCE7' }}>
+                  <CheckCircle2 size={13} color={BRAND_GREEN_DARK} />
+                  <Text className="text-[12px] font-extrabold ml-1" style={{ color: BRAND_GREEN_DARK }}>Approved</Text>
                 </View>
               ) : (
-                <View className="flex-row items-center">
-                  <AlertCircle size={13} color="#94A3B8" />
-                  <Text className="text-[12.5px] font-bold text-text-muted ml-1">Pending</Text>
+                <View className="flex-row items-center rounded-full px-2.5 py-1" style={{ backgroundColor: '#FEF3C7' }}>
+                  <AlertCircle size={13} color="#B45309" />
+                  <Text className="text-[12px] font-bold ml-1" style={{ color: '#B45309' }}>Pending</Text>
                 </View>
               )}
             </View>
@@ -603,14 +727,28 @@ export default function TicketDetailScreen({ route, navigation }) {
         </View>
 
         {/* ── Technician section ─────────────────────────────── */}
-        <SectionHeader icon={UserCog} label="TECHNICIAN" />
+        <SectionHeader icon={Users} label="TECHNICIAN" />
         <View className="px-4">
-          <View className="bg-card rounded-2xl p-4" style={cardShadow}>
+          <View
+            className="rounded-2xl p-4"
+            style={[cardShadow, {
+              backgroundColor: hasTechnician ? '#FFFFFF' : '#F0FDF4',
+              borderColor: hasTechnician ? '#E5E7EB' : '#BBF7D0',
+            }]}
+          >
             {!hasTechnician ? (
               <>
-                <Text className="text-[12.5px] text-text-muted mb-3">
-                  No technician assigned to this booking yet.
-                </Text>
+                <View className="flex-row items-center mb-3">
+                  <View
+                    className="w-11 h-11 rounded-full items-center justify-center mr-3"
+                    style={{ backgroundColor: '#DCFCE7' }}
+                  >
+                    <User size={20} color={ACCENT_GREEN} />
+                  </View>
+                  <Text className="flex-1 text-[12.5px] text-text-muted">
+                    No technician assigned to this booking yet.
+                  </Text>
+                </View>
                 <Pressable
                   onPress={onAssignPress}
                   className="rounded-xl active:opacity-90 overflow-hidden"
@@ -619,10 +757,10 @@ export default function TicketDetailScreen({ route, navigation }) {
                     colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={{ paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <UserPlus size={14} color="#fff" />
-                    <Text className="text-white text-[13px] font-extrabold ml-1.5">Assign Technician</Text>
+                    <UserPlus size={15} color="#fff" />
+                    <Text className="text-white text-[13.5px] font-extrabold ml-1.5">Assign Technician</Text>
                   </LinearGradient>
                 </Pressable>
               </>
@@ -672,7 +810,7 @@ export default function TicketDetailScreen({ route, navigation }) {
         </View>
 
         {/* ── Quick actions ────────────────────────────────── */}
-        <SectionHeader icon={ListChecks} label="QUICK ACTIONS" />
+        <SectionHeader icon={Zap} label="QUICK ACTIONS" />
         <View className="px-4">
           <View className="flex-row flex-wrap -mx-1">
             {ACTION_TILES.map((a) => {
@@ -710,138 +848,208 @@ export default function TicketDetailScreen({ route, navigation }) {
         <View className="px-4">
           <View className="bg-card rounded-2xl p-3" style={cardShadow}>
             <Text className="text-[10.5px] text-text-muted mb-2">
-              Tap Mark on the next step, then Done to record it on the customer's Service History.
+              Tap <Text className="font-extrabold text-text">Mark</Text> on the next step, then{' '}
+              <Text className="font-extrabold text-text">Done</Text> to record it on the customer's Service History.
             </Text>
-            {OWNER_PROGRESS_ROWS.map((row, idx) => {
-              const entry = progressStatus[row.key];
-              // A step counts as done if it was explicitly recorded OR the
-              // ticket's status has already advanced at/past it in the lifecycle
-              // (e.g. once the invoice is generated, "Ready for Delivery" is
-              // behind us — so it shows done instead of looking stuck).
-              const lifeIdx = LIFECYCLE_ORDER.indexOf(row.key);
-              const lifecycleDone = lifeIdx >= 0 && statusIdx >= 0 && statusIdx >= lifeIdx;
-              const done = !!entry?.done || lifecycleDone;
-              const checked = !!progressChecked[row.key];
-              const busy = progressBusy === row.key;
-              const stepNo = String(idx + 1).padStart(2, '0');
-              const toggleTick = () =>
-                setProgressChecked((prev) => ({ ...prev, [row.key]: !prev[row.key] }));
-              return (
-                <View
-                  key={row.key}
-                  className="flex-row items-center"
-                  style={{
-                    paddingVertical: 12,
-                    borderTopWidth: idx > 0 ? 1 : 0,
-                    borderTopColor: '#F1F5F9',
-                  }}
-                >
-                  {/* Numbered chip — green tint when done, amber when checked, gray idle */}
+            {(() => {
+              // Resolve each step's done-ness up front so we can highlight the
+              // first not-yet-done step (the actionable "next" one) in green.
+              const states = OWNER_PROGRESS_ROWS.map((row, idx) => {
+                const entry = progressStatus[row.key];
+                // A step counts as done if it was explicitly recorded OR the
+                // ticket's status has already advanced at/past it in the lifecycle
+                // (e.g. once the invoice is generated, "Ready for Delivery" is
+                // behind us — so it shows done instead of looking stuck).
+                const lifeIdx = LIFECYCLE_ORDER.indexOf(row.key);
+                const lifecycleDone = lifeIdx >= 0 && statusIdx >= 0 && statusIdx >= lifeIdx;
+                const done = !!entry?.done || lifecycleDone;
+                return { row, idx, entry, done };
+              });
+              const nextIdx = states.findIndex((s) => !s.done);
+              const lastIdx = OWNER_PROGRESS_ROWS.length - 1;
+
+              return states.map(({ row, idx, entry, done }) => {
+                const checked = !!progressChecked[row.key];
+                const busy = progressBusy === row.key;
+                const stepNo = String(idx + 1).padStart(2, '0');
+                const isNext = idx === nextIdx;
+                const toggleTick = () =>
+                  setProgressChecked((prev) => ({ ...prev, [row.key]: !prev[row.key] }));
+                return (
                   <View
-                    className="rounded-full items-center justify-center"
-                    style={{
-                      width: 30, height: 30,
-                      backgroundColor: done ? '#DCFCE7' : checked ? '#FEF3C7' : '#F1F5F9',
-                    }}
+                    key={row.key}
+                    style={{ flexDirection: 'row', alignItems: 'stretch', paddingVertical: 10 }}
                   >
-                    {done
-                      ? <Check size={14} color="#15803D" />
-                      : (
-                        <Text
-                          className="text-[10px] font-extrabold"
-                          style={{ color: checked ? '#B45309' : '#64748B' }}
-                        >
-                          {stepNo}
-                        </Text>
-                      )}
-                  </View>
-
-                  <Pressable
-                    onPress={done ? null : toggleTick}
-                    className="flex-1 ml-3"
-                    style={({ pressed }) => ({ opacity: pressed && !done ? 0.7 : 1 })}
-                  >
-                    <Text
-                      className={`text-[13px] ${done ? 'font-extrabold' : 'font-bold'} text-text`}
-                      numberOfLines={1}
-                    >
-                      {row.label}
-                    </Text>
-                    {checked && !done ? (
-                      <Text className="text-[10px] text-text-muted mt-0.5">
-                        Tap Done to confirm.
-                      </Text>
-                    ) : done ? (
-                      <Text className="text-[10px] mt-0.5" style={{ color: '#15803D' }}>
-                        Recorded{entry?.at ? ` · ${formatProgressTime(entry.at)}` : ''}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-
-                  {/* Right action area: changes by state. */}
-                  {done ? (
-                    <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: '#DCFCE7' }}>
-                      <Text className="text-[10px] font-extrabold" style={{ color: '#15803D' }}>DONE</Text>
-                    </View>
-                  ) : checked ? (
-                    <View className="flex-row items-center">
-                      {/* Done — fires the emit. */}
-                      <TouchableOpacity
-                        onPress={() => submitProgress(row)}
-                        disabled={busy}
-                        className="rounded-full flex-row items-center"
+                    {/* Numbered chip + dashed connector down to the next step. */}
+                    <View style={{ width: 30, alignItems: 'center' }}>
+                      <View
+                        className="rounded-full items-center justify-center"
                         style={{
-                          backgroundColor: '#22C55E',
-                          paddingHorizontal: 14, paddingVertical: 7,
-                          opacity: busy ? 0.6 : 1,
-                          shadowColor: '#22C55E', shadowOpacity: 0.3, shadowRadius: 4,
-                          shadowOffset: { width: 0, height: 2 }, elevation: 2,
+                          width: 30, height: 30,
+                          backgroundColor: done ? '#DCFCE7' : checked ? '#FEF3C7' : '#F1F5F9',
                         }}
                       >
-                        {busy
-                          ? <ActivityIndicator color="#FFFFFF" size="small" />
+                        {done
+                          ? <Check size={14} color="#15803D" />
                           : (
-                            <>
-                              <Check size={12} color="#FFFFFF" />
-                              <Text className="text-[11px] font-extrabold text-white ml-1">Done</Text>
-                            </>
+                            <Text
+                              className="text-[10px] font-extrabold"
+                              style={{ color: checked ? '#B45309' : '#64748B' }}
+                            >
+                              {stepNo}
+                            </Text>
                           )}
-                      </TouchableOpacity>
-                      {/* Cancel — clears the tick, no emit. */}
-                      <TouchableOpacity
-                        onPress={toggleTick}
-                        disabled={busy}
-                        className="rounded-full flex-row items-center ml-2"
-                        style={{
-                          backgroundColor: '#FFFFFF',
-                          borderWidth: 1, borderColor: '#CBD5E1',
-                          paddingHorizontal: 12, paddingVertical: 6,
-                        }}
-                      >
-                        <X size={11} color="#64748B" />
-                        <Text className="text-[11px] font-extrabold ml-1" style={{ color: '#64748B' }}>Cancel</Text>
-                      </TouchableOpacity>
+                      </View>
+                      {idx < lastIdx ? (
+                        <View
+                          style={{
+                            flex: 1,
+                            marginTop: 3,
+                            marginBottom: -13,
+                            borderLeftWidth: 1.5,
+                            borderStyle: 'dashed',
+                            borderColor: done ? '#86EFAC' : '#CBD5E1',
+                          }}
+                        />
+                      ) : null}
                     </View>
-                  ) : (
-                    // Idle: a Mark chip that ticks the row (same as tapping the label).
-                    <TouchableOpacity
-                      onPress={toggleTick}
-                      className="rounded-full"
-                      style={{
-                        backgroundColor: '#F1F5F9',
-                        paddingHorizontal: 14, paddingVertical: 7,
-                      }}
+
+                    <Pressable
+                      onPress={done ? null : toggleTick}
+                      className="flex-1 ml-3"
+                      style={({ pressed }) => ({ justifyContent: 'center', opacity: pressed && !done ? 0.7 : 1 })}
                     >
-                      <Text className="text-[11px] font-extrabold" style={{ color: '#475569' }}>Mark</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
+                      <Text
+                        className={`text-[13px] ${done ? 'font-extrabold' : 'font-bold'} text-text`}
+                        numberOfLines={1}
+                      >
+                        {row.label}
+                      </Text>
+                      {checked && !done ? (
+                        <Text className="text-[10px] text-text-muted mt-0.5">
+                          Tap Done to confirm.
+                        </Text>
+                      ) : done ? (
+                        <Text className="text-[10px] mt-0.5" style={{ color: '#15803D' }}>
+                          Recorded{entry?.at ? ` · ${formatProgressTime(entry.at)}` : ''}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+
+                    {/* Right action area: changes by state (vertically centered). */}
+                    <View style={{ justifyContent: 'center' }}>
+                      {done ? (
+                        <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: '#DCFCE7' }}>
+                          <Text className="text-[10px] font-extrabold" style={{ color: '#15803D' }}>DONE</Text>
+                        </View>
+                      ) : checked ? (
+                        <View className="flex-row items-center">
+                          {/* Done — fires the emit. */}
+                          <TouchableOpacity
+                            onPress={() => submitProgress(row)}
+                            disabled={busy}
+                            className="rounded-full flex-row items-center"
+                            style={{
+                              backgroundColor: '#22C55E',
+                              paddingHorizontal: 14, paddingVertical: 7,
+                              opacity: busy ? 0.6 : 1,
+                              shadowColor: '#22C55E', shadowOpacity: 0.3, shadowRadius: 4,
+                              shadowOffset: { width: 0, height: 2 }, elevation: 2,
+                            }}
+                          >
+                            {busy
+                              ? <ActivityIndicator color="#FFFFFF" size="small" />
+                              : (
+                                <>
+                                  <Check size={12} color="#FFFFFF" />
+                                  <Text className="text-[11px] font-extrabold text-white ml-1">Done</Text>
+                                </>
+                              )}
+                          </TouchableOpacity>
+                          {/* Cancel — clears the tick, no emit. */}
+                          <TouchableOpacity
+                            onPress={toggleTick}
+                            disabled={busy}
+                            className="rounded-full flex-row items-center ml-2"
+                            style={{
+                              backgroundColor: '#FFFFFF',
+                              borderWidth: 1, borderColor: '#CBD5E1',
+                              paddingHorizontal: 12, paddingVertical: 6,
+                            }}
+                          >
+                            <X size={11} color="#64748B" />
+                            <Text className="text-[11px] font-extrabold ml-1" style={{ color: '#64748B' }}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        // Idle: a Mark chip that ticks the row. The next actionable
+                        // step is tinted green so it reads as the call-to-action.
+                        <TouchableOpacity
+                          onPress={toggleTick}
+                          className="rounded-full"
+                          style={{
+                            backgroundColor: isNext ? '#DCFCE7' : '#F1F5F9',
+                            paddingHorizontal: 16, paddingVertical: 7,
+                          }}
+                        >
+                          <Text
+                            className="text-[11px] font-extrabold"
+                            style={{ color: isNext ? BRAND_GREEN_DARK : '#475569' }}
+                          >
+                            Mark
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                );
+              });
+            })()}
           </View>
         </View>
         </View>
       </ScrollView>
+
+      {/* ── Bottom action bar — Contact Customer + Update Status ── */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0, right: 0, bottom: 0,
+          flexDirection: 'row',
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
+          gap: 12,
+        }}
+      >
+        <Pressable
+          onPress={contactCustomer}
+          className="flex-1 flex-row items-center justify-center rounded-2xl active:opacity-80"
+          style={{ borderWidth: 1.5, borderColor: ACCENT_GREEN, paddingVertical: 14 }}
+        >
+          <Phone size={16} color={ACCENT_GREEN} />
+          <Text className="text-[14px] font-extrabold ml-2" style={{ color: ACCENT_GREEN }}>
+            Contact Customer
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setStatusOpen(true)}
+          className="flex-1 rounded-2xl overflow-hidden active:opacity-90"
+        >
+          <LinearGradient
+            colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <ClipboardList size={16} color="#FFFFFF" />
+            <Text className="text-white text-[14px] font-extrabold ml-2">Update Status</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
 
       {/* ── Share Receipt chooser ───────────────────────────────── */}
       <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
@@ -895,6 +1103,181 @@ export default function TicketDetailScreen({ route, navigation }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Update Status sheet — jumps the booking to any lifecycle stage ── */}
+      <Modal visible={statusOpen} transparent animationType="fade" onRequestClose={() => setStatusOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' }}
+          onPress={() => (statusBusy ? null : setStatusOpen(false))}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 16,
+            }}
+          >
+            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 999, backgroundColor: '#E2E8F0', marginBottom: 14 }} />
+            <View className="flex-row items-center justify-between mb-1">
+              <Text className="text-[15px] font-extrabold text-gray-900">Update Status</Text>
+              <Pressable
+                onPress={() => setStatusOpen(false)}
+                hitSlop={8}
+                className="w-8 h-8 rounded-full items-center justify-center"
+                style={{ backgroundColor: '#F1F5F9' }}
+              >
+                <X size={14} color="#0F172A" />
+              </Pressable>
+            </View>
+            <Text className="text-[11.5px] text-text-muted mb-3">
+              Booking #{trackingId} moves forward one stage at a time.
+            </Text>
+
+            {/* Current stage — read-only */}
+            <View
+              className="rounded-2xl border px-3.5 py-3 mb-1"
+              style={{ backgroundColor: '#F8FAFC', borderColor: '#E5E7EB' }}
+            >
+              <Text className="text-[10px] uppercase font-extrabold text-gray-400 mb-1.5" style={{ letterSpacing: 0.8 }}>
+                Current Stage
+              </Text>
+              <View className="flex-row items-center">
+                <View className="w-2.5 h-2.5 rounded-full mr-2.5" style={{ backgroundColor: statusTone.fg }} />
+                <Text className="flex-1 text-[14px] font-extrabold text-text">{statusMeta.label}</Text>
+                <View className="flex-row items-center">
+                  <CheckCircle2 size={14} color={BRAND_GREEN_DARK} />
+                  <Text className="text-[10.5px] font-extrabold ml-1" style={{ color: BRAND_GREEN_DARK }}>Current</Text>
+                </View>
+              </View>
+            </View>
+
+            {(() => {
+              const next = nextStage(statusKey);
+              const nextMeta = next ? (STATUS_VARIANT[next] || { label: next, tone: 'green' }) : null;
+              const advancing = statusBusy === next;
+
+              if (!next) {
+                const cancelled = statusKey === 'CANCELLED';
+                return (
+                  <View
+                    className="rounded-2xl px-3.5 py-4 items-center mt-1.5"
+                    style={{
+                      backgroundColor: cancelled ? '#FEF2F2' : '#F0FDF4',
+                      borderWidth: 1,
+                      borderColor: cancelled ? '#FECACA' : '#BBF7D0',
+                    }}
+                  >
+                    {cancelled
+                      ? <AlertCircle size={20} color="#B91C1C" />
+                      : <CheckCircle2 size={20} color={BRAND_GREEN_DARK} />}
+                    <Text className="text-[13px] font-extrabold text-text mt-1.5">
+                      {cancelled ? 'This booking was cancelled.' : 'Final stage reached.'}
+                    </Text>
+                    <Text className="text-[11px] text-text-muted mt-0.5 text-center">
+                      {cancelled ? 'No further status updates.' : 'This booking has been delivered.'}
+                    </Text>
+                  </View>
+                );
+              }
+
+              return (
+                <>
+                  <View className="items-center my-1.5">
+                    <ArrowDown size={16} color="#94A3B8" />
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => applyStatus(next)}
+                    disabled={statusBusy != null}
+                    activeOpacity={0.9}
+                    className="rounded-2xl overflow-hidden"
+                    style={{ opacity: statusBusy != null && !advancing ? 0.6 : 1 }}
+                  >
+                    <LinearGradient
+                      colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={{ paddingVertical: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}
+                    >
+                      <View className="flex-1">
+                        <Text className="text-[10px] uppercase font-extrabold" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: 0.8 }}>
+                          Advance To
+                        </Text>
+                        <Text className="text-white text-[15px] font-extrabold mt-0.5">{nextMeta.label}</Text>
+                      </View>
+                      {advancing
+                        ? <ActivityIndicator size="small" color="#FFFFFF" />
+                        : <ChevronRight size={20} color="#FFFFFF" />}
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={cancelBooking}
+                    disabled={statusBusy != null}
+                    className="rounded-2xl border mt-2.5 py-3 items-center"
+                    style={{ borderColor: '#FECACA', backgroundColor: '#FFFFFF' }}
+                  >
+                    <Text className="text-[12.5px] font-extrabold" style={{ color: '#B91C1C' }}>Cancel booking</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Overflow options sheet (the Service Info "…" button) ─────────── */}
+      <Modal visible={moreOpen} transparent animationType="fade" onRequestClose={() => setMoreOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setMoreOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 16,
+            }}
+          >
+            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 999, backgroundColor: '#E2E8F0', marginBottom: 14 }} />
+            <Text className="text-[15px] font-extrabold text-gray-900 mb-3">Booking options</Text>
+            {[
+              { key: 'refresh', label: 'Refresh details',   icon: RotateCw, tint: '#F0FDF4',                 fg: ACCENT_GREEN },
+              { key: 'view',    label: 'View full details', icon: FileText, tint: 'rgba(34,197,94,0.12)',   fg: BRAND_GREEN_DARK },
+              { key: 'history', label: 'Service history',   icon: Clock,    tint: 'rgba(168,85,247,0.12)',  fg: '#7C3AED' },
+              { key: 'share',   label: 'Share receipt',     icon: Share2,   tint: 'rgba(34,197,94,0.12)',   fg: ACCENT_GREEN },
+              { key: 'barcode', label: 'Barcode',           icon: QrCode,   tint: 'rgba(245,158,11,0.16)',  fg: '#B45309' },
+            ].map((opt) => {
+              const OptIcon = opt.icon;
+              return (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => {
+                    setMoreOpen(false);
+                    if (opt.key === 'refresh') onRefresh();
+                    else onAction(opt.key);
+                  }}
+                  className="flex-row items-center rounded-2xl p-3 mb-2 active:opacity-80"
+                  style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+                >
+                  <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: opt.tint }}>
+                    <OptIcon size={18} color={opt.fg} />
+                  </View>
+                  <Text className="flex-1 text-[13.5px] font-extrabold text-gray-900">{opt.label}</Text>
+                  <ChevronRight size={16} color="#CBD5E1" />
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -928,11 +1311,11 @@ function SectionHeader({ icon: Icon, label }) {
 function DetailRow({ icon: Icon, label, value }) {
   return (
     <View className="flex-row items-center py-1.5">
-      <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F1F5F9' }}>
-        <Icon size={14} color="#64748B" />
+      <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F0FDF4' }}>
+        <Icon size={14} color={ACCENT_GREEN} />
       </View>
       <Text className="text-[12px] text-text-muted" style={{ width: 78 }}>{label}</Text>
-      <Text className="text-[13px] text-text font-semibold flex-1" numberOfLines={2}>{value}</Text>
+      <Text className="text-[13px] text-text font-bold flex-1" numberOfLines={2}>{value}</Text>
     </View>
   );
 }
@@ -954,7 +1337,9 @@ function fmtInstant(iso) {
   try {
     const dt = new Date(iso);
     if (isNaN(dt.getTime())) return null;
-    return `${dt.toDateString()} ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+    // e.g. "Mon Jul 20 2026 1:34 pm" — non-padded hour + lowercase am/pm to match the design.
+    const time = dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    return `${dt.toDateString()} ${time}`;
   } catch { return null; }
 }
 
@@ -1028,6 +1413,21 @@ const cardShadow = {
   shadowRadius: 10,
   shadowOffset: { width: 0, height: 2 },
   elevation: 2,
+};
+
+// White pill that floats over the Service Info card's top-right corner and
+// holds the refresh + overflow buttons (matches the design's corner control).
+const floatingCluster = {
+  backgroundColor: '#FFFFFF',
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: '#EEF2F6',
+  shadowColor: '#0F172A',
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 5,
+  overflow: 'hidden',
 };
 
 // ════════════════════════════════════════════════════════════════════════════

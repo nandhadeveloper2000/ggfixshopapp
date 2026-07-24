@@ -70,7 +70,7 @@ export default function OwnerEmployeeSalaryReportScreen({ route, navigation }) {
       totalNet += Number.isNaN(n) ? 0 : n;
       if (n > 0) monthsPaid += 1;
     });
-    return { totalPresent, totalNet, monthsPaid };
+    return { totalPresent, totalNet, monthsPaid, monthsUnpaid: list.length - monthsPaid };
   }, [list]);
 
   const openPayslip = (row) => {
@@ -96,9 +96,14 @@ export default function OwnerEmployeeSalaryReportScreen({ route, navigation }) {
       >
         {/* Financial year header */}
         <View style={styles.fyCard}>
-          <View style={styles.fyTextWrap}>
-            <Text style={styles.fyLabel}>Financial Year</Text>
-            <Text style={styles.fyValue}>{fyLabel}</Text>
+          <View style={styles.fyLeft}>
+            <View style={styles.fyIconWrap}>
+              <Ionicons name="calendar" size={20} color="#16A34A" />
+            </View>
+            <View style={styles.fyTextWrap}>
+              <Text style={styles.fyLabel}>Financial Year</Text>
+              <Text style={styles.fyValue}>{fyLabel}</Text>
+            </View>
           </View>
           <View style={styles.yearPill}>
             <TouchableOpacity onPress={() => setYear((y) => y - 1)} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
@@ -118,14 +123,14 @@ export default function OwnerEmployeeSalaryReportScreen({ route, navigation }) {
             label="Total Present"
             value={`${totals.totalPresent}`}
             sub="Days"
-            icon="calendar"
+            icon="people"
             color="#16A34A"
             bg="#DCFCE7"
           />
           <SummaryTile
             label="Total Earned"
             value={formatRupee(totals.totalNet)}
-            sub={`${totals.monthsPaid} mo paid`}
+            sub={`${totals.monthsUnpaid} not paid`}
             icon="cash"
             color="#7C3AED"
             bg="#EDE9FE"
@@ -164,7 +169,7 @@ function SummaryTile({ label, value, sub, icon, color, bg }) {
   return (
     <View style={styles.summaryTile}>
       <View style={[styles.summaryIconWrap, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={14} color={color} />
+        <Ionicons name={icon} size={19} color={color} />
       </View>
       <Text style={styles.summaryValue}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -194,7 +199,7 @@ function MonthCard({ row, index, onPress }) {
         </View>
         <View style={styles.monthBottomRow}>
           <View style={styles.monthMeta}>
-            <Ionicons name="calendar-outline" size={11} color="#6B7280" />
+            <Ionicons name="calendar-outline" size={13} color="#6B7280" />
             <Text style={styles.monthMetaText}>{row.presentDays ?? 0} Days</Text>
           </View>
           <View style={styles.monthSpacer} />
@@ -206,26 +211,26 @@ function MonthCard({ row, index, onPress }) {
       <View style={styles.monthRight}>
         {isEmpty ? (
           <View style={[styles.statusPill, styles.statusPillEmpty]}>
-            <Text style={styles.statusPillTextEmpty}>Pending</Text>
+            <Text style={[styles.statusPillText, { color: '#6B7280' }]}>Pending</Text>
           </View>
         ) : isPaid ? (
           <View style={[styles.statusPill, styles.statusPillPaid]}>
-            <Ionicons name="checkmark-circle" size={11} color="#FFFFFF" />
-            <Text style={styles.statusPillText}>Paid</Text>
+            <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
+            <Text style={[styles.statusPillText, { color: '#16A34A' }]}>Paid</Text>
           </View>
         ) : (
           <View style={[styles.statusPill, styles.statusPillUnpaid]}>
-            <Text style={styles.statusPillText}>Unpaid</Text>
+            <Text style={[styles.statusPillText, { color: '#EA580C' }]}>Unpaid</Text>
           </View>
         )}
-        {!isEmpty && <Ionicons name="chevron-forward" size={14} color="#9CA3AF" style={{ marginTop: 6 }} />}
+        {!isEmpty && <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={{ marginTop: 6 }} />}
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F1FB' },
+  safe: { flex: 1, backgroundColor: '#F4FBF6' },
   content: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { fontSize: 14, color: '#DC2626' },
@@ -235,79 +240,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
+  fyLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  fyIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
   fyTextWrap: {},
-  fyLabel: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
-  fyValue: { fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 1 },
+  fyLabel: { fontSize: 12.5, color: '#94A3B8', fontWeight: '600' },
+  fyValue: { fontSize: 26, fontWeight: '800', color: '#0F172A', marginTop: 2 },
 
   yearPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: '#15803D',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 999,
-    gap: 6,
+    gap: 8,
   },
-  yearPillText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  yearPillText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   yearPillSep: { width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.3)' },
 
-  summaryRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  summaryRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   summaryTile: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
     alignItems: 'flex-start',
+    shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   summaryIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
   },
-  summaryValue: { fontSize: 14, fontWeight: '800', color: '#111827' },
-  summaryLabel: { fontSize: 10, color: '#374151', fontWeight: '600', marginTop: 2 },
-  summarySub: { fontSize: 9, color: '#9CA3AF', marginTop: 1 },
+  summaryValue: { fontSize: 22, fontWeight: '800', color: '#0F172A' },
+  summaryLabel: { fontSize: 12, color: '#334155', fontWeight: '700', marginTop: 3 },
+  summarySub: { fontSize: 10.5, color: '#94A3B8', marginTop: 2 },
 
-  sectionHeader: { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 14, marginBottom: 8 },
+  sectionHeader: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginTop: 18, marginBottom: 12 },
 
   monthCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    marginBottom: 8,
-    gap: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 10,
+    gap: 12,
+    shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   monthCardEmpty: { backgroundColor: '#F9FAFB' },
 
   monthIndexBubble: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EEF2FF',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monthIndexText: { fontSize: 11, fontWeight: '800', color: '#3B4FD7' },
+  monthIndexText: { fontSize: 13, fontWeight: '800', color: '#15803D' },
 
   monthMain: { flex: 1, minWidth: 0 },
   monthHeaderRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  monthName: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  monthYear: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
-  monthBottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  monthMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  monthMetaText: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
+  monthName: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  monthYear: { fontSize: 12.5, color: '#94A3B8', fontWeight: '600' },
+  monthBottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
+  monthMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  monthMetaText: { fontSize: 12.5, color: '#6B7280', fontWeight: '500' },
   monthSpacer: { flex: 1 },
-  monthSalary: { fontSize: 13, fontWeight: '800' },
+  monthSalary: { fontSize: 15, fontWeight: '800' },
   monthSalaryPaid: { color: '#15803D' },
   monthSalaryEmpty: { color: '#9CA3AF' },
 
@@ -315,14 +325,15 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 999,
+    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
   },
-  statusPillPaid: { backgroundColor: '#22C55E' },
-  statusPillUnpaid: { backgroundColor: '#F97316' },
-  statusPillEmpty: { backgroundColor: '#E5E7EB' },
-  statusPillText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
-  statusPillTextEmpty: { fontSize: 10, fontWeight: '700', color: '#6B7280' },
+  statusPillPaid: { borderColor: '#86EFAC' },
+  statusPillUnpaid: { borderColor: '#FDBA74' },
+  statusPillEmpty: { borderColor: '#E5E7EB' },
+  statusPillText: { fontSize: 11.5, fontWeight: '800' },
 });

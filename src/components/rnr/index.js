@@ -8,6 +8,7 @@ export { Dialog, DialogHeader } from './Dialog';
 export { Badge } from './Badge';
 export { Avatar } from './Avatar';
 export { ScreenHeader, AppHeader } from './ScreenHeader';
+export { MintBackdrop, BrandHeader } from './BrandChrome';
 export { ScreenBackground } from './ScreenBackground';
 export { ScreenContainer, useBottomBarInset } from './ScreenContainer';
 export { SearchBar } from './SearchBar';

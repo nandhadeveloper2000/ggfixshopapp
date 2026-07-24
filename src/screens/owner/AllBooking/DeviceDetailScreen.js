@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, ScrollView, Text, View, TouchableOpacity, StatusBar, useWindowDimensions } from 'react-native';
+import { Image, ScrollView, Text, View, TouchableOpacity, StatusBar, useWindowDimensions, Linking, Modal, ActivityIndicator, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
@@ -8,16 +8,20 @@ import {
   Clock,
   FileText,
   CalendarClock,
+  Calendar,
   CheckCircle2,
   Camera,
   PlayCircle,
   ShieldCheck,
   PackageX,
-  UserCog,
+  Wrench,
+  Users,
+  Phone,
   IndianRupee,
   ChevronLeft,
-  Hash,
-  Palette,
+  Tag,
+  RotateCw,
+  MoreHorizontal,
   Play,
   Pause,
   Square,
@@ -46,6 +50,82 @@ const softShadow = {
   shadowOffset: { width: 0, height: 3 },
   elevation: 3,
 };
+
+// White pill floating over a card's right edge, holding the refresh + overflow
+// buttons — mirrors the Booking Details screen's corner control.
+const floatingCluster = {
+  backgroundColor: '#FFFFFF',
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: '#EEF2F6',
+  shadowColor: '#0F172A',
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 5,
+  overflow: 'hidden',
+};
+
+// Status → display label + tone, used for the hero status pill. Mirrors the
+// Booking Details screen's vocabulary so the pill reads the same across screens.
+const STATUS_VARIANT = {
+  CREATED:              { label: 'Service Accepted',     tone: 'amber' },
+  ASSIGNED:             { label: 'Technician Assigned',  tone: 'blue' },
+  IN_DIAGNOSIS:         { label: 'In Diagnosis',         tone: 'purple' },
+  IN_REPAIR:            { label: 'In Service',           tone: 'purple' },
+  QUOTED:               { label: 'Re-Estimated',         tone: 'amber' },
+  APPROVED:             { label: 'Approved',             tone: 'blue' },
+  READY:                { label: 'Ready for Delivery',   tone: 'green' },
+  RETURN_DELIVERY:      { label: 'Return Delivery',      tone: 'amber' },
+  INVOICE_GENERATED:    { label: 'Invoice Generated',    tone: 'amber' },
+  INVOICE_READY:        { label: 'Invoice Sent',         tone: 'amber' },
+  DELIVERED_PROCESSING: { label: 'Delivery Processing',  tone: 'amber' },
+  DELIVERED:            { label: 'Delivered',            tone: 'green' },
+  CANCELLED:            { label: 'Cancelled',            tone: 'red' },
+};
+
+const TONE = {
+  amber:  { bg: 'rgba(245, 158, 11, 0.14)', fg: '#C2410C', border: 'rgba(245, 158, 11, 0.35)' },
+  blue:   { bg: 'rgba(59, 130, 246, 0.12)', fg: '#1D4ED8', border: 'rgba(59, 130, 246, 0.35)' },
+  purple: { bg: 'rgba(168, 85, 247, 0.12)', fg: '#6D28D9', border: 'rgba(168, 85, 247, 0.35)' },
+  green:  { bg: 'rgba(22, 163, 74, 0.12)',  fg: BRAND_GREEN_DARK, border: 'rgba(22, 163, 74, 0.35)' },
+  red:    { bg: 'rgba(239, 68, 68, 0.12)',  fg: '#B91C1C', border: 'rgba(239, 68, 68, 0.35)' },
+};
+
+// Best-effort device-colour → swatch hex so the hero can show a real colour dot
+// next to the colour name (e.g. "Beige"). Falls back to a neutral gray.
+const COLOR_HEX = {
+  black: '#1F2937', white: '#F3F4F6', silver: '#D1D5DB', gray: '#9CA3AF', grey: '#9CA3AF',
+  gold: '#E6C200', rosegold: '#ECC5C0', beige: '#E8D9BE', cream: '#F5EBDC', graphite: '#4B5563',
+  blue: '#3B82F6', navy: '#1E3A8A', red: '#EF4444', green: '#22C55E', yellow: '#FACC15',
+  purple: '#A855F7', violet: '#8B5CF6', pink: '#EC4899', orange: '#F97316', brown: '#92400E',
+  midnight: '#111827', starlight: '#F5F3EA',
+};
+
+function colorToHex(name) {
+  if (!name) return '#CBD5E1';
+  const k = String(name).trim().toLowerCase();
+  return COLOR_HEX[k] || COLOR_HEX[k.replace(/\s+/g, '')] || COLOR_HEX[k.split(/\s+/)[0]] || '#CBD5E1';
+}
+
+// Splits a tracking id into its letter prefix and trailing digits so the header
+// pill can render the digits in brand green (e.g. #CSPEN·7517869).
+function splitTrackingId(id) {
+  const s = String(id ?? '');
+  const m = s.match(/^(\D*)(\d.*)$/);
+  return m ? { prefix: m[1], digits: m[2] } : { prefix: s, digits: '' };
+}
+
+// Hero "Booked On" stamp — e.g. "Mon, Jul 20 2026 11:37 am".
+function fmtBooked(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const wd = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const mo = d.toLocaleDateString('en-US', { month: 'short' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  return `${wd}, ${mo} ${d.getDate()} ${d.getFullYear()} ${time}`;
+}
 
 function parseDevicePhotos(ticket) {
   if (ticket?.devicePhotosJson) {
@@ -92,9 +172,12 @@ function formatDateTime(iso) {
   if (!iso) return null;
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
-  const date = d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  return `${date} ${time}`;
+  // e.g. "Thu, 09 Jul, 2026 10:48 pm" — padded day, non-padded lowercase time.
+  const wd = d.toLocaleDateString('en-IN', { weekday: 'short' });
+  const day = String(d.getDate()).padStart(2, '0');
+  const mo = d.toLocaleDateString('en-IN', { month: 'short' });
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  return `${wd}, ${day} ${mo}, ${d.getFullYear()} ${time}`;
 }
 
 // Uniform, neutral section header — gray chip + green icon — so the screen
@@ -103,38 +186,17 @@ function SectionHeader({ icon: Icon, label }) {
   return (
     <View className="flex-row items-center mb-3">
       <View
-        className="w-7 h-7 rounded-lg items-center justify-center mr-2"
-        style={{ backgroundColor: '#F1F5F9' }}
+        className="w-7 h-7 rounded-full items-center justify-center mr-2"
+        style={{ backgroundColor: '#DCFCE7' }}
       >
         <Icon size={14} color={BRAND_GREEN_DARK} />
       </View>
       <Text
-        className="text-[11px] font-extrabold tracking-widest text-gray-900"
+        className="text-[11px] font-extrabold tracking-widest text-gray-900 flex-1"
         style={{ letterSpacing: 1.2 }}
       >
         {label}
       </Text>
-    </View>
-  );
-}
-
-function DetailRow({ icon: Icon, label, value, valueClassName = 'text-gray-900' }) {
-  return (
-    <View className="flex-row items-start py-2.5">
-      <View
-        className="w-8 h-8 rounded-lg items-center justify-center mr-3"
-        style={{ backgroundColor: '#F1F5F9' }}
-      >
-        <Icon size={14} color={BRAND_GREEN_DARK} />
-      </View>
-      <View className="flex-1">
-        <Text className="text-[10.5px] uppercase font-semibold text-gray-400 mb-0.5" style={{ letterSpacing: 0.6 }}>
-          {label}
-        </Text>
-        <Text className={`text-[13.5px] font-semibold leading-5 ${valueClassName}`}>
-          {value}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -364,6 +426,7 @@ export default function DeviceDetailScreen({ route, navigation }) {
   const [complianceNotes, setComplianceNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!ticketId) return;
@@ -428,6 +491,22 @@ export default function DeviceDetailScreen({ route, navigation }) {
     ? ticket.deviceSecurityType : null;
   const securityValue = ticket.deviceSecurityValue || null;
 
+  const tid = splitTrackingId(trackingId);
+  const bookedText = fmtBooked(ticket.createdAt);
+  const statusKey = String(ticket.status || '').toUpperCase();
+  const statusMeta = STATUS_VARIANT[statusKey] || { label: ticket.status || 'Pending', tone: 'amber' };
+  const statusTone = TONE[statusMeta.tone] || TONE.amber;
+  const StatusIcon = statusKey === 'CANCELLED' ? PackageX : CheckCircle2;
+  const techPhone = technician?.phone || null;
+
+  const onRefresh = () => load();
+
+  // Green call button in the Assigned Technician card — dials the technician.
+  const contactTechnician = () => {
+    if (!techPhone) return;
+    Linking.openURL(`tel:${techPhone}`).catch(() => {});
+  };
+
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -455,11 +534,12 @@ export default function DeviceDetailScreen({ route, navigation }) {
             Device Details
           </Text>
           <View
-            className="px-2.5 py-1 rounded-full bg-surface-muted"
-            style={{ maxWidth: 160 }}
+            className="px-2.5 py-1 rounded-full"
+            style={{ maxWidth: 180, backgroundColor: '#DCFCE7' }}
           >
-            <Text className="text-text text-[11px] font-extrabold" numberOfLines={1}>
-              #{trackingId}
+            <Text className="text-[11px] font-extrabold" numberOfLines={1}>
+              <Text style={{ color: '#0F172A' }}>#{tid.prefix}</Text>
+              <Text style={{ color: BRAND_GREEN_DARK }}>{tid.digits}</Text>
             </Text>
           </View>
         </View>
@@ -473,47 +553,93 @@ export default function DeviceDetailScreen({ route, navigation }) {
         <View style={{ width: contentW, alignSelf: 'center' }}>
         {/* Floating device card */}
         <View className="px-4" style={{ marginTop: 12 }}>
-          <View
-            className="bg-white rounded-2xl p-4 flex-row items-center"
-            style={cardShadow}
-          >
-            {ticket.deviceImageUrl ? (
-              <Image
-                source={{ uri: ticket.deviceImageUrl }}
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 14,
-                  backgroundColor: '#F1F5F9',
-                  marginRight: 12,
-                }}
-              />
-            ) : (
-              <View
-                className="w-16 h-16 rounded-2xl items-center justify-center mr-3"
-                style={{ backgroundColor: '#DCFCE7' }}
-              >
-                <Smartphone size={28} color={BRAND_GREEN_DARK} />
+          <View className="bg-white rounded-2xl p-4" style={cardShadow}>
+            {/* Top — image + device name + colour swatch */}
+            <View className="flex-row items-center">
+              {ticket.deviceImageUrl ? (
+                <Image
+                  source={{ uri: ticket.deviceImageUrl }}
+                  style={{ width: 64, height: 64, borderRadius: 14, backgroundColor: '#F1F5F9', marginRight: 12 }}
+                />
+              ) : (
+                <View
+                  className="w-16 h-16 rounded-2xl items-center justify-center mr-3"
+                  style={{ backgroundColor: '#DCFCE7' }}
+                >
+                  <Smartphone size={28} color={BRAND_GREEN_DARK} />
+                </View>
+              )}
+              <View className="flex-1">
+                <Text className="text-[10.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.7 }}>
+                  Device
+                </Text>
+                <Text className="text-[15px] font-extrabold text-gray-900 mt-0.5" numberOfLines={2}>
+                  {deviceName}
+                </Text>
+                {ticket.color ? (
+                  <View className="flex-row items-center mt-1.5">
+                    <View
+                      style={{
+                        width: 14, height: 14, borderRadius: 7,
+                        backgroundColor: colorToHex(ticket.color),
+                        borderWidth: 1, borderColor: '#E5E7EB',
+                      }}
+                    />
+                    <Text className="text-[12px] text-gray-600 ml-1.5 font-semibold">{ticket.color}</Text>
+                  </View>
+                ) : null}
               </View>
-            )}
-            <View className="flex-1">
-              <Text className="text-[10.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.7 }}>
-                Device
-              </Text>
-              <Text
-                className="text-[15px] font-extrabold text-gray-900 mt-0.5"
-                numberOfLines={2}
-              >
-                {deviceName}
-              </Text>
-              {ticket.color ? (
-                <View className="flex-row items-center mt-1.5">
-                  <Palette size={11} color={ACCENT_GREEN} />
-                  <Text className="text-[11.5px] text-gray-500 ml-1">
-                    {ticket.color}
+            </View>
+
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: '#EEF2F6', marginVertical: 14 }} />
+
+            {/* Bottom — Tracking ID · Booked On · Status */}
+            <View className="flex-row items-center">
+              {/* Tracking ID */}
+              <View className="flex-row items-center flex-1">
+                <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: '#DCFCE7' }}>
+                  <Tag size={14} color={BRAND_GREEN_DARK} />
+                </View>
+                <View className="ml-2 flex-1">
+                  <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.4 }}>
+                    Tracking ID
+                  </Text>
+                  <Text className="text-[11.5px] font-extrabold" style={{ color: BRAND_GREEN_DARK }} numberOfLines={1}>
+                    #{trackingId}
                   </Text>
                 </View>
+              </View>
+
+              <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: '#EEF2F6', marginHorizontal: 8 }} />
+
+              {/* Booked On */}
+              {bookedText ? (
+                <View className="flex-row items-center flex-1">
+                  <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: '#DCFCE7' }}>
+                    <Calendar size={14} color={BRAND_GREEN_DARK} />
+                  </View>
+                  <View className="ml-2 flex-1">
+                    <Text className="text-[9.5px] uppercase font-bold text-gray-400" style={{ letterSpacing: 0.4 }}>
+                      Booked On
+                    </Text>
+                    <Text className="text-[11px] font-bold text-gray-900" numberOfLines={2}>
+                      {bookedText}
+                    </Text>
+                  </View>
+                </View>
               ) : null}
+
+              {/* Status pill */}
+              <View
+                className="flex-row items-center rounded-full px-2.5 py-1.5 ml-2"
+                style={{ backgroundColor: statusTone.bg, borderWidth: 1, borderColor: statusTone.border }}
+              >
+                <StatusIcon size={12} color={statusTone.fg} />
+                <Text className="text-[9.5px] font-extrabold ml-1" style={{ color: statusTone.fg }} numberOfLines={1}>
+                  {statusMeta.label.toUpperCase()}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -600,34 +726,84 @@ export default function DeviceDetailScreen({ route, navigation }) {
           </View>
         ) : null}
 
-        {/* Schedule + Approval */}
+        {/* Schedule + Approval — connected timeline */}
         <View className="px-4 mt-4">
-          <View
-            className="bg-white rounded-2xl p-4"
-            style={cardShadow}
-          >
-            <SectionHeader icon={CalendarClock} label="SERVICE SCHEDULE" tint="#FEF3C7" accent="#B45309" />
-            <DetailRow icon={Clock} label="Approx. Ready" value={readyAtText || 'Not yet set'} />
-            <DetailRow icon={CalendarClock} label="Delivery" value={deliveryAtText || 'Not yet set'} />
-            <View className="flex-row items-center py-2.5">
-              <View
-                className="w-8 h-8 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: approvalText === 'Done' ? '#DCFCE7' : '#F3F4F6' }}
-              >
-                <CheckCircle2 size={14} color={approvalText === 'Done' ? BRAND_GREEN_DARK : '#9CA3AF'} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[10.5px] uppercase font-semibold text-gray-400 mb-0.5" style={{ letterSpacing: 0.6 }}>
-                  Customer Approval
-                </Text>
-                <Text
-                  className="text-[13.5px] font-semibold leading-5"
-                  style={{ color: approvalText === 'Done' ? BRAND_GREEN_DARK : '#6B7280' }}
+          <View className="bg-white rounded-2xl p-4" style={[cardShadow, { position: 'relative' }]}>
+            {/* Floating refresh + overflow cluster */}
+            <View style={{ position: 'absolute', right: -6, top: 64, zIndex: 5 }}>
+              <View style={floatingCluster}>
+                <TouchableOpacity
+                  onPress={onRefresh}
+                  disabled={loading}
+                  hitSlop={8}
+                  className="items-center justify-center"
+                  style={{ width: 40, height: 34 }}
                 >
-                  {approvalText || 'Pending'}
-                </Text>
+                  {loading
+                    ? <ActivityIndicator size="small" color={ACCENT_GREEN} />
+                    : <RotateCw size={16} color={ACCENT_GREEN} />}
+                </TouchableOpacity>
+                <View style={{ height: 1, backgroundColor: '#EEF2F6' }} />
+                <TouchableOpacity
+                  onPress={() => setMoreOpen(true)}
+                  hitSlop={8}
+                  className="items-center justify-center"
+                  style={{ width: 40, height: 34 }}
+                >
+                  <MoreHorizontal size={16} color="#64748B" />
+                </TouchableOpacity>
               </View>
             </View>
+
+            <SectionHeader icon={CalendarClock} label="SERVICE SCHEDULE" />
+
+            {[
+              { icon: Clock,         label: 'Approx. Ready',     value: readyAtText || 'Not yet set',    done: !!readyAtText },
+              { icon: CalendarClock, label: 'Delivery',          value: deliveryAtText || 'Not yet set', done: !!deliveryAtText },
+              {
+                icon: CheckCircle2,
+                label: 'Customer Approval',
+                value: approvalText || 'Pending',
+                done: approvalText === 'Done',
+                valueColor: approvalText === 'Done' ? BRAND_GREEN_DARK : '#6B7280',
+              },
+            ].map((r, i, arr) => {
+              const Icon = r.icon;
+              const isLast = i === arr.length - 1;
+              return (
+                <View key={r.label} style={{ flexDirection: 'row', alignItems: 'stretch', paddingVertical: 6 }}>
+                  {/* Icon + dashed connector column */}
+                  <View style={{ width: 32, alignItems: 'center' }}>
+                    <View
+                      className="w-8 h-8 rounded-full items-center justify-center"
+                      style={{ backgroundColor: r.done ? '#DCFCE7' : '#F0FDF4' }}
+                    >
+                      <Icon size={14} color={r.done ? BRAND_GREEN_DARK : ACCENT_GREEN} />
+                    </View>
+                    {!isLast ? (
+                      <View
+                        style={{
+                          flex: 1,
+                          marginTop: 3,
+                          marginBottom: -9,
+                          borderLeftWidth: 1.5,
+                          borderStyle: 'dashed',
+                          borderColor: '#CBD5E1',
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                  <View className="flex-1 ml-3" style={{ justifyContent: 'center', paddingVertical: 2 }}>
+                    <Text className="text-[10.5px] uppercase font-semibold text-gray-400 mb-0.5" style={{ letterSpacing: 0.6 }}>
+                      {r.label}
+                    </Text>
+                    <Text className="text-[13.5px] font-bold leading-5" style={{ color: r.valueColor || '#111827' }}>
+                      {r.value}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -646,74 +822,58 @@ export default function DeviceDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Device Security */}
+        {/* Device Security + Service / Damage Parts — side by side */}
         <View className="px-4 mt-4">
-          <View
-            className="bg-white rounded-2xl p-4"
-            style={cardShadow}
-          >
-            <SectionHeader icon={ShieldCheck} label="DEVICE SECURITY" tint="#CFFAFE" accent="#0E7490" />
-            {securityType || securityValue ? (
-              <View
-                className="p-3 rounded-xl flex-row items-center"
-                style={{ backgroundColor: '#ECFEFF' }}
-              >
-                <View
-                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: '#06B6D4' }}
-                >
-                  <ShieldCheck size={16} color="#FFFFFF" />
-                </View>
-                <View className="flex-1">
+          <View className="bg-white rounded-2xl p-4 flex-row" style={cardShadow}>
+            {/* Device Security */}
+            <View className="flex-1 pr-3">
+              <SectionHeader icon={ShieldCheck} label="DEVICE SECURITY" />
+              {securityType || securityValue ? (
+                <View>
                   {securityType ? (
                     <Text className="text-[10.5px] uppercase font-bold text-gray-500" style={{ letterSpacing: 0.6 }}>
                       {securityType}
                     </Text>
                   ) : null}
-                  <Text className="text-[14px] font-extrabold text-gray-900 mt-0.5">
+                  <Text className="text-[13.5px] font-extrabold text-gray-900 mt-0.5">
                     {securityValue || '—'}
                   </Text>
                 </View>
-              </View>
-            ) : (
-              <Text className="text-[12.5px] text-gray-500">Not provided</Text>
-            )}
-          </View>
-        </View>
+              ) : (
+                <Text className="text-[12.5px] text-gray-500">Not provided</Text>
+              )}
+            </View>
 
-        {/* Missing / Damage Parts */}
-        <View className="px-4 mt-4">
-          <View
-            className="bg-white rounded-2xl p-4"
-            style={cardShadow}
-          >
-            <SectionHeader icon={PackageX} label="MISSING / DAMAGE PARTS" tint="#FEE2E2" accent="#B91C1C" />
-            {missingParts.length === 0 ? (
-              <View
-                className="p-3 rounded-xl flex-row items-center"
-                style={{ backgroundColor: '#F0FDF4' }}
-              >
-                <CheckCircle2 size={16} color={BRAND_GREEN_DARK} />
-                <Text className="ml-2 text-[12.5px] font-semibold" style={{ color: BRAND_GREEN_DARK }}>
-                  No missing parts reported
-                </Text>
-              </View>
-            ) : (
-              <View className="flex-row flex-wrap -mx-1">
-                {missingParts.map((p, i) => (
-                  <View
-                    key={i}
-                    className="px-3 py-1.5 rounded-full m-1 flex-row items-center"
-                    style={{ backgroundColor: '#FEE2E2' }}
-                  >
-                    <PackageX size={11} color="#B91C1C" />
-                    <Text className="ml-1.5 text-[12px] font-semibold" style={{ color: '#B91C1C' }}>
-                      {p}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {/* Divider */}
+            <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: '#EEF2F6' }} />
+
+            {/* Service / Damage Parts */}
+            <View className="flex-1 pl-3">
+              <SectionHeader icon={Wrench} label="SERVICE / DAMAGE PARTS" />
+              {missingParts.length === 0 ? (
+                <View className="flex-row items-center">
+                  <CheckCircle2 size={15} color={BRAND_GREEN_DARK} />
+                  <Text className="ml-1.5 text-[12.5px] font-semibold flex-1" style={{ color: BRAND_GREEN_DARK }}>
+                    No missing parts reported
+                  </Text>
+                </View>
+              ) : (
+                <View className="flex-row flex-wrap -mx-0.5">
+                  {missingParts.map((p, i) => (
+                    <View
+                      key={i}
+                      className="px-2.5 py-1 rounded-full m-0.5 flex-row items-center"
+                      style={{ backgroundColor: '#FEE2E2' }}
+                    >
+                      <PackageX size={10} color="#B91C1C" />
+                      <Text className="ml-1 text-[11px] font-semibold" style={{ color: '#B91C1C' }}>
+                        {p}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
@@ -724,7 +884,7 @@ export default function DeviceDetailScreen({ route, navigation }) {
               className="bg-white rounded-2xl p-4"
               style={cardShadow}
             >
-              <SectionHeader icon={UserCog} label="ASSIGNED TECHNICIAN" />
+              <SectionHeader icon={Users} label="ASSIGNED TECHNICIAN" />
               <View className="flex-row items-center">
                 <View
                   className="w-12 h-12 rounded-full items-center justify-center mr-3"
@@ -751,6 +911,16 @@ export default function DeviceDetailScreen({ route, navigation }) {
                     ) : null}
                   </View>
                 </View>
+                {techPhone ? (
+                  <TouchableOpacity
+                    onPress={contactTechnician}
+                    activeOpacity={0.8}
+                    className="w-11 h-11 rounded-full items-center justify-center ml-2"
+                    style={{ borderWidth: 1.5, borderColor: ACCENT_GREEN, backgroundColor: '#F0FDF4' }}
+                  >
+                    <Phone size={17} color={ACCENT_GREEN} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
           </View>
@@ -808,6 +978,52 @@ export default function DeviceDetailScreen({ route, navigation }) {
         <ComplianceNotesCard notes={complianceNotes} />
         </View>
       </ScrollView>
+
+      {/* ── Overflow options sheet (the Service Schedule "…" button) ─────── */}
+      <Modal visible={moreOpen} transparent animationType="fade" onRequestClose={() => setMoreOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' }}
+          onPress={() => setMoreOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 16,
+            }}
+          >
+            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 999, backgroundColor: '#E2E8F0', marginBottom: 14 }} />
+            <Text className="text-[15px] font-extrabold text-gray-900 mb-3">Device options</Text>
+            {[
+              { key: 'refresh', label: 'Refresh details', icon: RotateCw,     tint: '#F0FDF4',                fg: ACCENT_GREEN },
+              { key: 'history', label: 'Service history', icon: CalendarClock, tint: 'rgba(168,85,247,0.12)', fg: '#7C3AED' },
+            ].map((opt) => {
+              const OptIcon = opt.icon;
+              return (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => {
+                    setMoreOpen(false);
+                    if (opt.key === 'refresh') onRefresh();
+                    else if (opt.key === 'history') navigation.navigate('BookingTimeline', { ticketId: ticket.id });
+                  }}
+                  className="flex-row items-center rounded-2xl p-3 mb-2 active:opacity-80"
+                  style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+                >
+                  <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: opt.tint }}>
+                    <OptIcon size={18} color={opt.fg} />
+                  </View>
+                  <Text className="flex-1 text-[13.5px] font-extrabold text-gray-900">{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

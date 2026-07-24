@@ -101,7 +101,10 @@ function PhaseHeader({ phaseKey, anyDone }) {
   if (!meta) return null;
   const Icon = meta.icon;
   return (
-    <View className="flex-row items-center mb-3 mt-1">
+    <View
+      className="flex-row items-center mb-3 mt-1 rounded-2xl px-3 py-2.5"
+      style={{ backgroundColor: '#F6F8FA', borderWidth: 1, borderColor: '#EEF2F6' }}
+    >
       <View
         className="w-9 h-9 rounded-full items-center justify-center mr-2.5"
         style={{ backgroundColor: meta.tint }}
@@ -116,7 +119,7 @@ function PhaseHeader({ phaseKey, anyDone }) {
       </View>
       {anyDone ? (
         <View
-          className="px-2 py-0.5 rounded-full"
+          className="px-2.5 py-1 rounded-full"
           style={{ backgroundColor: meta.tint }}
         >
           <Text className="text-[9.5px] font-extrabold" style={{ color: meta.accent }}>
@@ -375,20 +378,24 @@ export function ServiceHistoryTimeline({ events, status, phaseFilter }) {
             const lineCompleted = completed && nextCompleted;
             return (
               <View key={opt.value} className="flex-row">
-                <View className="items-center mr-3" style={{ width: 18 }}>
+                <View className="items-center mr-3" style={{ width: 20 }}>
                   <View
                     style={{
-                      width: 14, height: 14, borderRadius: 7,
+                      width: 16, height: 16, borderRadius: 8,
                       backgroundColor: completed ? SUCCESS : '#FFFFFF',
                       borderWidth: completed ? 0 : 2, borderColor: DOT_BORDER,
                       marginTop: 2,
                     }}
                   />
                   {!isLast ? (
-                    <View
-                      className="flex-1 my-1"
-                      style={{ width: 2, backgroundColor: lineCompleted ? SUCCESS : LINE_PENDING }}
-                    />
+                    lineCompleted ? (
+                      <View className="flex-1 my-1" style={{ width: 2, backgroundColor: SUCCESS }} />
+                    ) : (
+                      <View
+                        className="flex-1 my-1"
+                        style={{ width: 0, borderLeftWidth: 2, borderStyle: 'dashed', borderColor: LINE_PENDING }}
+                      />
+                    )
                   ) : null}
                 </View>
                 <View className="flex-1 pb-4">
@@ -402,14 +409,14 @@ export function ServiceHistoryTimeline({ events, status, phaseFilter }) {
                     </Text>
                     {isCurrent ? (
                       <View
-                        className="rounded-full px-1.5 py-0.5 ml-1"
+                        className="rounded-full px-2 py-0.5 ml-1"
                         style={{ backgroundColor: '#DCFCE7' }}
                       >
                         <Text
-                          className="text-[8px] font-extrabold"
+                          className="text-[9px] font-extrabold"
                           style={{ color: BRAND_GREEN_DARK }}
                         >
-                          NOW
+                          NEW
                         </Text>
                       </View>
                     ) : null}

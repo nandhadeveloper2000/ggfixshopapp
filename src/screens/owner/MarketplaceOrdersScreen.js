@@ -19,6 +19,7 @@ import {
   Smartphone,
   Search,
   ChevronRight,
+  ClipboardCheck,
 } from 'lucide-react-native';
 import { marketplaceApi } from '../../api/client';
 import { getModelsByBrand } from '../../api/masterData';
@@ -59,12 +60,12 @@ function OrderCard({ item, showPrice, onPress }) {
   return (
     <Pressable
       onPress={onPress}
-      className="bg-white rounded-2xl p-3 mb-3 flex-row items-center"
+      className="bg-white rounded-2xl p-3.5 mb-3 flex-row items-center"
       style={cardShadow}
     >
       <View
         style={{
-          width: 60, height: 60, borderRadius: 14,
+          width: 76, height: 76, borderRadius: 16,
           backgroundColor: '#F0FDF4',
           alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden',
@@ -72,28 +73,28 @@ function OrderCard({ item, showPrice, onPress }) {
         }}
       >
         {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={{ width: 60, height: 60 }} resizeMode="cover" />
+          <Image source={{ uri: item.imageUrl }} style={{ width: 76, height: 76 }} resizeMode="cover" />
         ) : (
-          <Smartphone size={24} color={BRAND_GREEN_DARK} />
+          <Smartphone size={30} color={BRAND_GREEN_DARK} />
         )}
       </View>
 
       <View className="flex-1 pr-2">
-        <View className="flex-row items-center justify-between mb-0.5">
+        <View className="flex-row items-center justify-between mb-1">
           <Text
-            className="text-[10px] font-bold"
+            className="text-[12px] font-bold flex-1 mr-2"
             style={{ color: '#94A3B8', letterSpacing: 0.4 }}
             numberOfLines={1}
           >
             #GGFIX{orderId}
           </Text>
           <View
-            className="flex-row items-center px-2 py-0.5 rounded-full"
+            className="flex-row items-center px-2.5 py-1 rounded-full"
             style={{ backgroundColor: meta.tint }}
           >
             <View className="w-1.5 h-1.5 rounded-full mr-1" style={{ backgroundColor: meta.dot }} />
             <Text
-              className="text-[9.5px] font-extrabold"
+              className="text-[10px] font-extrabold"
               style={{ color: meta.accent, letterSpacing: 0.3 }}
             >
               {meta.short.toUpperCase()}
@@ -101,17 +102,17 @@ function OrderCard({ item, showPrice, onPress }) {
           </View>
         </View>
 
-        <Text className="text-[14px] font-extrabold text-gray-900" numberOfLines={1}>
+        <Text className="text-[15.5px] font-extrabold text-gray-900 leading-5" numberOfLines={2}>
           {item.title || 'Item'}
         </Text>
 
-        <View className="flex-row items-center justify-between mt-1">
-          <Text className="text-[11.5px] text-gray-500 flex-1" numberOfLines={1}>
+        <View className="flex-row items-center justify-between mt-1.5">
+          <Text className="text-[12px] text-gray-500 flex-1" numberOfLines={1}>
             {specs || dateLabel || ''}
           </Text>
           {showPrice && item.price != null ? (
             <Text
-              className="text-[13px] font-extrabold ml-2"
+              className="text-[15px] font-extrabold ml-2"
               style={{ color: BRAND_GREEN_DARK }}
             >
               ₹{Number(item.price).toLocaleString('en-IN')}
@@ -120,7 +121,7 @@ function OrderCard({ item, showPrice, onPress }) {
         </View>
       </View>
 
-      <ChevronRight size={16} color="#CBD5E1" />
+      <ChevronRight size={18} color="#CBD5E1" />
     </Pressable>
   );
 }
@@ -204,7 +205,7 @@ export default function MarketplaceOrdersScreen({ navigation }) {
             >
               <ChevronLeft size={22} color="#0F172A" />
             </TouchableOpacity>
-            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[24px] font-extrabold" numberOfLines={1}>
               My Orders
             </Text>
             <Pressable
@@ -231,12 +232,12 @@ export default function MarketplaceOrdersScreen({ navigation }) {
               <Pressable
                 key={t}
                 onPress={() => setTab(t)}
-                className="flex-1 items-center justify-center py-2 rounded-full flex-row"
+                className="flex-1 items-center justify-center py-2.5 rounded-full flex-row"
                 style={{ backgroundColor: active ? BRAND_GREEN : 'transparent' }}
               >
-                <Icon size={13} color={active ? '#FFFFFF' : '#64748B'} />
+                <Icon size={15} color={active ? '#FFFFFF' : '#64748B'} />
                 <Text
-                  className="ml-1.5 text-[12.5px] font-extrabold"
+                  className="ml-2 text-[13.5px] font-extrabold"
                   style={{ color: active ? '#FFFFFF' : '#64748B' }}
                 >
                   {t}
@@ -252,7 +253,7 @@ export default function MarketplaceOrdersScreen({ navigation }) {
           <ActivityIndicator size="large" color={BRAND_GREEN_DARK} />
         </View>
       ) : items.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-8">
+        <View className="flex-1 items-center justify-center px-8" style={{ paddingBottom: 100 }}>
           <View
             className="w-20 h-20 rounded-full items-center justify-center mb-4"
             style={{ backgroundColor: '#DCFCE7' }}
@@ -270,7 +271,7 @@ export default function MarketplaceOrdersScreen({ navigation }) {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 130 }}
           showsVerticalScrollIndicator={false}
         >
           {items.map((item) => (
@@ -285,6 +286,35 @@ export default function MarketplaceOrdersScreen({ navigation }) {
           ))}
         </ScrollView>
       )}
+
+      {/* Track-your-orders footer — pinned at the bottom. */}
+      {!loading ? (
+        <View
+          className="absolute left-0 right-0 bottom-0 px-4"
+          style={{ paddingTop: 8, paddingBottom: 18, backgroundColor: 'rgba(244,251,246,0.96)' }}
+        >
+          <View
+            className="rounded-2xl p-3.5 flex-row items-center"
+            style={{ backgroundColor: '#ECFDF3', borderWidth: 1, borderColor: '#D1FAE5' }}
+          >
+            <View
+              className="w-11 h-11 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: '#DCFCE7' }}
+            >
+              <ShoppingBag size={20} color={BRAND_GREEN_DARK} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[14px] font-extrabold text-gray-900">Track your orders</Text>
+              <Text className="text-[12px] text-gray-500 mt-0.5 leading-4">
+                Stay updated on all your buy and sell orders in one place.
+              </Text>
+            </View>
+            <View className="ml-2">
+              <ClipboardCheck size={28} color="#86EFAC" />
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -75,6 +76,18 @@ function normaliseTime(value) {
   return `${m[1].padStart(2, '0')}:${m[2]}`;
 }
 
+// "HH:MM(:SS)" 24h → "hh:MM AM/PM" for the saved-slot display cards.
+function to12h(value) {
+  const t = normaliseTime(value);
+  const m = t.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return t;
+  let h = parseInt(m[1], 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${String(h).padStart(2, '0')}:${m[2]} ${ampm}`;
+}
+
 // Accept "9:5", "09:05", "9:05 am", "5pm" → normalize to 24h "HH:MM". Returns
 // null when the input can't be parsed.
 function parseTimeInput(raw) {
@@ -106,6 +119,8 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
+  const [sortBy, setSortBy] = useState('day'); // 'day' | 'time'
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!shopId) { setLoading(false); return; }
@@ -246,6 +261,16 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
     }
   };
 
+  const sortedSlots = useMemo(() => {
+    const arr = [...slots];
+    if (sortBy === 'time') {
+      arr.sort((a, b) => normaliseTime(a.startTime).localeCompare(normaliseTime(b.startTime)));
+    } else {
+      arr.sort((a, b) => (a.dayOfWeek ?? 99) - (b.dayOfWeek ?? 99));
+    }
+    return arr;
+  }, [slots, sortBy]);
+
   if (!shopId) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -258,14 +283,21 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            {editingId ? 'Edit pickup slot' : 'Add pickup slot'}
-          </Text>
-          <Text style={styles.cardSub}>
-            Define the time window and how many pickups you can handle in it.
-          </Text>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderIcon}>
+              <Ionicons name={editingId ? 'create-outline' : 'calendar-outline'} size={22} color="#15803D" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>
+                {editingId ? 'Edit pickup slot' : 'Add pickup slot'}
+              </Text>
+              <Text style={styles.cardSub}>
+                Define the time window and how many pickups you can handle in it.
+              </Text>
+            </View>
+          </View>
 
-          <Text style={styles.label}>Days</Text>
+          <Text style={styles.daysLabel}>Days</Text>
           {daysSummary(form.days) ? (
             <Text style={styles.daysSummary}>{daysSummary(form.days)}</Text>
           ) : null}
@@ -296,37 +328,48 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
           <View style={styles.row}>
             <View style={styles.col}>
               <Text style={styles.label}>Start time (HH:MM)</Text>
-              <TextInput
-                style={styles.input}
-                value={form.startTime}
-                onChangeText={(t) => setForm((f) => ({ ...f, startTime: t }))}
-                placeholder="09:00"
-                placeholderTextColor="#9CA3AF"
-                autoCapitalize="characters"
-              />
+              <View style={styles.inputWrap}>
+                <Ionicons name="time-outline" size={16} color="#16A34A" />
+                <TextInput
+                  style={styles.inputFlex}
+                  value={form.startTime}
+                  onChangeText={(t) => setForm((f) => ({ ...f, startTime: t }))}
+                  placeholder="09:00"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="characters"
+                />
+                <Ionicons name="chevron-down" size={16} color="#94A3B8" />
+              </View>
             </View>
             <View style={styles.col}>
               <Text style={styles.label}>End time (HH:MM)</Text>
-              <TextInput
-                style={styles.input}
-                value={form.endTime}
-                onChangeText={(t) => setForm((f) => ({ ...f, endTime: t }))}
-                placeholder="12:00"
-                placeholderTextColor="#9CA3AF"
-                autoCapitalize="characters"
-              />
+              <View style={styles.inputWrap}>
+                <Ionicons name="time-outline" size={16} color="#16A34A" />
+                <TextInput
+                  style={styles.inputFlex}
+                  value={form.endTime}
+                  onChangeText={(t) => setForm((f) => ({ ...f, endTime: t }))}
+                  placeholder="12:00"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="characters"
+                />
+                <Ionicons name="chevron-down" size={16} color="#94A3B8" />
+              </View>
             </View>
           </View>
 
           <Text style={styles.label}>Distance (KM)</Text>
-          <TextInput
-            style={styles.input}
-            value={form.capacity}
-            onChangeText={(t) => setForm((f) => ({ ...f, capacity: t }))}
-            placeholder="20"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="number-pad"
-          />
+          <View style={styles.inputWrap}>
+            <Ionicons name="location-outline" size={16} color="#16A34A" />
+            <TextInput
+              style={styles.inputFlex}
+              value={form.capacity}
+              onChangeText={(t) => setForm((f) => ({ ...f, capacity: t }))}
+              placeholder="20"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
+            />
+          </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -342,29 +385,70 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
               disabled={submitting}
               activeOpacity={0.9}
             >
-              {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name={editingId ? 'save-outline' : 'add-circle-outline'} size={16} color="#FFFFFF" />
-                  <Text style={styles.submitBtnText}>
-                    {editingId
-                      ? form.days.length > 1
-                        ? `Update + add ${form.days.length - 1}`
-                        : 'Update slot'
-                      : form.days.length > 1
-                        ? `Add slots (${form.days.length})`
-                        : 'Add slot'}
-                  </Text>
-                </>
-              )}
+              <LinearGradient
+                colors={['#22C55E', '#15803D']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.submitGrad}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name={editingId ? 'save-outline' : 'add-circle-outline'} size={18} color="#FFFFFF" />
+                    <Text style={styles.submitBtnText}>
+                      {editingId
+                        ? form.days.length > 1
+                          ? `Update + add ${form.days.length - 1}`
+                          : 'Update slot'
+                        : form.days.length > 1
+                          ? `Add slots (${form.days.length})`
+                          : 'Add slot'}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Hide the saved-slots list while editing — the form already shows
             what's being edited, and surrounding cards just clutter the focus. */}
-        {!editingId && <Text style={styles.sectionLabel}>Saved pickup slots</Text>}
+        {!editingId && (
+          <View style={styles.savedHeaderRow}>
+            <Text style={styles.sectionLabel}>Saved pickup slots</Text>
+            <View>
+              <TouchableOpacity
+                style={styles.sortBtn}
+                onPress={() => setSortMenuOpen((v) => !v)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="swap-vertical" size={14} color="#334155" />
+                <Text style={styles.sortText}>
+                  Sort by: <Text style={styles.sortValue}>{sortBy === 'time' ? 'Time' : 'Day'}</Text>
+                </Text>
+                <Ionicons name="chevron-down" size={14} color="#334155" />
+              </TouchableOpacity>
+              {sortMenuOpen ? (
+                <View style={styles.sortMenu}>
+                  {[{ key: 'day', label: 'Day' }, { key: 'time', label: 'Start time' }].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={styles.sortMenuItem}
+                      onPress={() => { setSortBy(opt.key); setSortMenuOpen(false); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.sortMenuText, sortBy === opt.key && styles.sortMenuTextActive]}>
+                        {opt.label}
+                      </Text>
+                      {sortBy === opt.key ? <Ionicons name="checkmark" size={14} color="#15803D" /> : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </View>
+        )}
 
         {editingId ? null : loading ? (
           <ActivityIndicator color="#15803D" style={{ marginTop: 20 }} />
@@ -374,36 +458,51 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
             <Text style={styles.emptyText}>No pickup slots yet. Add one above to get started.</Text>
           </View>
         ) : (
-          slots.map((slot) => {
+          sortedSlots.map((slot, index) => {
             const beingDeleted = deletingId === slot.id;
             const beingEdited = editingId === slot.id;
             return (
               <View key={slot.id} style={[styles.slotCard, beingEdited && styles.slotCardEditing]}>
                 <View style={styles.slotIconWrap}>
-                  <Ionicons name="time" size={18} color="#15803D" />
+                  <Ionicons name="calendar-outline" size={20} color="#15803D" />
+                  <View style={styles.slotBadge}>
+                    <Text style={styles.slotBadgeText}>{index + 1}</Text>
+                  </View>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.slotDay}>{dayLabel(slot.dayOfWeek)}</Text>
-                  <Text style={styles.slotTime}>
-                    {normaliseTime(slot.startTime)} – {normaliseTime(slot.endTime)}
-                  </Text>
-                  <Text style={styles.slotMeta}>
-                    Distance: {slot.capacity ?? 10} km
-                  </Text>
+                  <View style={styles.slotDayRow}>
+                    <Text style={styles.slotDay}>{dayLabel(slot.dayOfWeek)}</Text>
+                    <View style={styles.activePill}>
+                      <Text style={styles.activePillText}>Active</Text>
+                    </View>
+                  </View>
+                  <View style={styles.slotMetaRow}>
+                    <Ionicons name="time-outline" size={13} color="#64748B" />
+                    <Text style={styles.slotTime}>
+                      {to12h(slot.startTime)} – {to12h(slot.endTime)}
+                    </Text>
+                  </View>
+                  <View style={styles.slotMetaRow}>
+                    <Ionicons name="location-outline" size={13} color="#64748B" />
+                    <Text style={styles.slotMeta}>Distance: {slot.capacity ?? 10} km</Text>
+                  </View>
                 </View>
+                <View style={styles.slotDivider} />
                 <TouchableOpacity
-                  style={styles.iconBtn}
+                  style={styles.editBtn}
                   onPress={() => startEdit(slot)}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   disabled={beingDeleted}
+                  activeOpacity={0.8}
                 >
                   <Ionicons name="create-outline" size={18} color="#15803D" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.iconBtn}
+                  style={styles.deleteBtn}
                   onPress={() => onDelete(slot)}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   disabled={beingDeleted}
+                  activeOpacity={0.8}
                 >
                   {beingDeleted ? (
                     <ActivityIndicator size="small" color="#DC2626" />
@@ -415,6 +514,15 @@ export default function OwnerPickupSlotsScreen({ navigation }) {
             );
           })
         )}
+
+        {!editingId ? (
+          <View style={styles.infoCard}>
+            <Ionicons name="information-circle-outline" size={20} color="#15803D" />
+            <Text style={styles.infoText}>
+              Customers can book a pickup within the selected time window on the selected days only.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -428,80 +536,124 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
-  cardSub: { fontSize: 11, color: '#6B7280', marginTop: 2, marginBottom: 10 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  cardHeaderIcon: {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cardTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
+  cardSub: { fontSize: 12.5, color: '#6B7280', marginTop: 2, lineHeight: 17 },
 
-  label: { fontSize: 11, color: '#374151', fontWeight: '700', marginTop: 8, marginBottom: 4 },
-  input: {
+  daysLabel: { fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 12, marginBottom: 8 },
+  label: { fontSize: 13, color: '#374151', fontWeight: '700', marginTop: 12, marginBottom: 6 },
+
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    fontSize: 13,
-    color: '#111827',
+    paddingHorizontal: 12,
   },
+  inputFlex: { flex: 1, paddingVertical: 12, fontSize: 14, color: '#111827' },
 
-  row: { flexDirection: 'row', gap: 10 },
+  row: { flexDirection: 'row', gap: 12 },
   col: { flex: 1 },
 
   daysSummary: { fontSize: 13, color: '#15803D', fontWeight: '700', marginTop: 2, marginBottom: 6 },
   circleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   dayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   dayCircleActive: { backgroundColor: '#15803D' },
-  dayCircleText: { fontSize: 13, color: '#6B7280', fontWeight: '800' },
+  dayCircleText: { fontSize: 15, color: '#6B7280', fontWeight: '800' },
   dayCircleTextActive: { color: '#FFFFFF' },
 
   errorText: { fontSize: 12, color: '#DC2626', marginTop: 8 },
   hint: { fontSize: 11, color: '#6B7280', marginTop: 6, fontStyle: 'italic' },
 
-  actionRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
   cancelBtn: {
     flex: 1,
     backgroundColor: '#F1F5F9',
     borderRadius: 999,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   cancelBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  submitBtn: {
-    flex: 2,
+  submitBtn: { flex: 2, borderRadius: 999, overflow: 'hidden' },
+  submitGrad: {
     flexDirection: 'row',
-    gap: 6,
-    backgroundColor: '#16A34A',
-    borderRadius: 999,
-    paddingVertical: 12,
+    gap: 8,
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', letterSpacing: 0.4 },
+  submitBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
 
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#374151',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    marginBottom: 8,
+  savedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 4,
+    marginBottom: 10,
+    zIndex: 20,
+    elevation: 20,
   },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sortText: { fontSize: 12.5, color: '#334155', fontWeight: '600' },
+  sortValue: { fontWeight: '800', color: '#0F172A' },
+  sortMenu: {
+    position: 'absolute',
+    top: 26, right: 0,
+    minWidth: 130,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 4,
+    elevation: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    zIndex: 30,
+  },
+  sortMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  sortMenuText: { fontSize: 13, color: '#475569', fontWeight: '600' },
+  sortMenuTextActive: { color: '#15803D', fontWeight: '800' },
 
   emptyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 22,
+    borderRadius: 16,
+    paddingVertical: 24,
     alignItems: 'center',
     gap: 6,
   },
@@ -512,21 +664,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   slotCardEditing: { borderWidth: 1, borderColor: '#15803D', backgroundColor: '#DCFCE7' },
   slotIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44, height: 44, borderRadius: 14,
     backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
   },
-  slotDay: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
-  slotTime: { fontSize: 12, color: '#374151', marginTop: 1 },
-  slotMeta: { fontSize: 11, color: '#6B7280', marginTop: 1 },
-  iconBtn: { paddingHorizontal: 6, paddingVertical: 6 },
+  slotBadge: {
+    position: 'absolute',
+    right: -4, bottom: -4,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#15803D',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#FFFFFF',
+    paddingHorizontal: 3,
+  },
+  slotBadgeText: { color: '#FFFFFF', fontSize: 9.5, fontWeight: '800' },
+
+  slotDayRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  slotDay: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  activePill: {
+    backgroundColor: '#DCFCE7',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  activePillText: { fontSize: 10, fontWeight: '800', color: '#15803D' },
+  slotMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  slotTime: { fontSize: 12.5, color: '#374151', fontWeight: '600' },
+  slotMeta: { fontSize: 12, color: '#64748B' },
+
+  slotDivider: { width: 1, height: 40, backgroundColor: '#EEF2F6' },
+  editBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1, borderColor: '#BBF7D0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deleteBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1, borderColor: '#FECACA',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#ECFDF3',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 6,
+  },
+  infoText: { flex: 1, fontSize: 12.5, color: '#334155', lineHeight: 18 },
 });

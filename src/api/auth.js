@@ -1,5 +1,7 @@
 import { authApi } from './client';
 import { saveSession, clearSession, getSession } from '../auth/session';
+import { store } from '../store';
+import { setActiveShop } from '../store/authSlice';
 
 /**
  * Unified login. The `identifier` is either email or mobile — the server tries
@@ -106,6 +108,10 @@ export async function resetPassword({ identifier, otp, newPassword }) {
 export async function switchShop(shopId) {
   const data = await authApi.post('/auth/switch-shop', { body: { shopId } });
   await saveSession(data);
+  // Keep Redux's active-shop pointer in lockstep with the persisted session so
+  // every `selectShopId` consumer (pickup slots, KYC, new booking, payslips…)
+  // targets the newly selected shop instead of the boot-time one.
+  store.dispatch(setActiveShop({ shopId: data.shopId, shopSlug: data.shopSlug }));
   return data;
 }
 
@@ -164,6 +170,9 @@ export async function fetchMe() {
     activeShop, // full active shop object: mobile, address, etc.
   };
   await saveSession(merged);
+  // /auth/me recomputes the active shop (e.g. after a switch); mirror it into
+  // Redux so screens driven by `selectShopId` stay shop-accurate.
+  store.dispatch(setActiveShop({ shopId: merged.shopId, shopSlug: merged.shopSlug }));
   return merged;
 }
 

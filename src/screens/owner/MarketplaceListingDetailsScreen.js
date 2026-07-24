@@ -1,31 +1,74 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Image, Pressable, TouchableOpacity, ActivityIndicator, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ScreenHeader } from '../../components/rnr';
 import { notify } from '../../components/confirm';
 import { marketplaceApi } from '../../api/client';
 import { getModelsByBrand } from '../../api/masterData';
 
+const GREEN      = '#16A34A';
+const GREEN_DARK = '#15803D';
+
+// Custom header — left-aligned large title + rounded-square back button.
+function SellHeader({ onBack }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        backgroundColor: '#FFFFFF',
+        paddingTop: insets.top + 6,
+        paddingBottom: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+      }}
+    >
+      <View className="flex-row items-center">
+        <TouchableOpacity
+          onPress={onBack}
+          activeOpacity={0.7}
+          className="w-10 h-10 rounded-2xl items-center justify-center mr-3"
+          style={{ backgroundColor: '#F1F5F9' }}
+        >
+          <Ionicons name="chevron-back" size={22} color="#0F172A" />
+        </TouchableOpacity>
+        <Text className="flex-1 text-[24px] font-extrabold" style={{ color: '#0F172A' }} numberOfLines={1}>
+          Sell Device Details
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function statusMeta(rawStatus) {
   const s = String(rawStatus || '').toUpperCase();
-  if (s === 'SOLD' || s === 'COMPLETED') return { label: 'Selling Completed', icon: 'checkmark', bg: '#10B981', borderClass: 'border-success/30' };
-  if (s === 'CANCELLED' || s === 'CANCELED') return { label: 'Cancelled', icon: 'close', bg: '#EF4444', borderClass: 'border-danger/30' };
-  return { label: 'Selling — Pending', icon: 'time-outline', bg: '#F59E0B', borderClass: 'border-warning/30' };
+  if (s === 'SOLD' || s === 'COMPLETED') return { label: 'Selling Completed', icon: 'checkmark', bg: '#16A34A', tint: '#DCFCE7', border: '#BBF7D0' };
+  if (s === 'CANCELLED' || s === 'CANCELED') return { label: 'Cancelled', icon: 'close', bg: '#EF4444', tint: '#FEE2E2', border: '#FECACA' };
+  return { label: 'Selling – Pending', icon: 'time-outline', bg: '#F59E0B', tint: '#FEF7E6', border: '#FDE68A' };
 }
 
-const PHOTO_LABELS = ['Front Side', 'Backside', 'side and Center', 'Camera', 'side and Center'];
+const PHOTO_LABELS = ['Front Side', 'Back Side', 'Side and Center', 'Camera', 'Side and Center'];
 
-function Check() {
-  return <Ionicons name="checkmark-circle-outline" size={15} color="#16A34A" style={{ marginTop: 1 }} />;
-}
-
-function Row({ label, value }) {
+// Icon + "Label: value" line in the device card.
+function IconRow({ icon, label, value }) {
   return (
-    <View className="flex-row mt-1">
-      <Text className="text-text text-[12px] flex-1">
-        <Text className="font-bold">{label}: </Text>
-        {value || '-'}
+    <View className="flex-row items-center mt-1.5">
+      <Ionicons name={icon} size={15} color={GREEN} style={{ marginRight: 8 }} />
+      <Text className="text-[13px] flex-1" style={{ color: '#0F172A' }} numberOfLines={2}>
+        <Text className="font-extrabold">{label}: </Text>
+        <Text className="font-bold">{value || '-'}</Text>
       </Text>
+    </View>
+  );
+}
+
+// Green-check row with a chevron + divider in the Device Summary.
+function SummaryRow({ text }) {
+  return (
+    <View className="flex-row items-center py-2.5" style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
+      <Ionicons name="checkmark-circle-outline" size={17} color={GREEN} />
+      <Text className="ml-2 flex-1 text-[13px]" style={{ color: '#0F172A' }} numberOfLines={2}>{text}</Text>
+      <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
     </View>
   );
 }
@@ -81,7 +124,7 @@ export default function MarketplaceListingDetailsScreen({ navigation, route }) {
   if (loading) {
     return (
       <View className="flex-1 bg-background">
-        <ScreenHeader title="Sell Device Details" onBack={() => navigation.goBack()} />
+        <SellHeader onBack={() => navigation.goBack()} />
         <View className="flex-1 items-center justify-center"><ActivityIndicator color="#00008B" /></View>
       </View>
     );
@@ -89,7 +132,7 @@ export default function MarketplaceListingDetailsScreen({ navigation, route }) {
   if (!item) {
     return (
       <View className="flex-1 bg-background">
-        <ScreenHeader title="Sell Device Details" onBack={() => navigation.goBack()} />
+        <SellHeader onBack={() => navigation.goBack()} />
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-text-muted">Could not load this listing.</Text>
         </View>
@@ -112,58 +155,76 @@ export default function MarketplaceListingDetailsScreen({ navigation, route }) {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title="Sell Device Details" onBack={() => navigation.goBack()} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <SellHeader onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 100 }}>
         {/* Status banner */}
         {(() => {
           const meta = statusMeta(item.status);
           return (
-            <View className={`bg-card border ${meta.borderClass} rounded-2xl p-3 mb-3 flex-row items-center`}>
-              <View className="w-7 h-7 rounded-full items-center justify-center mr-2.5" style={{ backgroundColor: meta.bg }}>
-                <Ionicons name={meta.icon} size={16} color="#fff" />
+            <View
+              className="rounded-2xl p-4 mb-3 flex-row items-center"
+              style={{ backgroundColor: meta.tint, borderWidth: 1, borderColor: meta.border }}
+            >
+              <View className="w-12 h-12 rounded-full items-center justify-center mr-3" style={{ backgroundColor: meta.bg }}>
+                <Ionicons name={meta.icon} size={24} color="#fff" />
               </View>
               <View className="flex-1">
-                <Text className="text-text font-extrabold text-[14px]">{meta.label}</Text>
-                <Text className="text-text-muted text-[10px] mt-0.5">{dateLabel} · {orderId}</Text>
+                <Text className="text-[19px] font-extrabold" style={{ color: '#0F172A' }}>{meta.label}</Text>
+                <Text className="text-[12px] mt-0.5" style={{ color: '#94A3B8' }}>#{orderId}</Text>
               </View>
               {item.price != null ? (
-                <Text className="text-primary font-extrabold text-[15px]">₹{Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+                <Text className="text-[20px] font-extrabold" style={{ color: GREEN_DARK }}>
+                  ₹{Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
               ) : null}
             </View>
           );
         })()}
 
         {/* Device card */}
-        <View className="bg-card border border-border rounded-2xl p-3 mb-3">
+        <View className="bg-card rounded-2xl p-4 mb-3" style={{ borderWidth: 1, borderColor: '#E5E7EB' }}>
           <View className="flex-row items-center">
-            <View className="w-[88px] h-[100px] bg-background rounded-md overflow-hidden items-center justify-center">
+            <View
+              className="w-[96px] h-[108px] rounded-2xl overflow-hidden items-center justify-center"
+              style={{ backgroundColor: '#F1F5F9' }}
+            >
               {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={{ width: 88, height: 100 }} resizeMode="cover" />
+                <Image source={{ uri: item.imageUrl }} style={{ width: 96, height: 108 }} resizeMode="cover" />
               ) : (
-                <Ionicons name="phone-portrait-outline" size={28} color="#94A3B8" />
+                <Ionicons name="phone-portrait-outline" size={30} color="#94A3B8" />
               )}
             </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-text font-extrabold text-[15px]" numberOfLines={2}>{item.title || 'Device'}</Text>
-              {item.color ? <Row label="Color" value={item.color} /> : null}
+            <View className="ml-3.5 flex-1">
+              <Text className="text-[18px] font-extrabold leading-6" style={{ color: '#0F172A' }} numberOfLines={2}>
+                {item.title || 'Device'}
+              </Text>
+              <View style={{ height: 6 }} />
+              {item.color ? <IconRow icon="brush-outline" label="Color" value={item.color} /> : null}
               {(item.ramLabel || item.storageLabel) ? (
-                <Row label="Storage" value={[item.ramLabel, item.storageLabel].filter(Boolean).join(' / ')} />
+                <IconRow icon="hardware-chip-outline" label="Storage" value={[item.ramLabel, item.storageLabel].filter(Boolean).join(' / ')} />
               ) : null}
-              <Row label="Device Condition" value={conditionText} />
-              {item.imei ? <Row label="IMEI Number" value={item.imei} /> : null}
+              <IconRow icon="phone-portrait-outline" label="Device Condition" value={conditionText} />
+              {item.imei ? <IconRow icon="barcode-outline" label="IMEI Number" value={item.imei} /> : null}
             </View>
           </View>
 
           {allPhotos.length > 0 ? (
             <>
-              <Text className="text-text font-bold text-[12px] mt-3 mb-2">Device Photo's</Text>
+              <View className="flex-row items-center mt-4 mb-2.5">
+                <Ionicons name="image-outline" size={17} color={GREEN} />
+                <Text className="ml-2 text-[14px] font-extrabold" style={{ color: '#0F172A' }}>Device Photos</Text>
+              </View>
               <View className="flex-row flex-wrap -mx-1">
                 {allPhotos.map((url, i) => (
-                  <View key={i} className="px-1 mb-2" style={{ width: '33.333%' }}>
-                    <View className="rounded-md border border-dashed border-primary/40 overflow-hidden" style={{ height: 76 }}>
+                  <View key={i} className="px-1 mb-3" style={{ width: '33.333%' }}>
+                    <View
+                      className="rounded-xl overflow-hidden"
+                      style={{ height: 96, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#86EFAC' }}
+                    >
                       <Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     </View>
-                    <Text className="text-text-muted text-[10px] mt-0.5 text-center" numberOfLines={1}>
+                    <Text className="text-[11px] mt-1 text-center" style={{ color: '#334155' }} numberOfLines={1}>
                       {PHOTO_LABELS[i] || `Photo ${i + 1}`}
                     </Text>
                   </View>
@@ -175,56 +236,43 @@ export default function MarketplaceListingDetailsScreen({ navigation, route }) {
 
         {/* Device Summary */}
         {(assessment.screeningAnswers?.length || assessment.conditions?.length || assessment.accessories?.length || assessment.warrantyLabel) ? (
-          <View className="bg-card border border-secondary/40 rounded-2xl p-3 mb-3">
-            <Text className="text-secondary font-extrabold text-[14px] mb-2">Device Summary</Text>
+          <View className="bg-card rounded-2xl p-4 mb-3" style={{ borderWidth: 1, borderColor: '#E5E7EB' }}>
+            <View className="flex-row items-center mb-1">
+              <Ionicons name="reader-outline" size={18} color={GREEN} />
+              <Text className="ml-2 text-[16px] font-extrabold" style={{ color: '#0F172A' }}>Device Summary</Text>
+            </View>
 
             {assessment.screeningAnswers?.length ? (
               <>
-                <Text className="text-text font-bold text-[12px] mt-2 mb-1">Screening Question</Text>
+                <Text className="text-[13px] font-extrabold mt-3 mb-0.5" style={{ color: GREEN }}>Screening Questions</Text>
                 {assessment.screeningAnswers.map((a, i) => (
-                  <View key={i} className="flex-row items-start mt-1">
-                    <Check />
-                    <Text className="text-text text-[12px] ml-1.5 flex-1">
-                      {[a.answer, a.question].filter(Boolean).join(', ')}
-                    </Text>
-                  </View>
+                  <SummaryRow key={i} text={[a.answer, a.question].filter(Boolean).join(', ')} />
                 ))}
               </>
             ) : null}
 
             {assessment.conditions?.length ? (
               <>
-                <Text className="text-text font-bold text-[12px] mt-2 mb-1">Screen</Text>
+                <Text className="text-[13px] font-extrabold mt-3 mb-0.5" style={{ color: GREEN }}>Screen</Text>
                 {assessment.conditions.map((c, i) => (
-                  <View key={i} className="flex-row items-start mt-1">
-                    <Check />
-                    <Text className="text-text text-[12px] ml-1.5 flex-1">
-                      {[c.optionLabel, c.groupName].filter(Boolean).join(', ')}
-                    </Text>
-                  </View>
+                  <SummaryRow key={i} text={[c.optionLabel, c.groupName].filter(Boolean).join(', ')} />
                 ))}
               </>
             ) : null}
 
             {assessment.accessories?.length ? (
               <>
-                <Text className="text-text font-bold text-[12px] mt-2 mb-1">Accessories</Text>
+                <Text className="text-[13px] font-extrabold mt-3 mb-0.5" style={{ color: GREEN }}>Accessories</Text>
                 {assessment.accessories.map((a, i) => (
-                  <View key={i} className="flex-row items-start mt-1">
-                    <Check />
-                    <Text className="text-text text-[12px] ml-1.5 flex-1">{a.label || a.accessoryCode}</Text>
-                  </View>
+                  <SummaryRow key={i} text={a.label || a.accessoryCode} />
                 ))}
               </>
             ) : null}
 
             {assessment.warrantyLabel ? (
               <>
-                <Text className="text-text font-bold text-[12px] mt-2 mb-1">Warranty</Text>
-                <View className="flex-row items-start mt-1">
-                  <Check />
-                  <Text className="text-text text-[12px] ml-1.5 flex-1">{assessment.warrantyLabel}</Text>
-                </View>
+                <Text className="text-[13px] font-extrabold mt-3 mb-0.5" style={{ color: GREEN }}>Warranty</Text>
+                <SummaryRow text={assessment.warrantyLabel} />
               </>
             ) : null}
           </View>
@@ -273,28 +321,39 @@ export default function MarketplaceListingDetailsScreen({ navigation, route }) {
         const isLive = s !== 'SOLD' && s !== 'COMPLETED' && s !== 'CANCELLED' && s !== 'CANCELED';
         if (!isLive) return null;
         return (
-          <View className="absolute left-0 right-0 bottom-0 px-3 py-3 bg-card border-t border-border flex-row" style={{ shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12 }}>
+          <View
+            className="absolute left-0 right-0 bottom-0 px-4 pt-3 flex-row"
+            style={{
+              paddingBottom: 16,
+              backgroundColor: '#FFFFFF',
+              borderTopWidth: 1,
+              borderTopColor: '#E5E7EB',
+              shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12,
+            }}
+          >
             <Pressable
               onPress={() => updateStatus('CANCELLED', 'Cancelled')}
               disabled={acting}
-              className="flex-1 mr-2 rounded-xl bg-danger/10 border border-danger/40 py-3 items-center justify-center active:opacity-80"
+              className="flex-1 mr-2 rounded-full py-3.5 items-center justify-center active:opacity-80"
+              style={{ backgroundColor: '#FEF2F2', borderWidth: 1.5, borderColor: '#FCA5A5' }}
             >
               {acting ? <ActivityIndicator color="#EF4444" /> : (
                 <View className="flex-row items-center">
-                  <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
-                  <Text className="text-danger font-extrabold text-[13px] ml-1.5">Selling Cancel</Text>
+                  <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+                  <Text className="font-extrabold text-[14px] ml-2" style={{ color: '#DC2626' }}>Selling Cancel</Text>
                 </View>
               )}
             </Pressable>
             <Pressable
               onPress={() => updateStatus('SOLD', 'Completed')}
               disabled={acting}
-              className="flex-1 rounded-xl bg-success py-3 items-center justify-center active:opacity-80"
+              className="flex-1 rounded-full py-3.5 items-center justify-center active:opacity-90"
+              style={{ backgroundColor: GREEN_DARK }}
             >
               {acting ? <ActivityIndicator color="#fff" /> : (
                 <View className="flex-row items-center">
                   <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                  <Text className="text-white font-extrabold text-[13px] ml-1.5">Selling Completed</Text>
+                  <Text className="text-white font-extrabold text-[14px] ml-2">Selling Completed</Text>
                 </View>
               )}
             </Pressable>

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Button, ScreenHeader } from '../../components/rnr';
 import { notify } from '../../components/confirm';
 import { uploadMedia } from '../../api/masterData';
 
@@ -10,11 +10,11 @@ import { uploadMedia } from '../../api/masterData';
 // a custom part via the group's "+ Add" button (which spawns an empty card
 // with an Upload-Image slot and an "Enter Part Name" input).
 const PRESET_GROUPS = [
-  { key: 'DISPLAY',      label: 'Display Combo',  icon: 'phone-portrait-outline', parts: ['Main Screen Display Combo', 'Sub Screen Display Combo'] },
-  { key: 'MOTHERBOARD',  label: 'Motherboard',    icon: 'hardware-chip-outline',  parts: ['Motherboard 16GB / 512GB', 'Battery'] },
-  { key: 'FRONT_CAMERA', label: 'Front Camera',   icon: 'camera-outline',         parts: ['Front Camera'] },
-  { key: 'BACK_CAMERA',  label: "Back Camera's",  icon: 'camera-reverse-outline', parts: ['Back Main Camera'] },
-  { key: 'MORE',         label: 'More Items',     icon: 'apps-outline',           parts: ['Side Frame', 'Back Panel (Backshell)', 'charging sub board', 'sim tray', 'loudspeaker'] },
+  { key: 'DISPLAY',      label: 'Display Combo',  sub: 'Add main & sub screen',      icon: 'phone-portrait-outline', accent: '#16A34A', tint: '#ECFDF3', slotBg: '#F4FBF6', border: '#86EFAC', parts: ['Main Screen Display Combo', 'Sub Screen Display Combo'] },
+  { key: 'MOTHERBOARD',  label: 'Motherboard',    sub: 'Add motherboard & variants', icon: 'hardware-chip-outline',  accent: '#7C3AED', tint: '#F5F3FF', slotBg: '#FAF9FF', border: '#DDD6FE', parts: ['Motherboard 16GB / 512GB', 'Battery'] },
+  { key: 'FRONT_CAMERA', label: 'Front Camera',   sub: 'Add front camera',           icon: 'camera-outline',         accent: '#2563EB', tint: '#EFF6FF', slotBg: '#F5F9FF', border: '#BFDBFE', parts: ['Front Camera'] },
+  { key: 'BACK_CAMERA',  label: "Back Camera's",  sub: 'Add back camera',            icon: 'camera-reverse-outline', accent: '#EA580C', tint: '#FFF7ED', slotBg: '#FFFBF5', border: '#FED7AA', parts: ['Back Main Camera'] },
+  { key: 'MORE',         label: 'More Items',     sub: 'Add other components',       icon: 'apps-outline',           accent: '#0D9488', tint: '#F0FDFA', slotBg: '#F5FEFC', border: '#99F6E4', parts: ['Side Frame', 'Back Panel (Backshell)', 'charging sub board', 'sim tray', 'loudspeaker'] },
 ];
 
 let nextCustomId = 1;
@@ -29,6 +29,7 @@ export default function OwnerSellSparePartsScreen({ navigation }) {
   const [customs, setCustoms] = useState({});
   // Slot key currently uploading, e.g. "DISPLAY/preset/Main Screen…" or "DISPLAY/custom-1".
   const [uploading, setUploading] = useState(null);
+  const insets = useSafeAreaInsets();
 
   const togglePreset = (groupKey, partName) => {
     setPresetSel((prev) => {
@@ -159,32 +160,95 @@ export default function OwnerSellSparePartsScreen({ navigation }) {
     });
   };
 
+  const disabled = totalSelected === 0 || !!uploading;
+
   return (
-    <View className="flex-1 bg-background">
-      <ScreenHeader title="Spare Parts" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 120 }}>
+    <View style={{ flex: 1, backgroundColor: '#F6F7F9' }}>
+      {/* Header */}
+      <View style={{ backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EEF0F3' }}>
+        <View
+          style={{
+            paddingTop: insets.top + 8,
+            paddingBottom: 14,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={8}
+            style={{
+              width: 44, height: 44, borderRadius: 22,
+              backgroundColor: '#DCFCE7',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="chevron-back" size={22} color="#15803D" />
+          </Pressable>
+          <Text
+            style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 20, fontWeight: '800', color: '#0F172A',
+              marginRight: 44,
+            }}
+          >
+            Spare Parts
+          </Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 140 }}>
         {PRESET_GROUPS.map((g) => {
           const presetSet = presetSel[g.key];
           const customList = customs[g.key] || [];
           const cardCount = (presetSet?.size || 0) + customList.length;
           return (
-            <View key={g.key} className="mb-3">
+            <View
+              key={g.key}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 20,
+                padding: 14,
+                marginBottom: 14,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.05,
+                shadowRadius: 12,
+                elevation: 2,
+              }}
+            >
               {/* Group header */}
-              <View className="flex-row items-center mb-2 px-1">
-                <View className="h-7 w-7 rounded-lg bg-primary/10 items-center justify-center mr-2">
-                  <Ionicons name={g.icon} size={14} color="#00008B" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <View
+                  style={{
+                    width: 40, height: 40, borderRadius: 12,
+                    backgroundColor: g.tint,
+                    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+                  }}
+                >
+                  <Ionicons name={g.icon} size={20} color={g.accent} />
                 </View>
-                <Text className="flex-1 font-extrabold text-text text-[13px]">{g.label}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>{g.label}</Text>
+                  <Text style={{ fontSize: 12, color: '#94A3B8', marginTop: 1 }}>{g.sub}</Text>
+                </View>
                 <Pressable
                   onPress={() => addCustomSlot(g.key)}
-                  className="flex-row items-center bg-primary/90 rounded-full px-3 py-1.5 active:opacity-80"
+                  style={({ pressed }) => ({
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: '#16A34A',
+                    borderRadius: 999,
+                    paddingHorizontal: 14, paddingVertical: 8,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
                 >
-                  <Ionicons name="add" size={14} color="#fff" />
-                  <Text className="text-white text-[11px] font-extrabold ml-1">Add</Text>
+                  <Ionicons name="add" size={16} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginLeft: 4 }}>Add</Text>
                 </Pressable>
               </View>
 
-              <View className="flex-row flex-wrap -mx-1">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 }}>
                 {/* Preset parts */}
                 {g.parts.map((name) => {
                   const active = presetSet?.has(name);
@@ -192,49 +256,61 @@ export default function OwnerSellSparePartsScreen({ navigation }) {
                   const slotKey = `${g.key}/preset/${name}`;
                   const busy = uploading === slotKey;
                   return (
-                    <View key={name} className="px-1 mb-2.5" style={{ width: '50%' }}>
+                    <View key={name} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>
                       {/* Image area — tap to upload (or replace). */}
                       <Pressable
                         onPress={() => pickPresetImage(g.key, name)}
                         disabled={busy}
-                        className={`rounded-xl border border-dashed overflow-hidden ${active ? 'border-primary' : 'border-primary/40'}`}
-                        style={{ height: 90, backgroundColor: '#F8FAFC' }}
+                        style={{
+                          height: 132, borderRadius: 16,
+                          borderWidth: 1.5, borderStyle: 'dashed',
+                          borderColor: g.border,
+                          backgroundColor: g.slotBg,
+                          overflow: 'hidden',
+                          alignItems: 'center', justifyContent: 'center',
+                        }}
                       >
                         {busy ? (
-                          <View className="flex-1 items-center justify-center"><ActivityIndicator color="#00008B" /></View>
+                          <ActivityIndicator color={g.accent} />
                         ) : imageUrl ? (
                           <Image source={{ uri: imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                         ) : (
-                          <View className="flex-1 items-center justify-center">
-                            <Ionicons name={g.icon} size={26} color="#94A3B8" />
-                            <View className="flex-row items-center mt-1">
-                              <Ionicons name="cloud-upload-outline" size={11} color="#10B981" />
-                              <Text className="text-[9px] text-text-muted ml-0.5">Upload image</Text>
-                            </View>
+                          <View style={{ alignItems: 'center' }}>
+                            <Ionicons name={g.icon} size={34} color={g.accent} />
+                            <Ionicons name="cloud-upload-outline" size={20} color={g.accent} style={{ marginTop: 8 }} />
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: g.accent, marginTop: 4 }}>Upload image</Text>
                           </View>
                         )}
                         {active ? (
-                          <View className="absolute right-1.5 top-1.5 h-5 w-5 rounded-full bg-primary items-center justify-center">
-                            <Ionicons name="checkmark" size={11} color="#fff" />
+                          <View style={{ position: 'absolute', right: 8, top: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: g.accent, alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="checkmark" size={13} color="#fff" />
                           </View>
                         ) : null}
                         {imageUrl ? (
                           <Pressable
                             onPress={() => removePresetImage(g.key, name)}
-                            className="absolute left-1 top-1 h-5 w-5 rounded-full items-center justify-center"
-                            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+                            style={{ position: 'absolute', left: 8, top: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}
                             hitSlop={6}
                           >
-                            <Ionicons name="close" size={11} color="#fff" />
+                            <Ionicons name="close" size={12} color="#fff" />
                           </Pressable>
                         ) : null}
                       </Pressable>
                       {/* Label area — tap to toggle selection. */}
                       <Pressable
                         onPress={() => togglePreset(g.key, name)}
-                        className={`rounded-md border ${active ? 'border-primary bg-primary/5' : 'border-border bg-card'} mt-1 px-2 py-1 active:opacity-80`}
+                        style={{
+                          borderRadius: 12, borderWidth: 1,
+                          borderColor: active ? g.accent : '#E5E7EB',
+                          backgroundColor: active ? g.tint : '#FFFFFF',
+                          marginTop: 8, paddingHorizontal: 10, paddingVertical: 10,
+                          alignItems: 'center',
+                        }}
                       >
-                        <Text className={`text-[11px] ${active ? 'text-primary font-extrabold' : 'text-text font-semibold'}`} numberOfLines={2}>
+                        <Text
+                          style={{ fontSize: 13, fontWeight: active ? '800' : '700', color: active ? g.accent : '#0F172A', textAlign: 'center' }}
+                          numberOfLines={2}
+                        >
                           {name}
                         </Text>
                       </Pressable>
@@ -247,44 +323,45 @@ export default function OwnerSellSparePartsScreen({ navigation }) {
                   const slotKey = `${g.key}/${c.id}`;
                   const busy = uploading === slotKey;
                   return (
-                    <View key={c.id} className="px-1 mb-2.5" style={{ width: '50%' }}>
+                    <View key={c.id} style={{ width: '50%', paddingHorizontal: 5, marginBottom: 10 }}>
                       <Pressable
                         onPress={() => pickCustomImage(g.key, c.id)}
                         disabled={busy}
-                        className="rounded-xl border border-dashed border-primary/40 overflow-hidden"
-                        style={{ height: 90, backgroundColor: '#F8FAFC' }}
+                        style={{
+                          height: 132, borderRadius: 16,
+                          borderWidth: 1.5, borderStyle: 'dashed',
+                          borderColor: g.border,
+                          backgroundColor: g.slotBg,
+                          overflow: 'hidden',
+                          alignItems: 'center', justifyContent: 'center',
+                        }}
                       >
                         {busy ? (
-                          <View className="flex-1 items-center justify-center">
-                            <ActivityIndicator color="#00008B" />
-                          </View>
+                          <ActivityIndicator color={g.accent} />
                         ) : c.imageUrl ? (
                           <Image source={{ uri: c.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                         ) : (
-                          <View className="flex-1 items-center justify-center">
-                            <View className="bg-success/15 rounded-full p-2">
-                              <Ionicons name="cloud-upload-outline" size={20} color="#10B981" />
-                            </View>
-                            <Text className="text-[10px] text-text-muted mt-1">Upload Image</Text>
+                          <View style={{ alignItems: 'center' }}>
+                            <Ionicons name={g.icon} size={34} color={g.accent} />
+                            <Ionicons name="cloud-upload-outline" size={20} color={g.accent} style={{ marginTop: 8 }} />
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: g.accent, marginTop: 4 }}>Upload image</Text>
                           </View>
                         )}
                         <Pressable
                           onPress={() => removeCustom(g.key, c.id)}
-                          className="absolute right-1 top-1 h-5 w-5 rounded-full items-center justify-center"
-                          style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+                          style={{ position: 'absolute', right: 8, top: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}
                           hitSlop={6}
                         >
-                          <Ionicons name="close" size={11} color="#fff" />
+                          <Ionicons name="close" size={12} color="#fff" />
                         </Pressable>
                       </Pressable>
-                      <View className="bg-card border border-border rounded-md mt-1 px-2 py-1">
+                      <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF', marginTop: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
                         <TextInput
                           placeholder="Enter Part Name"
                           placeholderTextColor="#94A3B8"
                           value={c.name}
                           onChangeText={(v) => updateCustom(g.key, c.id, { name: v })}
-                          className="text-text text-[11px] font-semibold"
-                          style={{ paddingVertical: 2 }}
+                          style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', paddingVertical: 2, textAlign: 'center' }}
                         />
                       </View>
                     </View>
@@ -292,22 +369,40 @@ export default function OwnerSellSparePartsScreen({ navigation }) {
                 })}
               </View>
               {cardCount > 0 ? (
-                <Text className="text-[10px] text-text-muted px-1 -mt-1">{cardCount} item{cardCount === 1 ? '' : 's'} in {g.label}</Text>
+                <Text style={{ fontSize: 11, color: g.accent, fontWeight: '700', marginTop: 2 }}>
+                  {cardCount} item{cardCount === 1 ? '' : 's'} selected
+                </Text>
               ) : null}
             </View>
           );
         })}
       </ScrollView>
 
-      <View className="absolute left-0 right-0 bottom-0 p-4 bg-card border-t border-border" style={{ shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12 }}>
-        <Button
+      <View
+        style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0,
+          paddingHorizontal: 16, paddingTop: 12,
+          paddingBottom: Math.max(insets.bottom, 12) + 8,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1, borderTopColor: '#EEF0F3',
+          shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12,
+        }}
+      >
+        <Pressable
           onPress={onSellNow}
-          disabled={totalSelected === 0 || !!uploading}
-          className="bg-success"
-          rightIcon={<Ionicons name="chevron-forward" size={18} color="#fff" />}
+          disabled={disabled}
+          style={({ pressed }) => ({
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: disabled ? '#9CA3AF' : '#16A34A',
+            borderRadius: 999, paddingVertical: 16,
+            opacity: pressed ? 0.9 : 1,
+          })}
         >
-          Sell Now{totalSelected ? ` (${totalSelected})` : ''}
-        </Button>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', marginRight: 6 }}>
+            Sell Now{totalSelected ? ` (${totalSelected})` : ''}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color="#fff" />
+        </Pressable>
       </View>
     </View>
   );

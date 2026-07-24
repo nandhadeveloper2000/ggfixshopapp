@@ -7,12 +7,13 @@ import {
   Cpu,
   HardDrive,
   Palette,
+  Hash,
   Check,
   ChevronRight,
   ArrowLeft,
 } from 'lucide-react-native';
-import { Loader } from '../../../components/rnr';
-import { getModelOptions } from '../../../api/masterData';
+import { Loader, Select } from '../../../components/rnr';
+import { getModelOptions, parseModelNumbers } from '../../../api/masterData';
 
 // Swiggy / Zomato-inspired palette — matches the other booking screens so the
 // whole flow feels like one continuous "order" journey, just in green.
@@ -60,6 +61,13 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
   const [color, setColor] = useState(params.color || '');
   const [ram, setRam] = useState(params.ramOptionId || null);
   const [storage, setStorage] = useState(params.storageOptionId || null);
+  // A model can carry one or more model numbers (e.g. Vivo T1 → V2153 / V2168).
+  // We seed the list from the params forwarded by the picker so it shows even
+  // before the fetch resolves, then refresh from the model's configured codes.
+  const [modelNumbers, setModelNumbers] = useState(
+    parseModelNumbers(params.modelNumbers?.length ? params.modelNumbers : params.modelNumber),
+  );
+  const [modelNumber, setModelNumber] = useState(params.modelNumber || null);
 
   // Storage-only models ("128 GB", no "+") don't require a RAM pick.
   const specsStorageOnly = specs.length > 0 && specs.every((sp) => sp.storageOnly);
@@ -75,6 +83,14 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
         setSpecs(opts.specs);
         setRams(opts.allRams);
         setStorages(opts.allStorages);
+        // Prefer the model's configured model numbers; keep the param-seeded list
+        // as a fallback when the model has none set.
+        const numbers = opts.modelNumbers?.length
+          ? opts.modelNumbers
+          : parseModelNumbers(params.modelNumbers?.length ? params.modelNumbers : params.modelNumber);
+        setModelNumbers(numbers);
+        // Default the selection to the picked number (if still valid) or the first.
+        setModelNumber((prev) => (prev && numbers.includes(prev) ? prev : (numbers[0] || null)));
       } catch (_) { }
       setLoading(false);
     })();
@@ -91,6 +107,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
       storageOptionId: storage,
       ramLabel,
       storageLabel,
+      modelNumber: modelNumber || undefined,
     });
   };
 
@@ -105,6 +122,7 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
       storageOptionId: storage || undefined,
       ramLabel: rams.find((x) => x.id === ram)?.label,
       storageLabel: storages.find((x) => x.id === storage)?.label,
+      modelNumber: modelNumber || undefined,
     });
   };
 
@@ -194,9 +212,32 @@ export default function DeviceColorStorageScreen({ navigation, route }) {
                   {params.brandName}
                 </Text>
               ) : null}
+              {modelNumber ? (
+                <View className="mt-1.5 flex-row items-center rounded-full bg-success/10 border border-success/20 px-2.5 py-1">
+                  <Hash size={11} color={ACCENT_GREEN} />
+                  <Text className="text-[11px] font-extrabold text-success ml-1" numberOfLines={1}>
+                    {modelNumber}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
+
+        {/* ── Model number — pick the exact variant when a model has several ── */}
+        {modelNumbers.length > 1 ? (
+          <>
+            <SectionHeader icon={Hash} label="MODEL NUMBER" subtitle="Pick the exact model number" />
+            <View className="px-4">
+              <Select
+                value={modelNumber}
+                onChange={(v) => setModelNumber(v)}
+                placeholder="Select model number"
+                options={modelNumbers.map((n) => ({ value: n, label: n }))}
+              />
+            </View>
+          </>
+        ) : null}
 
         {/* ── Color section — Swiggy/Zomato menu rhythm ─────────────── */}
         <SectionHeader icon={Palette} label="MODEL COLOR" />

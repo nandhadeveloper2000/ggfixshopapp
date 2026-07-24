@@ -192,39 +192,48 @@ export default function OwnerEmployeeWorkingRecordScreen({ route, navigation }) 
               value={String(counts.inProcess).padStart(2, '0')}
               label="In Process"
               hint="Active"
-              icon="sync"
-              bg="#3B4FD7"
+              icon="time-outline"
+              tint="#ECFDF3"
+              accent="#16A34A"
             />
             <StatTile
               value={String(counts.pending).padStart(2, '0')}
               label="Pending"
               hint="Waiting"
               icon="alert-circle"
-              bg="#EF4444"
+              tint="#FFF7ED"
+              accent="#EA580C"
             />
             <StatTile
               value={String(counts.completed).padStart(3, '0')}
               label="Completed"
               hint="Finished"
-              icon="checkmark-done"
-              bg="#22C55E"
+              icon="checkmark-circle"
+              tint="#ECFDF3"
+              accent="#16A34A"
             />
             <StatTile
               value={String(counts.total).padStart(3, '0')}
               label="Total"
               hint="Overall"
               icon="stats-chart"
-              bg="#7C3AED"
+              tint="#F5F3FF"
+              accent="#7C3AED"
             />
           </View>
         </View>
 
         {loading && list.length === 0 && (
-          <ActivityIndicator size="small" color="#3B4FD7" style={{ marginVertical: 20 }} />
+          <ActivityIndicator size="small" color="#16A34A" style={{ marginVertical: 20 }} />
         )}
 
         {/* Recent Pending */}
-        <Text style={styles.sectionHeader}>Recent Pending</Text>
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionHeader}>Recent Pending</Text>
+          <TouchableOpacity onPress={() => setFilter('Pending')}>
+            <Text style={styles.viewAll}>View all</Text>
+          </TouchableOpacity>
+        </View>
         {recentPending ? (
           <TaskCard
             booking={recentPending}
@@ -234,11 +243,20 @@ export default function OwnerEmployeeWorkingRecordScreen({ route, navigation }) 
             refreshing={refreshing}
           />
         ) : (
-          <Text style={styles.empty}>No pending tasks.</Text>
+          <View style={styles.emptyCard}>
+            <Ionicons name="file-tray-outline" size={26} color="#16A34A" />
+            <Text style={styles.emptyTitle}>No pending tasks.</Text>
+            <Text style={styles.emptySub}>You&apos;re all caught up!</Text>
+          </View>
         )}
 
         {/* In Process */}
-        <Text style={styles.sectionHeader}>In Process</Text>
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionHeader}>In Process</Text>
+          <TouchableOpacity onPress={() => setFilter('In Process')}>
+            <Text style={styles.viewAll}>View all</Text>
+          </TouchableOpacity>
+        </View>
         {recentInProcess ? (
           <TaskCard
             booking={recentInProcess}
@@ -248,11 +266,20 @@ export default function OwnerEmployeeWorkingRecordScreen({ route, navigation }) 
             refreshing={refreshing}
           />
         ) : (
-          <Text style={styles.empty}>No tasks in progress.</Text>
+          <View style={styles.emptyCard}>
+            <Ionicons name="checkmark-done-outline" size={26} color="#16A34A" />
+            <Text style={styles.emptyTitle}>No tasks in progress.</Text>
+            <Text style={styles.emptySub}>Nothing being worked on right now.</Text>
+          </View>
         )}
 
         {/* Previous Completed (with filter chips) */}
-        <Text style={styles.sectionHeader}>Previous Completed</Text>
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionHeader}>Previous Completed</Text>
+          <TouchableOpacity onPress={() => setFilter('All')}>
+            <Text style={styles.viewAll}>View all</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.filterRow}>
           {FILTERS.map((f) => (
             <TouchableOpacity
@@ -286,12 +313,12 @@ export default function OwnerEmployeeWorkingRecordScreen({ route, navigation }) 
   );
 }
 
-function StatTile({ value, label, hint, icon, bg }) {
+function StatTile({ value, label, hint, icon, tint, accent }) {
   return (
-    <View style={styles.statTileWrap}>
-      <View style={[styles.statTileTop, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={11} color="#FFFFFF" />
-        <Text style={styles.statTileTopText}>{label}</Text>
+    <View style={[styles.statTileWrap, { backgroundColor: tint }]}>
+      <View style={styles.statTileTop}>
+        <Ionicons name={icon} size={14} color={accent} />
+        <Text style={[styles.statTileTopText, { color: accent }]}>{label}</Text>
       </View>
       <Text style={styles.statTileValue}>{value}</Text>
       <Text style={styles.statTileHint}>{hint}</Text>
@@ -310,7 +337,7 @@ function TaskCard({ booking, bucket, onPress, onRefresh, refreshing }) {
         : 'Technician Work Completed';
   const stepColor =
     isPending ? '#DC2626'
-      : isInProcess ? '#3B4FD7'
+      : isInProcess ? '#15803D'
         : '#15803D';
 
   const footerLine =
@@ -323,7 +350,10 @@ function TaskCard({ booking, bucket, onPress, onRefresh, refreshing }) {
       <View style={styles.taskAccent} />
       <View style={styles.taskInner}>
         <View style={styles.taskTopRow}>
-          <Text style={styles.taskDate}>{formatDate(booking.createdAt)}</Text>
+          <View style={styles.taskDateRow}>
+            <Ionicons name="calendar-outline" size={14} color="#16A34A" />
+            <Text style={styles.taskDate}>{formatDate(booking.createdAt)}</Text>
+          </View>
           <Text style={styles.taskTracking}>#{trackingId(booking)}</Text>
         </View>
         <View style={styles.taskMiddleRow}>
@@ -351,11 +381,11 @@ function TaskCard({ booking, bucket, onPress, onRefresh, refreshing }) {
               </View>
             )}
             {isInProcess && (
-              <View style={[styles.statusBadge, { backgroundColor: '#DBEAFE' }]}>
+              <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
                 {refreshing ? (
-                  <ActivityIndicator size="small" color="#3B4FD7" />
+                  <ActivityIndicator size="small" color="#16A34A" />
                 ) : (
-                  <Ionicons name="refresh" size={14} color="#3B4FD7" />
+                  <Ionicons name="refresh" size={14} color="#16A34A" />
                 )}
               </View>
             )}
@@ -376,93 +406,103 @@ function TaskCard({ booking, bucket, onPress, onRefresh, refreshing }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F1FB' },
+  safe: { flex: 1, backgroundColor: '#F4FBF6' },
   content: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { fontSize: 14, color: '#DC2626' },
 
-  statsCard: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12 },
+  statsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+  },
   statsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  statsHeaderTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  statsHeaderTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
   monthPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: '#15803D',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 999,
-    gap: 6,
+    gap: 8,
   },
-  monthPillText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  monthPillText: { color: '#FFFFFF', fontSize: 12.5, fontWeight: '700' },
   monthPillSep: { width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.3)' },
 
-  statTilesRow: { flexDirection: 'row', gap: 6 },
+  statTilesRow: { flexDirection: 'row', gap: 8 },
   statTileWrap: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    overflow: 'hidden',
-    paddingBottom: 8,
-    alignItems: 'center',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'flex-start',
   },
-  statTileTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    width: '100%',
-    paddingVertical: 5,
-  },
-  statTileTopText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-  statTileValue: { fontSize: 18, fontWeight: '800', color: '#111827', marginTop: 6 },
-  statTileHint: { fontSize: 9, color: '#9CA3AF', marginTop: 1, fontWeight: '600' },
+  statTileTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statTileTopText: { fontSize: 11, fontWeight: '800' },
+  statTileValue: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginTop: 8 },
+  statTileHint: { fontSize: 11, color: '#64748B', marginTop: 2, fontWeight: '600' },
 
-  sectionHeader: { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 14, marginBottom: 8 },
+  sectionHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
+  sectionHeader: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
+  viewAll: { fontSize: 13, fontWeight: '800', color: '#16A34A' },
 
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
   },
-  filterChipActive: { backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' },
-  filterChipText: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
+  filterChipActive: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
+  filterChipText: { fontSize: 13, color: '#6B7280', fontWeight: '700' },
   filterChipTextActive: { color: '#FFFFFF' },
 
   taskCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    marginBottom: 8,
+    borderRadius: 14,
+    marginBottom: 10,
     overflow: 'hidden',
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  taskAccent: { width: 3, backgroundColor: '#7C3AED' },
-  taskInner: { flex: 1, padding: 10 },
+  taskAccent: { width: 4, backgroundColor: '#16A34A' },
+  taskInner: { flex: 1, padding: 14 },
   taskTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  taskDate: { fontSize: 12, fontWeight: '700', color: '#111827' },
-  taskTracking: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
-  taskMiddleRow: { marginTop: 4 },
-  taskDevice: { fontSize: 11, color: '#374151' },
-  taskBottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  taskStep: { fontSize: 11, fontWeight: '700' },
-  taskFooter: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
+  taskDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  taskDate: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  taskTracking: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  taskMiddleRow: { marginTop: 6 },
+  taskDevice: { fontSize: 13, color: '#374151' },
+  taskBottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  taskStep: { fontSize: 13.5, fontWeight: '800' },
+  taskFooter: { fontSize: 11.5, color: '#94A3B8', marginTop: 3 },
   taskStatusIcon: { marginLeft: 8 },
   statusBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
 
   empty: { fontSize: 12, color: '#6B7280', textAlign: 'center', paddingVertical: 14 },
+  emptyCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    borderRadius: 14,
+    paddingVertical: 22,
+    alignItems: 'center',
+  },
+  emptyTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 8 },
+  emptySub: { fontSize: 12.5, color: '#64748B', marginTop: 3 },
 });

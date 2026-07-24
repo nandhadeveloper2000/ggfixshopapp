@@ -390,6 +390,7 @@ export default function OwnerNavigator({ session, onLogout }) {
       <Stack.Screen name="OwnerSellListed" component={OwnerSellListedScreen} options={{ headerShown: false }} />
       <Stack.Screen name="MarketplaceOrders" component={MarketplaceOrdersScreen} options={{ headerShown: false }} />
       <Stack.Screen name="MarketplaceListingDetails" component={MarketplaceListingDetailsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Inventory" component={InventoryScreen} options={{ title: 'Inventory' }} />
       <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
       <Stack.Screen name="OwnerPersonalInfo" component={OwnerPersonalInfoScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerShopInfo" component={OwnerShopInfoScreen} options={{ headerShown: false }} />
@@ -405,7 +406,7 @@ export default function OwnerNavigator({ session, onLogout }) {
           title: 'Service Pickup Options',
           headerStyle: { backgroundColor: '#15803D' },
           headerTintColor: '#FFFFFF',
-          headerTitleStyle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+          headerTitleStyle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
           headerLeft: () => navigation.canGoBack() ? <GreenHeaderBack onPress={() => navigation.goBack()} /> : null,
         })}
       />
@@ -413,18 +414,90 @@ export default function OwnerNavigator({ session, onLogout }) {
       <Stack.Screen name="OwnerPickupServiceDetail" component={OwnerPickupServiceDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerEmployeeList" component={OwnerEmployeeListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerEmployeeAdd" component={OwnerEmployeeAddScreen} options={{ title: 'Add Staff' }} />
-      <Stack.Screen name="OwnerEmployeeDetail" component={OwnerEmployeeDetailScreen} options={{ title: 'Employee Details' }} />
+      <Stack.Screen
+        name="OwnerEmployeeDetail"
+        component={OwnerEmployeeDetailScreen}
+        options={{
+          title: 'Employee Details',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
       <Stack.Screen name="OwnerEmployeeCreated" component={OwnerEmployeeCreatedScreen} options={{ title: 'Employee Created', headerShown: false }} />
-      <Stack.Screen name="OwnerEmployeeAttendance" component={OwnerEmployeeAttendanceScreen} options={{ title: 'Attendance' }} />
+      <Stack.Screen
+        name="OwnerEmployeeAttendance"
+        component={OwnerEmployeeAttendanceScreen}
+        options={{
+          title: 'Attendance',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
       <Stack.Screen name="OwnerStaffReport" component={OwnerStaffReportScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="OwnerEmployeeLeave" component={OwnerEmployeeLeaveScreen} options={{ title: 'Leave details' }} />
-      <Stack.Screen name="OwnerEmployeeSalaryReport" component={OwnerEmployeeSalaryReportScreen} options={{ title: 'Salary report' }} />
-      <Stack.Screen name="OwnerEmployeePayslip" component={OwnerEmployeePayslipScreen} options={{ title: 'Pay slip' }} />
-      <Stack.Screen name="OwnerEmployeeShiftDetails" component={OwnerEmployeeShiftDetailsScreen} options={{ title: 'Shift details' }} />
-      <Stack.Screen name="OwnerEmployeeWorkingRecord" component={OwnerEmployeeWorkingRecordScreen} options={{ title: 'Working record' }} />
+      <Stack.Screen
+        name="OwnerEmployeeLeave"
+        component={OwnerEmployeeLeaveScreen}
+        options={{
+          title: 'Leave details',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
+      <Stack.Screen
+        name="OwnerEmployeeSalaryReport"
+        component={OwnerEmployeeSalaryReportScreen}
+        options={{
+          title: 'Salary Report',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
+      <Stack.Screen
+        name="OwnerEmployeePayslip"
+        component={OwnerEmployeePayslipScreen}
+        options={{
+          title: 'Pay Slip',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
+      <Stack.Screen
+        name="OwnerEmployeeShiftDetails"
+        component={OwnerEmployeeShiftDetailsScreen}
+        options={{
+          title: 'Shift details',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
+      <Stack.Screen
+        name="OwnerEmployeeWorkingRecord"
+        component={OwnerEmployeeWorkingRecordScreen}
+        options={{
+          title: 'Working Record',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
       <Stack.Screen name="OwnerEmployeePickupReport" component={OwnerEmployeePickupReportScreen} options={{ title: 'Pickup report' }} />
       <Stack.Screen name="OwnerEmployeeAddAdvance" component={OwnerEmployeeAddAdvanceScreen} options={{ title: 'Add advance' }} />
-      <Stack.Screen name="OwnerEmployeeApplyLeave" component={OwnerEmployeeApplyLeaveScreen} options={{ title: 'Apply for leave' }} />
+      <Stack.Screen
+        name="OwnerEmployeeApplyLeave"
+        component={OwnerEmployeeApplyLeaveScreen}
+        options={{
+          title: 'Apply for leave',
+          headerTitleAlign: 'center',
+          headerTintColor: '#15803D',
+          headerTitleStyle: { color: '#0F172A', fontWeight: '800', fontSize: 20 },
+        }}
+      />
       <Stack.Screen name="OwnerLeaveRequests" component={OwnerLeaveRequestsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerQrCode" component={OwnerQrCodeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ShopChatInbox" component={ShopChatInboxScreen} options={{ headerShown: false }} />

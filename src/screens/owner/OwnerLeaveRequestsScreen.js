@@ -18,6 +18,11 @@ import {
   CalendarDays,
   ChevronLeft,
   Clock,
+  ClipboardList,
+  Check,
+  Sparkles,
+  Search,
+  UserPlus,
 } from 'lucide-react-native';
 import { ticketApi } from '../../api/client';
 import { notify } from '../../components/confirm';
@@ -34,9 +39,9 @@ const cardShadow = {
 };
 
 const STATUS_OPTIONS = [
-  { value: 'PENDING',  label: 'Pending',  accent: '#B45309', tint: '#FEF3C7' },
-  { value: 'APPROVED', label: 'Approved', accent: BRAND_GREEN_DARK, tint: '#DCFCE7' },
-  { value: 'REJECTED', label: 'Rejected', accent: '#B91C1C', tint: '#FEE2E2' },
+  { value: 'PENDING',  label: 'Pending',  accent: '#EA580C',        tint: '#FEF3C7', Icon: Clock },
+  { value: 'APPROVED', label: 'Approved', accent: BRAND_GREEN_DARK, tint: '#DCFCE7', Icon: CheckCircle2 },
+  { value: 'REJECTED', label: 'Rejected', accent: '#B91C1C',        tint: '#FEE2E2', Icon: XCircle },
 ];
 
 function formatDate(d) {
@@ -98,10 +103,8 @@ export default function OwnerLeaveRequestsScreen({ navigation }) {
           style={{
             backgroundColor: '#FFFFFF',
             paddingTop: 6,
-            paddingBottom: 14,
+            paddingBottom: 12,
             paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: '#E5E7EB',
           }}
         >
           <View className="flex-row items-center">
@@ -112,13 +115,15 @@ export default function OwnerLeaveRequestsScreen({ navigation }) {
             >
               <ChevronLeft size={22} color="#0F172A" />
             </TouchableOpacity>
-            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[24px] font-extrabold" numberOfLines={1}>
               Leave Requests
             </Text>
             <View
-              className="px-2.5 py-1 rounded-full bg-surface-muted"
+              className="flex-row items-center px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: '#ECFDF3' }}
             >
-              <Text className="text-text text-[10.5px] font-extrabold">
+              <Clock size={13} color="#0F172A" />
+              <Text className="ml-1.5 text-text text-[12px] font-extrabold">
                 {list.length} {activeMeta?.label || 'Total'}
               </Text>
             </View>
@@ -126,23 +131,35 @@ export default function OwnerLeaveRequestsScreen({ navigation }) {
         </View>
       </SafeAreaView>
 
-      {/* Filter chip row */}
-      <View className="px-4 mt-3 mb-1 flex-row">
+      {/* Filter chip row — sits in the white header band */}
+      <View
+        className="flex-row"
+        style={{
+          backgroundColor: '#FFFFFF',
+          paddingHorizontal: 16,
+          paddingTop: 4,
+          paddingBottom: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
+        }}
+      >
         {STATUS_OPTIONS.map((opt) => {
           const active = opt.value === status;
+          const ChipIcon = opt.Icon;
           return (
             <Pressable
               key={opt.value}
               onPress={() => setStatus(opt.value)}
-              className="flex-row items-center px-3 py-1.5 rounded-full mr-2"
+              className="flex-row items-center px-3.5 py-2 rounded-full mr-2.5"
               style={{
                 backgroundColor: active ? opt.accent : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: active ? opt.accent : '#E5E7EB',
+                borderWidth: 1.5,
+                borderColor: opt.accent,
               }}
             >
+              <ChipIcon size={15} color={active ? '#FFFFFF' : opt.accent} />
               <Text
-                className="text-[12px] font-extrabold"
+                className="ml-1.5 text-[13px] font-extrabold"
                 style={{ color: active ? '#FFFFFF' : opt.accent }}
               >
                 {opt.label}
@@ -175,21 +192,53 @@ export default function OwnerLeaveRequestsScreen({ navigation }) {
           </View>
         </View>
       ) : list.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <View
-            className="w-20 h-20 rounded-full items-center justify-center mb-4"
-            style={{ backgroundColor: activeMeta?.tint || '#DCFCE7' }}
-          >
-            <CheckCircle2 size={32} color={activeMeta?.accent || BRAND_GREEN_DARK} />
+        <View className="flex-1 items-center justify-center px-5">
+          <View className="bg-white rounded-3xl px-6 py-8 items-center w-full" style={cardShadow}>
+            {/* Illustration — faint clipboard with a checkmark badge */}
+            <View style={{ width: 170, height: 130, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <View style={{ position: 'absolute', top: 4, left: 26 }}><Sparkles size={16} color="#86EFAC" /></View>
+              <View style={{ position: 'absolute', top: 28, right: 28 }}><Sparkles size={13} color="#BBF7D0" /></View>
+              <View style={{ position: 'absolute', bottom: 20, right: 22 }}><Search size={24} color="#D1FAE5" /></View>
+              <View
+                className="rounded-3xl items-center justify-center"
+                style={{ width: 104, height: 104, backgroundColor: '#F0FDF4' }}
+              >
+                <ClipboardList size={54} color="#86EFAC" strokeWidth={1.8} />
+              </View>
+              {/* Amber checkmark badge overlapping the clipboard */}
+              <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center' }}>
+                <View className="rounded-full items-center justify-center" style={{ width: 58, height: 58, backgroundColor: '#FEF3C7' }}>
+                  <View
+                    className="rounded-full items-center justify-center"
+                    style={{ width: 40, height: 40, borderWidth: 2.5, borderColor: '#B45309' }}
+                  >
+                    <Check size={20} color="#B45309" strokeWidth={3} />
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <Text className="text-[19px] font-extrabold text-gray-900 mt-3">
+              No {activeMeta?.label.toLowerCase() || 'matching'} leaves
+            </Text>
+            <Text className="text-[13.5px] text-gray-500 mt-2 text-center leading-5">
+              {status === 'PENDING'
+                ? 'New leave requests from your team will appear here.'
+                : `No ${activeMeta?.label.toLowerCase()} leaves to show.`}
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('OwnerEmployeeAdd')}
+              className="flex-row items-center justify-center rounded-2xl mt-5 px-6 py-3"
+              style={{ borderWidth: 1.5, borderColor: BRAND_GREEN }}
+            >
+              <UserPlus size={16} color={BRAND_GREEN_DARK} />
+              <Text className="ml-2 text-[14px] font-extrabold" style={{ color: BRAND_GREEN_DARK }}>
+                Add Employee
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text className="text-[15px] font-extrabold text-gray-700">
-            No {activeMeta?.label.toLowerCase() || 'matching'} leaves
-          </Text>
-          <Text className="text-[12px] text-gray-500 mt-2 text-center leading-5">
-            {status === 'PENDING'
-              ? 'New leave requests from your team will appear here.'
-              : `No ${activeMeta?.label.toLowerCase()} leaves to show.`}
-          </Text>
         </View>
       ) : (
         <ScrollView

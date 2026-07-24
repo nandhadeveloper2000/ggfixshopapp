@@ -31,6 +31,7 @@ import {
   Crosshair,
   Phone,
   Clock,
+  FileText,
   Image as ImageIcon,
 } from 'lucide-react-native';
 import { fetchMe, updateOwnerShop } from '../../api/auth';
@@ -154,8 +155,12 @@ export default function OwnerShopInfoScreen({ navigation }) {
   const [closingTime, setClosingTime] = useState('');
   const [frontImageUrl, setFrontImageUrl] = useState('');
   const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [gstCertificateUrl, setGstCertificateUrl] = useState('');
+  const [udyamCertificateUrl, setUdyamCertificateUrl] = useState('');
   const [uploadingFront, setUploadingFront] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingGst, setUploadingGst] = useState(false);
+  const [uploadingUdyam, setUploadingUdyam] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -192,6 +197,8 @@ export default function OwnerShopInfoScreen({ navigation }) {
         setClosingTime(fullShop.closingTime || '');
         setFrontImageUrl(fullShop.frontImageUrl || '');
         setBannerImageUrl(fullShop.bannerImageUrl || '');
+        setGstCertificateUrl(fullShop.gstCertificateUrl || '');
+        setUdyamCertificateUrl(fullShop.udyamCertificateUrl || '');
 
         // Rehydrate the Android / Apple service toggles from the saved JSON
         // snapshot. NULL = first time on this screen → keep the default
@@ -230,15 +237,24 @@ export default function OwnerShopInfoScreen({ navigation }) {
       notify('Permission needed', 'Allow photo library access to upload shop images.');
       return;
     }
+    const aspect = slot === 'banner' ? [16, 9]
+      : (slot === 'gst' || slot === 'udyam') ? [3, 4]
+      : [1, 1];
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: slot === 'banner' ? [16, 9] : [1, 1],
+      aspect,
       quality: 0.75,
     });
     if (result.canceled || !result.assets?.[0]) return;
-    const setBusy = slot === 'banner' ? setUploadingBanner : setUploadingFront;
-    const setUrl = slot === 'banner' ? setBannerImageUrl : setFrontImageUrl;
+    const setBusy = slot === 'banner' ? setUploadingBanner
+      : slot === 'gst' ? setUploadingGst
+      : slot === 'udyam' ? setUploadingUdyam
+      : setUploadingFront;
+    const setUrl = slot === 'banner' ? setBannerImageUrl
+      : slot === 'gst' ? setGstCertificateUrl
+      : slot === 'udyam' ? setUdyamCertificateUrl
+      : setFrontImageUrl;
     setBusy(true);
     try {
       const url = await uploadMedia(result.assets[0], `shops/${slot}`);
@@ -360,6 +376,10 @@ export default function OwnerShopInfoScreen({ navigation }) {
         closingTime,
         frontImageUrl,
         bannerImageUrl,
+        // Omit when blank so a PATCH never clears a certificate the owner
+        // uploaded elsewhere (the server sets any non-null field it receives).
+        gstCertificateUrl: gstCertificateUrl || undefined,
+        udyamCertificateUrl: udyamCertificateUrl || undefined,
         serviceCategoriesJson,
       });
       await fetchMe().catch(() => null);
@@ -414,17 +434,17 @@ export default function OwnerShopInfoScreen({ navigation }) {
           >
             <ChevronLeft size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
+          <Text className="flex-1 text-text text-[24px] font-extrabold" numberOfLines={1}>
             Shop Information
           </Text>
           <Pressable
             onPress={() => setEditing((v) => !v)}
             hitSlop={6}
-            className="px-2.5 py-1 rounded-full flex-row items-center"
-            style={{ backgroundColor: '#F1F3F5' }}
+            className="px-3 py-1.5 rounded-full flex-row items-center"
+            style={{ backgroundColor: '#DCFCE7' }}
           >
-            {editing ? <Eye size={12} color="#0F172A" /> : <Pencil size={12} color="#0F172A" />}
-            <Text className="ml-1 text-text-muted text-[10.5px] font-extrabold">
+            {editing ? <Eye size={13} color={BRAND_GREEN_DARK} /> : <Pencil size={13} color={BRAND_GREEN_DARK} />}
+            <Text className="ml-1.5 text-[11px] font-extrabold" style={{ color: BRAND_GREEN_DARK, letterSpacing: 0.5 }}>
               {editing ? 'PREVIEW' : 'EDIT'}
             </Text>
           </Pressable>
@@ -439,9 +459,10 @@ export default function OwnerShopInfoScreen({ navigation }) {
       {renderHero()}
 
       {!editing ? (
+        <>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 14, paddingBottom: 110 }}
         >
           {/* Identity card */}
           <View className="bg-white rounded-2xl p-4 flex-row items-center" style={cardShadow}>
@@ -507,28 +528,40 @@ export default function OwnerShopInfoScreen({ navigation }) {
                 <MapPin size={16} color="#FFFFFF" />
               </View>
               <Text
-                className="flex-1 text-[12.5px] font-semibold text-gray-800 leading-5"
+                className="flex-1 text-[13.5px] font-bold text-gray-900 leading-5"
                 numberOfLines={5}
               >
                 {fullAddress || '—'}
               </Text>
             </View>
-            {(mobile || openingTime || closingTime) ? (
-              <View className="flex-row flex-wrap mt-3">
+            {(mobile || openingTime || closingTime || workingDaysLabel(workingDays)) ? (
+              <View className="flex-row items-center mt-3">
                 {mobile ? (
-                  <View className="flex-row items-center mr-4 mt-1">
-                    <Phone size={12} color="#94A3B8" />
-                    <Text className="ml-1 text-[11.5px] text-gray-600">{mobile}</Text>
+                  <View className="flex-row items-center flex-shrink">
+                    <Phone size={13} color="#64748B" />
+                    <Text className="ml-1.5 text-[12px] font-semibold text-gray-700" numberOfLines={1}>
+                      {mobile}
+                    </Text>
                   </View>
                 ) : null}
                 {(openingTime || closingTime) ? (
-                  <View className="flex-row items-center mt-1">
-                    <Clock size={12} color="#94A3B8" />
-                    <Text className="ml-1 text-[11.5px] text-gray-600">
-                      {[openingTime, closingTime].filter(Boolean).join(' – ')}
-                      {workingDaysLabel(workingDays) ? ` · ${workingDaysLabel(workingDays)}` : ''}
+                  <>
+                    <View style={{ width: 1, height: 14, backgroundColor: '#E2E8F0', marginHorizontal: 10 }} />
+                    <View className="flex-row items-center flex-shrink">
+                      <Clock size={13} color="#64748B" />
+                      <Text className="ml-1.5 text-[12px] font-semibold text-gray-700" numberOfLines={1}>
+                        {[openingTime, closingTime].filter(Boolean).join(' - ')}
+                      </Text>
+                    </View>
+                  </>
+                ) : null}
+                {workingDaysLabel(workingDays) ? (
+                  <>
+                    <View style={{ width: 1, height: 14, backgroundColor: '#E2E8F0', marginHorizontal: 10 }} />
+                    <Text className="text-[12px] font-semibold text-gray-700" numberOfLines={1}>
+                      {workingDaysLabel(workingDays)}
                     </Text>
-                  </View>
+                  </>
                 ) : null}
               </View>
             ) : null}
@@ -569,11 +602,30 @@ export default function OwnerShopInfoScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Edit CTA */}
+          {/* Documents — GST & Udyam certificates */}
+          <View className="bg-white rounded-2xl p-4 mt-4" style={cardShadow}>
+            <SectionHeader Icon={FileText} label="SHOP DOCUMENTS" />
+            <View className="flex-row -mx-1">
+              <PhotoPreview label="GST Certificate" uri={gstCertificateUrl} />
+              <PhotoPreview label="Udyam Certificate" uri={udyamCertificateUrl} />
+            </View>
+          </View>
+
+        </ScrollView>
+
+        {/* Sticky Edit bar */}
+        <View
+          className="absolute left-0 right-0 bottom-0 px-4 pt-3"
+          style={{
+            paddingBottom: 16,
+            backgroundColor: 'rgba(244,251,246,0.96)',
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
+          }}
+        >
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => setEditing(true)}
-            className="mt-4"
             style={cardShadow}
           >
             <LinearGradient
@@ -582,7 +634,7 @@ export default function OwnerShopInfoScreen({ navigation }) {
               end={{ x: 1, y: 1 }}
               style={{
                 borderRadius: 18,
-                paddingVertical: 14,
+                paddingVertical: 15,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -594,7 +646,8 @@ export default function OwnerShopInfoScreen({ navigation }) {
               </Text>
             </LinearGradient>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
+        </>
       ) : (
         <>
           <ScrollView
@@ -890,6 +943,28 @@ export default function OwnerShopInfoScreen({ navigation }) {
                 />
               </View>
             </View>
+
+            {/* Documents — GST & Udyam certificates */}
+            <View className="bg-white rounded-2xl p-4 mt-4" style={cardShadow}>
+              <SectionHeader Icon={FileText} label="SHOP DOCUMENTS" />
+              <Text className="text-[11px] text-gray-500 mb-3 leading-4">
+                Upload your GST and / or Udyam certificate. At least one helps verify your shop faster.
+              </Text>
+              <View className="flex-row -mx-1">
+                <PhotoUpload
+                  label="GST Certificate"
+                  url={gstCertificateUrl}
+                  busy={uploadingGst}
+                  onPress={() => pickAndUpload('gst')}
+                />
+                <PhotoUpload
+                  label="Udyam Certificate"
+                  url={udyamCertificateUrl}
+                  busy={uploadingUdyam}
+                  onPress={() => pickAndUpload('udyam')}
+                />
+              </View>
+            </View>
           </ScrollView>
 
           {/* Sticky save bar */}
@@ -982,10 +1057,10 @@ function CategoryColumn({ title, sub, Icon, items }) {
         ) : items.map((s) => (
           <View
             key={s}
-            className="flex-row items-center py-1.5"
+            className="flex-row items-center py-2"
           >
-            <CheckCircle2 size={11} color={BRAND_GREEN_DARK} />
-            <Text className="ml-1.5 text-[11.5px] text-gray-700 flex-1" numberOfLines={1}>
+            <CheckCircle2 size={14} color={ACCENT_GREEN} />
+            <Text className="ml-2 text-[13px] text-gray-800 flex-1" numberOfLines={1}>
               {s}
             </Text>
           </View>

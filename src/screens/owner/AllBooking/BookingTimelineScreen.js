@@ -4,9 +4,9 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
-  Activity,
   History,
   Radio,
+  RotateCw,
 } from 'lucide-react-native';
 import { Loader } from '../../../components/rnr';
 import { ticketApi } from '../../../api/client';
@@ -29,14 +29,20 @@ const cardShadow = {
   elevation: 2,
 };
 
-const hashed = (n) => (n ? (String(n).startsWith('#') ? n : `#${n}`) : '');
+// Splits a tracking id into its letter prefix and trailing digits so the header
+// pill can render the digits in brand green (e.g. #CSPEN·7626488).
+function splitTrackingId(id) {
+  const s = String(id ?? '').replace(/^#/, '');
+  const m = s.match(/^(\D*)(\d.*)$/);
+  return m ? { prefix: m[1], digits: m[2] } : { prefix: s, digits: '' };
+}
 
 function SectionHeader({ icon: Icon, label }) {
   return (
     <View className="flex-row items-center mb-3">
       <View
-        className="w-7 h-7 rounded-lg items-center justify-center mr-2"
-        style={{ backgroundColor: '#F1F5F9' }}
+        className="w-7 h-7 rounded-full items-center justify-center mr-2"
+        style={{ backgroundColor: '#DCFCE7' }}
       >
         <Icon size={14} color={BRAND_GREEN_DARK} />
       </View>
@@ -90,7 +96,7 @@ export default function BookingTimelineScreen({ route }) {
   if (loading) return <Loader label="Loading history..." />;
 
   const currentLabel = getCurrentPhaseLabel(events, ticket?.status);
-  const tracking = ticket?.trackingId ? hashed(ticket.trackingId) : ticketId;
+  const tid = splitTrackingId(ticket?.trackingId || ticketId);
 
   return (
     <View className="flex-1" style={{ backgroundColor: '#F4FBF6' }}>
@@ -119,11 +125,12 @@ export default function BookingTimelineScreen({ route }) {
             Service History
           </Text>
           <View
-            className="px-2.5 py-1 rounded-full bg-surface-muted"
-            style={{ maxWidth: 160 }}
+            className="px-2.5 py-1 rounded-full"
+            style={{ maxWidth: 180, backgroundColor: '#DCFCE7' }}
           >
-            <Text className="text-text text-[11px] font-extrabold" numberOfLines={1}>
-              {tracking}
+            <Text className="text-[11px] font-extrabold" numberOfLines={1}>
+              <Text style={{ color: '#0F172A' }}>#{tid.prefix}</Text>
+              <Text style={{ color: BRAND_GREEN_DARK }}>{tid.digits}</Text>
             </Text>
           </View>
         </View>
@@ -165,11 +172,11 @@ export default function BookingTimelineScreen({ route }) {
                 </Text>
               </View>
               <View
-                className="px-3 py-1.5 rounded-full"
+                className="w-8 h-8 rounded-full items-center justify-center"
                 style={{ backgroundColor: '#DCFCE7' }}
               >
                 <Text
-                  className="text-[11px] font-extrabold"
+                  className="text-[13px] font-extrabold"
                   style={{ color: BRAND_GREEN_DARK }}
                 >
                   {events.length}
@@ -180,9 +187,9 @@ export default function BookingTimelineScreen({ route }) {
               className="mt-3 pt-3 flex-row items-center"
               style={{ borderTopWidth: 1, borderTopColor: '#F1F5F9' }}
             >
-              <Activity size={11} color="#9CA3AF" />
+              <RotateCw size={11} color="#9CA3AF" />
               <Text className="ml-1.5 text-[10.5px] text-gray-500">
-                {events.length} event{events.length === 1 ? '' : 's'} • Updates live • Pull to refresh
+                {events.length} event{events.length === 1 ? '' : 's'} • Updated live • Pull to refresh
               </Text>
             </View>
           </View>

@@ -32,7 +32,7 @@ const RING_COLORS = {
   late: '#EAB308',
   permission: '#F97316',
   leaves: '#DB2777',
-  holidays: '#1E3A8A',
+  holidays: '#15803D',
 };
 
 function pad2(n) {
@@ -107,6 +107,7 @@ export default function OwnerEmployeeAttendanceScreen({ route }) {
     );
   }
 
+  const todayIso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   const present = data?.presentDays ?? 0;
   const late = data?.lateHours ?? '0';
   const permission = data?.permissionCount ?? 0;
@@ -136,7 +137,7 @@ export default function OwnerEmployeeAttendanceScreen({ route }) {
           </View>
 
           {loading && !data ? (
-            <ActivityIndicator size="large" color="#3B4FD7" style={{ marginVertical: 24 }} />
+            <ActivityIndicator size="large" color="#16A34A" style={{ marginVertical: 24 }} />
           ) : (
             <>
               {/* Stat ring circles */}
@@ -166,11 +167,20 @@ export default function OwnerEmployeeAttendanceScreen({ route }) {
                       // Treat Sundays as week-off when no other status is set.
                       const effectiveStatus = status || (isSunday ? 'WEEK_OFF' : null);
                       const dotColor = STATUS_COLORS[effectiveStatus];
+                      const isToday = cell.iso === todayIso;
                       return (
                         <View key={ci} style={styles.calCell}>
-                          <Text style={[styles.calCellNum, isSunday && styles.calCellSunday]}>
-                            {cell.day}
-                          </Text>
+                          <View style={[styles.calDayWrap, isToday && styles.calDayToday]}>
+                            <Text
+                              style={[
+                                styles.calCellNum,
+                                isSunday && styles.calCellSunday,
+                                isToday && styles.calCellToday,
+                              ]}
+                            >
+                              {cell.day}
+                            </Text>
+                          </View>
                           {dotColor ? <View style={[styles.calDot, { backgroundColor: dotColor }]} /> : null}
                         </View>
                       );
@@ -272,7 +282,10 @@ function DayCard({ day }) {
       <View style={styles.dayLeftAccent} />
       <View style={styles.dayInner}>
         <View style={styles.dayTopRow}>
-          <Text style={styles.dayDate}>{dateLabel}</Text>
+          <View style={styles.dayDateRow}>
+            <Ionicons name="calendar-outline" size={15} color="#16A34A" />
+            <Text style={styles.dayDate}>{dateLabel}</Text>
+          </View>
           <View style={styles.dayTopRight}>
             <View style={[styles.dayPill, styles.dayPillGeneral]}>
               <Text style={styles.dayPillText}>General</Text>
@@ -291,15 +304,17 @@ function DayCard({ day }) {
             </Text>
             <Text style={styles.dayColLabel}>Check In</Text>
           </View>
+          <View style={styles.dayColDivider} />
           <View style={styles.dayCol}>
             <Text style={styles.dayColValue}>{formatTime12(day.checkOutTime)}</Text>
             <Text style={styles.dayColLabel}>Check Out</Text>
           </View>
+          <View style={styles.dayColDivider} />
           <View style={styles.dayCol}>
             <Text style={[styles.dayColValue, isLate && styles.dayColValueLate]}>
               {day.workingHours && day.workingHours !== '0' ? day.workingHours : '—'}
             </Text>
-            <Text style={styles.dayColLabel}>Working HR's</Text>
+            <Text style={styles.dayColLabel}>Working Hrs</Text>
           </View>
         </View>
       </View>
@@ -332,40 +347,45 @@ function formatDateLabel(day) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F1FB' },
+  safe: { flex: 1, backgroundColor: '#F4FBF6' },
   content: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { fontSize: 14, color: '#DC2626' },
 
-  card: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+  },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  cardTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
 
   monthPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E3A8A',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: '#15803D',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 999,
-    gap: 6,
+    gap: 8,
   },
-  monthPillText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  monthPillText: { color: '#FFFFFF', fontSize: 12.5, fontWeight: '700' },
   monthPillSep: { width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.3)' },
 
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  statRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
   statRingWrap: { alignItems: 'center', flex: 1 },
   statRing: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 3.5,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
-  statRingValue: { fontSize: 12, fontWeight: '800', color: '#111827' },
-  statRingLabel: { fontSize: 10, fontWeight: '700', marginTop: 4 },
+  statRingValue: { fontSize: 15, fontWeight: '800', color: '#111827' },
+  statRingLabel: { fontSize: 11.5, fontWeight: '700', marginTop: 6 },
 
   calendar: { marginTop: 4, marginBottom: 8 },
   calRowHeader: { flexDirection: 'row', marginBottom: 6 },
@@ -384,8 +404,11 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   calHeaderSunday: { color: '#DC2626' },
-  calCellNum: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  calCellNum: { fontSize: 15, fontWeight: '700', color: '#111827' },
   calCellSunday: { color: '#DC2626' },
+  calCellToday: { color: '#15803D', fontWeight: '800' },
+  calDayWrap: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  calDayToday: { backgroundColor: '#DCFCE7' },
   calDot: { width: 6, height: 6, borderRadius: 3, marginTop: 2 },
 
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
@@ -393,34 +416,43 @@ const styles = StyleSheet.create({
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, color: '#374151', fontWeight: '500' },
 
-  dailySection: { marginTop: 14 },
-  dailyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  dailyTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  dailyMonthPill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dailyMonthText: { fontSize: 12, fontWeight: '700', color: '#111827' },
+  dailySection: {
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+  },
+  dailyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  dailyTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  dailyMonthPill: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dailyMonthText: { fontSize: 13, fontWeight: '800', color: '#15803D' },
   dailyMonthBtn: {
-    backgroundColor: '#7C3AED',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    backgroundColor: '#16A34A',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   dayCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    marginBottom: 8,
+    backgroundColor: '#F8FAF9',
+    borderRadius: 12,
+    marginBottom: 10,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EEF2F0',
   },
-  dayCardLeave: { backgroundColor: '#FCA5A5' },
-  dayCardWeekOff: { backgroundColor: '#F9A8D4' },
-  dayLeftAccent: { width: 3, backgroundColor: '#7C3AED' },
-  dayInner: { flex: 1, padding: 10 },
+  dayCardLeave: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  dayCardWeekOff: { backgroundColor: '#FDF2F8', borderColor: '#FBCFE8' },
+  dayLeftAccent: { width: 4, backgroundColor: '#16A34A' },
+  dayInner: { flex: 1, padding: 12 },
   dayTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dayDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dayTopRight: { flexDirection: 'row', gap: 6 },
-  dayDate: { fontSize: 12, fontWeight: '700', color: '#111827' },
+  dayDate: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
   dayPill: {
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -433,11 +465,12 @@ const styles = StyleSheet.create({
   dayPillText: { fontSize: 10, fontWeight: '700', color: '#111827' },
   dayPillTextOn: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
 
-  dayCols: { flexDirection: 'row', marginTop: 8 },
+  dayCols: { flexDirection: 'row', marginTop: 12, alignItems: 'center' },
   dayCol: { flex: 1 },
-  dayColValue: { fontSize: 12, fontWeight: '700', color: '#15803D' },
+  dayColDivider: { width: 1, height: 30, backgroundColor: '#E5E7EB', marginHorizontal: 6 },
+  dayColValue: { fontSize: 15, fontWeight: '800', color: '#15803D' },
   dayColValueLate: { color: '#DC2626' },
-  dayColLabel: { fontSize: 10, color: '#6B7280', marginTop: 2 },
+  dayColLabel: { fontSize: 11, color: '#6B7280', marginTop: 3 },
 
   empty: { fontSize: 13, color: '#6B7280', textAlign: 'center', paddingVertical: 20 },
 });

@@ -20,10 +20,11 @@ import {
   Store,
   FileText,
   Truck,
-  Package,
+  ShoppingBag,
+  Camera,
   Users,
   CalendarClock,
-  ShieldCheck,
+  BadgeCheck,
   Phone,
   ArrowLeftRight,
   X,
@@ -114,12 +115,25 @@ export default function MyAccountScreen({ onLogout, navigation }) {
     }, [user?.shopId])
   );
 
+  // Shop-mobile logins (loginScope=SHOP / loginType=SHOP_LOGIN) are scoped to a
+  // single shop. The account screen then surfaces the SHOP (front image, name,
+  // mobile) instead of the owner, hides owner-only rows, and drops the switcher.
+  const isShopLogin = user?.loginScope === 'SHOP' || user?.loginType === 'SHOP_LOGIN';
+  const activeShopObj = user?.activeShop || user?.shops?.find?.((s) => s.isActive) || null;
+
   const ownerName = user?.name || 'Shop Owner';
-  const shopName = user?.shopName || (user?.shops?.find?.((s) => s.isActive)?.name) || '';
-  const phone = user?.phone || '';
+  const shopName = user?.shopName || activeShopObj?.name || '';
+  const shopMobile = activeShopObj?.mobile || activeShopObj?.mobilePrimary || activeShopObj?.phone || '';
+  const shopFrontImage = activeShopObj?.frontImageUrl || '';
+
+  const displayName = isShopLogin ? (shopName || 'Your Shop') : ownerName;
+  const displayPhone = isShopLogin ? shopMobile : (user?.phone || '');
+  const displayAvatar = isShopLogin ? shopFrontImage : (user?.avatarUrl || '');
+
   const shops = user?.shops || [];
-  const hasMultipleShops = shops.length > 1;
-  const initials = useMemo(() => initialsOf(ownerName), [ownerName]);
+  // Shop-scoped sessions can't switch shops — the JWT is locked to one shop.
+  const hasMultipleShops = !isShopLogin && shops.length > 1;
+  const initials = useMemo(() => initialsOf(displayName), [displayName]);
 
   const handleSwitch = async (shopId) => {
     if (!shopId || shopId === user?.shopId) { setShowSwitcher(false); return; }
@@ -153,18 +167,18 @@ export default function MyAccountScreen({ onLogout, navigation }) {
           }}
         >
           <View className="flex-row items-center">
-            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[24px] font-extrabold" numberOfLines={1}>
               My Account
             </Text>
             <View
               className="flex-row items-center px-2.5 py-1 rounded-full bg-surface-muted"
             >
-              <Crown size={11} color="#0F172A" />
+              {isShopLogin ? <Store size={11} color="#0F172A" /> : <Crown size={11} color="#0F172A" />}
               <Text
                 className="ml-1 text-text text-[10.5px] font-extrabold"
                 style={{ letterSpacing: 0.6 }}
               >
-                OWNER
+                {isShopLogin ? 'SHOP' : 'OWNER'}
               </Text>
             </View>
           </View>
@@ -182,52 +196,69 @@ export default function MyAccountScreen({ onLogout, navigation }) {
           style={cardShadow}
         >
           <View className="flex-row items-center">
-            <View
-              style={{
-                padding: 3,
-                borderRadius: 36,
-                backgroundColor: '#FFFFFF',
-                borderWidth: 2,
-                borderColor: '#DCFCE7',
-              }}
+            <Pressable
+              onPress={() => navigation?.navigate?.(isShopLogin ? 'OwnerShopInfo' : 'OwnerPersonalInfo')}
+              style={{ position: 'relative' }}
             >
               <View
                 style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: BRAND_GREEN_DARK,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
+                  padding: 3,
+                  borderRadius: 36,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 2,
+                  borderColor: '#DCFCE7',
                 }}
               >
-                {user?.avatarUrl ? (
-                  <Image
-                    source={{ uri: user.avatarUrl }}
-                    style={{ width: 56, height: 56, borderRadius: 28 }}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Text
-                    className="text-white font-extrabold"
-                    style={{ fontSize: 19, letterSpacing: 1 }}
-                  >
-                    {initials}
-                  </Text>
-                )}
+                <View
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    backgroundColor: BRAND_GREEN_DARK,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {displayAvatar ? (
+                    <Image
+                      source={{ uri: displayAvatar }}
+                      style={{ width: 56, height: 56, borderRadius: 28 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text
+                      className="text-white font-extrabold"
+                      style={{ fontSize: 19, letterSpacing: 1 }}
+                    >
+                      {initials}
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
+              {/* Camera badge — tap the avatar to edit profile / photo */}
+              <View
+                style={{
+                  position: 'absolute', right: -1, bottom: -1,
+                  width: 22, height: 22, borderRadius: 11,
+                  backgroundColor: BRAND_GREEN_DARK,
+                  alignItems: 'center', justifyContent: 'center',
+                  borderWidth: 2, borderColor: '#FFFFFF',
+                }}
+              >
+                <Camera size={11} color="#FFFFFF" />
+              </View>
+            </Pressable>
             <View className="flex-1 ml-3">
               <View className="flex-row items-center flex-wrap">
                 <Text className="text-[16px] font-extrabold text-gray-900 mr-2" numberOfLines={1}>
-                  {ownerName}
+                  {displayName}
                 </Text>
                 <View
                   className="flex-row items-center px-1.5 py-0.5 rounded-full"
                   style={{ backgroundColor: '#DCFCE7' }}
                 >
-                  <ShieldCheck size={10} color={BRAND_GREEN_DARK} />
+                  <BadgeCheck size={10} color={BRAND_GREEN_DARK} />
                   <Text
                     className="ml-0.5 text-[8.5px] font-extrabold"
                     style={{ color: BRAND_GREEN_DARK, letterSpacing: 0.4 }}
@@ -236,18 +267,19 @@ export default function MyAccountScreen({ onLogout, navigation }) {
                   </Text>
                 </View>
               </View>
-              {phone ? (
+              {displayPhone ? (
                 <View className="flex-row items-center mt-1.5">
                   <Phone size={11} color="#64748B" />
                   <Text className="ml-1 text-[12px] font-semibold text-gray-500">
-                    {phone}
+                    {displayPhone}
                   </Text>
                 </View>
               ) : null}
             </View>
           </View>
 
-          {/* Active shop pill */}
+          {/* Active shop pill — hidden for shop-scoped logins (single shop) */}
+          {!isShopLogin ? (
           <Pressable
             onPress={() => hasMultipleShops && setShowSwitcher(true)}
             disabled={!hasMultipleShops}
@@ -292,10 +324,15 @@ export default function MyAccountScreen({ onLogout, navigation }) {
               </View>
             ) : null}
           </Pressable>
+          ) : null}
         </View>
 
         {/* Promo card / shop perks */}
-        <View className="mt-4" style={cardShadow}>
+        <Pressable
+          className="mt-4"
+          style={cardShadow}
+          onPress={() => navigation?.navigate?.('OwnerSubscription')}
+        >
           <LinearGradient
             colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
             start={{ x: 0, y: 0 }}
@@ -336,27 +373,30 @@ export default function MyAccountScreen({ onLogout, navigation }) {
                   Verified shop perks · Faster payouts · Priority support
                 </Text>
               </View>
+              <ChevronRight size={22} color="#FFFFFF" />
             </View>
           </LinearGradient>
-        </View>
+        </Pressable>
 
         {/* My Profile group */}
         <SectionLabel>My Profile</SectionLabel>
         <View className="bg-white rounded-2xl px-3 mt-1" style={softShadow}>
-          <MenuRow
-            Icon={User}
-            tint="#DCFCE7"
-            accent={BRAND_GREEN_DARK}
-            label="Personal Information"
-            sub="Name, mobile, email"
-            onPress={() => navigation?.navigate?.('OwnerPersonalInfo')}
-          />
+          {!isShopLogin ? (
+            <MenuRow
+              Icon={User}
+              tint="#DCFCE7"
+              accent={BRAND_GREEN_DARK}
+              label="Personal Information"
+              sub="Name, mobile, email"
+              onPress={() => navigation?.navigate?.('OwnerPersonalInfo')}
+            />
+          ) : null}
           <MenuRow
             Icon={CircleCheck}
             tint="#DCFCE7"
             accent="#16A34A"
             label="Subscription"
-            sub="View your plan & upgrade"
+            sub={isShopLogin ? 'View current plan' : 'View your plan & upgrade'}
             onPress={() => navigation?.navigate?.('OwnerSubscription')}
           />
           <MenuRow
@@ -375,14 +415,16 @@ export default function MyAccountScreen({ onLogout, navigation }) {
             sub="Address, opening hours, GST"
             onPress={() => navigation?.navigate?.('OwnerShopInfo')}
           />
-          <MenuRow
-            Icon={FileText}
-            tint="#FEF3C7"
-            accent="#B45309"
-            label="KYC Documents"
-            sub="Aadhar, PAN, GST / Udyam"
-            onPress={() => navigation?.navigate?.(hasKycDocs ? 'OwnerKycView' : 'OwnerKycIntro')}
-          />
+          {!isShopLogin ? (
+            <MenuRow
+              Icon={FileText}
+              tint="#FEF3C7"
+              accent="#B45309"
+              label="KYC Documents"
+              sub="Aadhar, PAN, GST / Udyam"
+              onPress={() => navigation?.navigate?.(hasKycDocs ? 'OwnerKycView' : 'OwnerKycIntro')}
+            />
+          ) : null}
           <MenuRow
             Icon={Truck}
             tint="#CFFAFE"
@@ -392,11 +434,11 @@ export default function MyAccountScreen({ onLogout, navigation }) {
             onPress={() => navigation?.navigate?.('OwnerPickupSlots')}
           />
           <MenuRow
-            Icon={Package}
+            Icon={ShoppingBag}
             tint="#FCE7F3"
             accent="#BE185D"
             label="My Orders"
-            sub="Marketplace purchases"
+            sub="View your orders & history"
             onPress={() => navigation?.navigate?.('MarketplaceOrders')}
           />
           <MenuRow

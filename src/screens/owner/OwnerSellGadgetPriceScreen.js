@@ -125,7 +125,8 @@ export default function OwnerSellGadgetPriceScreen({ navigation, route }) {
       const res = await marketplaceApi.post('/marketplace/products', { body: payload });
       navigation.replace('OwnerSellListed', { listing: res, device, images, price: priceNum });
     } catch (e) {
-      notify('Listing failed', e?.message || 'Could not create the marketplace listing');
+      const detail = e?.message || 'Could not create the marketplace listing';
+      notify('Listing failed', e?.status ? `${detail} (HTTP ${e.status})` : detail);
     } finally {
       setSubmitting(false);
       setConfirming(false);

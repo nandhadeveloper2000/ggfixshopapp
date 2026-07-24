@@ -280,7 +280,12 @@ export default function DeviceSecurityScreen({ navigation, route }) {
                 onPress={() => onSelect(opt.key)}
                 className="rounded-2xl mb-2.5 flex-row items-center"
                 style={{
-                  backgroundColor: active ? 'rgba(22, 163, 74, 0.06)' : '#FFFFFF',
+                  // NOTE: keep this background OPAQUE. Android renders the
+                  // `elevation` shadow *through* a translucent background, which
+                  // showed up as an ugly gray box behind the selected tile. This
+                  // is the opaque equivalent of the old rgba(22,163,74,0.06) green
+                  // so both platforms match the clean iOS look.
+                  backgroundColor: active ? '#F1F9F4' : '#FFFFFF',
                   borderWidth: active ? 1.5 : 1,
                   borderColor: active ? ACCENT_GREEN : '#E5E7EB',
                   padding: 12,

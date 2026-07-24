@@ -1,16 +1,44 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  TextInput,
+  ActivityIndicator,
+  Keyboard,
+  useWindowDimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSelector } from 'react-redux';
-import { Avatar, Button, Card, ScreenHeader } from '../../../components/rnr';
+import { Avatar, Button, Card, MintBackdrop, BrandHeader } from '../../../components/rnr';
 import { ticketApi } from '../../../api/client';
 import { selectShopId } from '../../../store/authSlice';
 
+const GREEN = '#16A34A';
+const GREEN_DARK = '#15803D';
+
+const softShadow = {
+  shadowColor: '#0F172A',
+  shadowOpacity: 0.08,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: 5,
+};
+
 export default function NewBookingScreen({ navigation }) {
   const shopId = useSelector(selectShopId);
+  const { width } = useWindowDimensions();
+
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
+
+  // Hero card sizing — prominent and centered, slightly taller than wide.
+  const cardW = Math.min(320, Math.round(width * 0.66));
+  const cardH = Math.round(cardW * 1.04);
+  const iconCircle = Math.round(cardW * 0.42);
 
   // Backend can return the same person more than once (multiple legacy rows for
   // the same phone). Collapse them by name+phone so the search list shows one
@@ -42,42 +70,124 @@ export default function NewBookingScreen({ navigation }) {
     return () => { cancelled = true; clearTimeout(t); };
   }, [q, shopId]);
 
+  // The search field can still own focus when the owner starts a booking.
+  // Blur it before navigation so its keyboard/caret never carries into the
+  // Customer Details form.
+  const openCustomerDetails = (params) => {
+    Keyboard.dismiss();
+    navigation.navigate('CustomerDetails', params);
+  };
+
   return (
-    <View className="flex-1 bg-background">
-      <ScreenHeader title="New Booking" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerClassName="px-6 pt-4 pb-12" keyboardShouldPersistTaps="handled">
-        <View className="items-center mt-2 mb-4">
+    <View className="flex-1">
+      <MintBackdrop dots circles />
+      <BrandHeader title="New Booking" onBack={() => navigation.goBack()} />
+
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Subtle rounded panel holding the hero + search */}
+        <View
+          style={{
+            borderRadius: 28,
+            backgroundColor: 'rgba(255,255,255,0.42)',
+            paddingTop: 28,
+            paddingBottom: 26,
+            paddingHorizontal: 20,
+          }}
+        >
+          {/* New Customer hero card */}
           <Pressable
-            onPress={() => navigation.navigate('CustomerDetails')}
-            className="bg-primary rounded-2xl items-center justify-center active:opacity-80"
-            style={{ width: 140, height: 140 }}
+            onPress={() => openCustomerDetails()}
+            className="self-center active:opacity-90"
+            style={{
+              width: cardW,
+              height: cardH,
+              borderRadius: 30,
+              overflow: 'hidden',
+              shadowColor: GREEN_DARK,
+              shadowOpacity: 0.32,
+              shadowRadius: 22,
+              shadowOffset: { width: 0, height: 12 },
+              elevation: 10,
+            }}
           >
-            <View className="bg-white/10 rounded-full p-3 mb-1">
-              <Ionicons name="people" size={42} color="#fff" />
-            </View>
-            <Text className="text-white font-bold mt-1">New Customer</Text>
+            <LinearGradient
+              colors={['#2FB85D', '#16A34A', '#12833B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 }}
+            >
+              {/* Icon with a soft glow ring */}
+              <View
+                style={{
+                  width: iconCircle * 1.34,
+                  height: iconCircle * 1.34,
+                  borderRadius: (iconCircle * 1.34) / 2,
+                  backgroundColor: 'rgba(255,255,255,0.16)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <View
+                  style={{
+                    width: iconCircle,
+                    height: iconCircle,
+                    borderRadius: iconCircle / 2,
+                    backgroundColor: '#FFFFFF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="people" size={Math.round(iconCircle * 0.5)} color={GREEN} />
+                </View>
+              </View>
+
+              <Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800', marginTop: 18 }}>
+                New Customer
+              </Text>
+              <Text
+                style={{ color: 'rgba(255,255,255,0.92)', fontSize: 12.5, marginTop: 5, textAlign: 'center' }}
+              >
+                Add a new customer to get started
+              </Text>
+            </LinearGradient>
           </Pressable>
+
+          {/* Search existing customer */}
+          <View
+            className="flex-row items-center"
+            style={{
+              marginTop: 26,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 999,
+              paddingHorizontal: 20,
+              height: 56,
+              ...softShadow,
+            }}
+          >
+            <Ionicons name="search" size={20} color={GREEN} />
+            <TextInput
+              placeholder="Search Existing Customer Name or Mobile Number..."
+              placeholderTextColor="#94A3B8"
+              value={q}
+              onChangeText={setQ}
+              className="flex-1 ml-3 text-text"
+              style={{ paddingVertical: 0, fontSize: 12.5 }}
+            />
+            {loading ? <ActivityIndicator size="small" color={GREEN} /> : null}
+          </View>
         </View>
 
-        <View className="bg-card border border-border rounded-xl flex-row items-center px-3" style={{ height: 44 }}>
-          <Ionicons name="search" size={18} color="#64748B" />
-          <TextInput
-            placeholder="Search Existing Customer Name or Mobile Number..."
-            placeholderTextColor="#94A3B8"
-            value={q}
-            onChangeText={setQ}
-            className="flex-1 ml-2 text-text"
-            style={{ paddingVertical: 0, fontSize: 11 }}
-          />
-          {loading ? <ActivityIndicator size="small" color="#00008B" /> : null}
-        </View>
-
+        {/* Search results */}
         <View className="mt-4">
           {dedupedResults.map((c) => {
             const isPlatform = c.source === 'platform';
             const rowKey = `${c.source || 'shop'}:${c.id}`;
             const onPick = () => {
-              navigation.navigate('CustomerDetails', {
+              openCustomerDetails({
                 initial: {
                   name: c.name || '',
                   phone: c.phone || c.mobile || '',
@@ -87,21 +197,27 @@ export default function NewBookingScreen({ navigation }) {
               });
             };
             return (
-              <Card key={rowKey} className="mb-3 flex-row items-center">
-                <Avatar fallback={(c.name || '?').slice(0, 2)} size={48} />
-                <View className="flex-1 ml-3">
-                  <View className="flex-row items-center">
-                    <Text className="font-bold text-text">{c.name}</Text>
+              <Card
+                key={rowKey}
+                className="mb-3 flex-row items-center"
+                style={{ borderWidth: 0, borderRadius: 20 }}
+              >
+                <Avatar fallback={(c.name || '?').slice(0, 2)} size={56} />
+                <View className="flex-1 ml-4">
+                  <View className="flex-row items-center flex-wrap">
+                    <Text className="font-extrabold text-text text-[15px] mr-2">{c.name}</Text>
                     {isPlatform ? (
-                      <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/10">
-                        <Text className="text-[10px] text-primary font-semibold">App user</Text>
+                      <View className="px-2.5 py-1 rounded-full bg-primary/10">
+                        <Text className="text-[11px] text-primary font-bold">App user</Text>
                       </View>
                     ) : null}
                   </View>
-                  <Text className="text-xs text-text-muted">{c.phone || ''}</Text>
-                  {c.address ? <Text className="text-xs text-text-muted">{c.address}</Text> : null}
+                  <Text className="text-[13px] text-text-muted mt-1">{c.phone || ''}</Text>
+                  {c.address ? (
+                    <Text className="text-[13px] text-text-muted mt-0.5 leading-5">{c.address}</Text>
+                  ) : null}
                 </View>
-                <Button size="sm" onPress={onPick}>Booking</Button>
+                <Button size="sm" onPress={onPick} className="ml-3">Booking</Button>
               </Card>
             );
           })}

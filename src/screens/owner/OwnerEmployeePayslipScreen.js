@@ -357,7 +357,7 @@ export default function OwnerEmployeePayslipScreen({ route }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#3B4FD7" style={{ marginVertical: 40 }} />
+          <ActivityIndicator size="large" color="#16A34A" style={{ marginVertical: 40 }} />
         ) : (
           <>
             {/* Hero — month + employee */}
@@ -413,13 +413,15 @@ export default function OwnerEmployeePayslipScreen({ route }) {
             {/* Attendance summary */}
             <Text style={styles.sectionHeader}>Attendance</Text>
             <View style={styles.attendanceRow}>
-              <View style={[styles.attendanceTile, { backgroundColor: '#DCFCE7' }]}>
-                <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+              <View style={[styles.attendanceTile, { backgroundColor: '#ECFDF3' }]}>
+                <View style={styles.attendanceCheckCircle}>
+                  <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+                </View>
                 <Text style={styles.attendanceValue}>{data?.presentDays ?? 0}</Text>
                 <Text style={styles.attendanceLabel}>Present Days</Text>
               </View>
-              <View style={[styles.attendanceTile, { backgroundColor: '#EDE9FE' }]}>
-                <Ionicons name="briefcase" size={16} color="#7C3AED" />
+              <View style={[styles.attendanceTile, { backgroundColor: '#F3F0FF' }]}>
+                <Ionicons name="briefcase" size={22} color="#7C3AED" />
                 <Text style={styles.attendanceValue}>{data?.dailyWageDays ?? 0}</Text>
                 <Text style={styles.attendanceLabel}>Daily Wage Days</Text>
               </View>
@@ -430,8 +432,8 @@ export default function OwnerEmployeePayslipScreen({ route }) {
             <View style={styles.breakdownCard}>
               <BreakdownRow
                 icon="cash-outline"
-                iconBg="#DBEAFE"
-                iconColor="#3B4FD7"
+                iconBg="#DCFCE7"
+                iconColor="#16A34A"
                 label="Regular Salary"
                 sub="Monthly base"
                 value={formatRupee(data?.regularSalary)}
@@ -476,10 +478,10 @@ export default function OwnerEmployeePayslipScreen({ route }) {
                 activeOpacity={0.85}
               >
                 {busy === 'download' ? (
-                  <ActivityIndicator size="small" color="#3B4FD7" />
+                  <ActivityIndicator size="small" color="#16A34A" />
                 ) : (
                   <>
-                    <Ionicons name="download-outline" size={15} color="#3B4FD7" />
+                    <Ionicons name="download-outline" size={16} color="#15803D" />
                     <Text style={styles.actionBtnSecondaryText}>Download PDF</Text>
                   </>
                 )}
@@ -529,114 +531,127 @@ function BreakdownRow({ icon, iconBg, iconColor, label, sub, value, emphasize })
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F1FB' },
+  safe: { flex: 1, backgroundColor: '#F4FBF6' },
   content: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { fontSize: 14, color: '#DC2626' },
   empty: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginTop: 24 },
 
   hero: {
-    backgroundColor: '#3B4FD7',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  heroIconWrap: {
-    width: 36,
-    height: 36,
+    backgroundColor: '#16A34A',
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+  },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroPayslip: { fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '600', letterSpacing: 1 },
-  heroMonth: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', marginTop: 1 },
+  heroPayslip: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '600', letterSpacing: 0.5 },
+  heroMonth: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', marginTop: 1 },
   heroStatusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 999,
   },
   heroStatusPaid: { backgroundColor: '#22C55E' },
-  heroStatusPending: { backgroundColor: '#FACC15' },
-  heroStatusText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.5 },
+  heroStatusPending: { backgroundColor: '#F59E0B' },
+  heroStatusText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
 
-  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginVertical: 10 },
+  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.18)', marginVertical: 12 },
 
   heroEmpRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  heroEmpLabel: { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.5 },
-  heroEmpName: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', marginTop: 1 },
-  heroEmpRole: { fontSize: 10, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
-  heroEmpId: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', marginTop: 1, letterSpacing: 0.5 },
+  heroEmpLabel: { fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.5 },
+  heroEmpName: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 2 },
+  heroEmpRole: { fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 1 },
+  heroEmpId: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginTop: 2, letterSpacing: 0.3 },
 
-  heroPeriodRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  heroPeriodText: { fontSize: 11, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
+  heroPeriodRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroPeriodText: { fontSize: 12.5, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
 
   payoutCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 10,
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 12,
     alignItems: 'center',
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  payoutLabel: { fontSize: 11, color: '#6B7280', fontWeight: '600', letterSpacing: 0.5 },
-  payoutAmount: { fontSize: 26, fontWeight: '800', color: '#111827', marginTop: 4 },
+  payoutLabel: { fontSize: 12.5, color: '#64748B', fontWeight: '600', letterSpacing: 0.3 },
+  payoutAmount: { fontSize: 34, fontWeight: '800', color: '#15803D', marginTop: 6 },
   payoutSplit: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 16,
     width: '100%',
   },
   payoutSplitItem: { flex: 1, alignItems: 'center' },
-  payoutSplitSep: { width: 1, height: 26, backgroundColor: '#E5E7EB' },
-  payoutSplitLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
-  payoutSplitValue: { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 2 },
+  payoutSplitSep: { width: 1, height: 32, backgroundColor: '#E5E7EB' },
+  payoutSplitLabel: { fontSize: 11.5, color: '#94A3B8', fontWeight: '600' },
+  payoutSplitValue: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 3 },
 
-  sectionHeader: { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 14, marginBottom: 8 },
+  sectionHeader: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginTop: 18, marginBottom: 12 },
 
-  attendanceRow: { flexDirection: 'row', gap: 8 },
+  attendanceRow: { flexDirection: 'row', gap: 10 },
   attendanceTile: {
     flex: 1,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    padding: 16,
     alignItems: 'flex-start',
   },
-  attendanceValue: { fontSize: 18, fontWeight: '800', color: '#111827', marginTop: 6 },
-  attendanceLabel: { fontSize: 10, color: '#6B7280', fontWeight: '600', marginTop: 1 },
+  attendanceCheckCircle: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: '#16A34A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  attendanceValue: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginTop: 10 },
+  attendanceLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', marginTop: 2 },
 
-  breakdownCard: { backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
+  breakdownCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
   breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    gap: 10,
+    paddingVertical: 14,
+    gap: 12,
   },
   breakdownIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   breakdownTextWrap: { flex: 1, minWidth: 0 },
-  breakdownLabel: { fontSize: 12, fontWeight: '700', color: '#111827' },
-  breakdownSub: { fontSize: 10, color: '#9CA3AF', marginTop: 1 },
-  breakdownValue: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  breakdownLabel: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  breakdownSub: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  breakdownValue: { fontSize: 15, fontWeight: '800', color: '#334155' },
   breakdownValueEmphasize: { color: '#15803D', fontWeight: '800' },
-  breakdownDivider: { height: 1, backgroundColor: '#F3F4F6' },
+  breakdownDivider: { height: 1, backgroundColor: '#F1F5F9' },
 
-  actionRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
-  actionBtnSecondary: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' },
-  actionBtnSecondaryText: { color: '#3B4FD7', fontSize: 12, fontWeight: '700' },
-  actionBtnPrimary: { backgroundColor: '#3B4FD7' },
-  actionBtnPrimaryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  actionBtnSecondary: { backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#16A34A' },
+  actionBtnSecondaryText: { color: '#15803D', fontSize: 14, fontWeight: '800' },
+  actionBtnPrimary: { backgroundColor: '#15803D' },
+  actionBtnPrimaryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Smartphone,
+  Hash,
   ReceiptText,
   MessageSquareText,
   Timer,
@@ -211,7 +212,13 @@ export default function DeviceInformationScreen({ navigation, route }) {
                 <Text className="text-[11.5px] text-text-muted mt-0.5" numberOfLines={1}>
                   {[params.ramLabel, params.storageLabel, params.color].filter(Boolean).join(' · ')}
                 </Text>
-                <View className="flex-row items-center mt-1.5">
+                <View className="flex-row items-center flex-wrap mt-1.5">
+                  {params.modelNumber ? (
+                    <View className="flex-row items-center bg-primary/10 rounded-md px-1.5 py-0.5 mr-1.5">
+                      <Hash size={9} color="#00008B" />
+                      <Text className="text-primary text-[10px] font-extrabold ml-0.5">{params.modelNumber}</Text>
+                    </View>
+                  ) : null}
                   <View className="bg-success/10 rounded-md px-1.5 py-0.5 mr-1.5">
                     <Text className="text-success text-[10px] font-extrabold">
                       {services.length} service{services.length === 1 ? '' : 's'}

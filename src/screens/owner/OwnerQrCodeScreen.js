@@ -19,7 +19,6 @@ import {
   Share2,
   Store,
   Phone,
-  Sparkles,
   User,
   MapPin,
 } from 'lucide-react-native';
@@ -156,16 +155,20 @@ export default function OwnerQrCodeScreen({ navigation }) {
             >
               <ChevronLeft size={22} color="#0F172A" />
             </TouchableOpacity>
-            <Text className="flex-1 text-text text-[17px] font-extrabold" numberOfLines={1}>
+            <Text className="flex-1 text-text text-[24px] font-extrabold" numberOfLines={1}>
               My QR Code
             </Text>
-            <View
-              className="px-2.5 py-1 rounded-full flex-row items-center"
+            <TouchableOpacity
+              onPress={onShare}
+              activeOpacity={0.8}
+              className="px-3 py-1.5 rounded-full flex-row items-center"
               style={{ backgroundColor: '#F1F3F5' }}
             >
-              <Sparkles size={11} color="#0F172A" />
-              <Text className="ml-1 text-text-muted text-[10.5px] font-extrabold">SHARE</Text>
-            </View>
+              <Share2 size={13} color="#0F172A" />
+              <Text className="ml-1.5 text-text text-[11px] font-extrabold" style={{ letterSpacing: 0.5 }}>
+                SHARE
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
@@ -181,23 +184,32 @@ export default function OwnerQrCodeScreen({ navigation }) {
             <View className="flex-row items-center w-full">
               <View
                 style={{
-                  width: 56, height: 56, borderRadius: 28,
-                  backgroundColor: '#DCFCE7',
-                  alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden',
-                  borderWidth: 2, borderColor: '#BBF7D0',
+                  padding: 3,
+                  borderRadius: 34,
+                  borderWidth: 1.5,
+                  borderColor: '#86EFAC',
+                  borderStyle: 'dashed',
                 }}
               >
-                {avatarUri ? (
-                  <Image source={{ uri: avatarUri }} style={{ width: 56, height: 56 }} />
-                ) : (
-                  <Text
-                    className="text-[17px] font-extrabold"
-                    style={{ color: BRAND_GREEN_DARK, letterSpacing: 1 }}
-                  >
-                    {shopName.slice(0, 2).toUpperCase()}
-                  </Text>
-                )}
+                <View
+                  style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: '#DCFCE7',
+                    alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={{ width: 56, height: 56 }} />
+                  ) : (
+                    <Text
+                      className="text-[17px] font-extrabold"
+                      style={{ color: BRAND_GREEN_DARK, letterSpacing: 1 }}
+                    >
+                      {shopName.slice(0, 2).toUpperCase()}
+                    </Text>
+                  )}
+                </View>
               </View>
               <View className="flex-1 ml-3">
                 <Text className="text-[10.5px] font-extrabold" style={{ color: BRAND_GREEN_DARK, letterSpacing: 1 }}>
@@ -337,7 +349,7 @@ export default function OwnerQrCodeScreen({ navigation }) {
               >
                 Owner
               </Text>
-              <DetailRow Icon={User} label={ownerName} />
+              <DetailRow Icon={User} label={ownerName} bold />
               {ownerPhone ? (
                 <DetailRow Icon={Phone} label={ownerPhone} />
               ) : null}
@@ -454,9 +466,9 @@ function DetailRow({ Icon, label, bold, multiline }) {
         <Icon size={13} color={BRAND_GREEN_DARK} />
       </View>
       <Text
-        className={`flex-1 text-[12.5px] ${bold ? 'font-extrabold text-gray-900' : 'font-semibold text-gray-700'}`}
+        className={`flex-1 text-[13.5px] ${bold ? 'font-extrabold text-gray-900' : 'font-semibold text-gray-700'}`}
         numberOfLines={multiline ? 3 : 1}
-        style={{ lineHeight: 17, marginTop: 5 }}
+        style={{ lineHeight: 18, marginTop: 4 }}
       >
         {label}
       </Text>

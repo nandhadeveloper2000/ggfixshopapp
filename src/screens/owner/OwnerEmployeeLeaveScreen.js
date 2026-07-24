@@ -133,10 +133,10 @@ export default function OwnerEmployeeLeaveScreen({ route, navigation }) {
           </View>
 
           <View style={styles.statTilesRow}>
-            <StatTile value={pad2(counts.Leave)}      label="Leave"      bg="#EC4899" />
-            <StatTile value={pad2(counts.Processing)} label="Processing" bg="#F97316" />
-            <StatTile value={pad2(counts.Rejected)}   label="Rejected"   bg="#EF4444" />
-            <StatTile value={pad2(counts.Approved)}   label="Approved"   bg="#1E3A8A" />
+            <StatTile value={pad2(counts.Leave)}      label="Leave"      icon="calendar-outline"        tint="#FDF2F8" accent="#DB2777" />
+            <StatTile value={pad2(counts.Processing)} label="Processing" icon="hourglass-outline"       tint="#FFF7ED" accent="#EA580C" />
+            <StatTile value={pad2(counts.Rejected)}   label="Rejected"   icon="close-circle-outline"    tint="#FEF2F2" accent="#DC2626" />
+            <StatTile value={pad2(counts.Approved)}   label="Approved"   icon="checkmark-circle-outline" tint="#ECFDF3" accent="#16A34A" />
           </View>
         </View>
 
@@ -151,9 +151,14 @@ export default function OwnerEmployeeLeaveScreen({ route, navigation }) {
         </TouchableOpacity>
 
         {/* Recent Leave */}
-        <Text style={styles.sectionHeader}>Recent Leave</Text>
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionHeader}>Recent Leave</Text>
+          <TouchableOpacity onPress={() => setFilter('All')}>
+            <Text style={styles.viewAll}>View all</Text>
+          </TouchableOpacity>
+        </View>
         {loading && list.length === 0 ? (
-          <ActivityIndicator size="small" color="#3B4FD7" style={{ marginVertical: 16 }} />
+          <ActivityIndicator size="small" color="#16A34A" style={{ marginVertical: 16 }} />
         ) : recent ? (
           <LeaveCard
             item={recent}
@@ -162,11 +167,17 @@ export default function OwnerEmployeeLeaveScreen({ route, navigation }) {
             onReject={() => updateLeaveStatus(recent.id, 'REJECTED')}
           />
         ) : (
-          <Text style={styles.empty}>No recent leave.</Text>
+          <View style={styles.emptyCard}>
+            <Ionicons name="file-tray-outline" size={26} color="#16A34A" />
+            <Text style={styles.emptyTitle}>No recent leave.</Text>
+            <Text style={styles.emptySub}>You&apos;re all caught up!</Text>
+          </View>
         )}
 
         {/* Previous Leave */}
-        <Text style={styles.sectionHeader}>Previous Leave</Text>
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionHeader}>Previous Leave</Text>
+        </View>
         <View style={styles.filterRow}>
           {FILTERS.map((f) => (
             <TouchableOpacity
@@ -183,7 +194,11 @@ export default function OwnerEmployeeLeaveScreen({ route, navigation }) {
         </View>
 
         {filteredPrevious.length === 0 ? (
-          <Text style={styles.empty}>No previous leave requests.</Text>
+          <View style={styles.emptyCard}>
+            <Ionicons name="calendar-outline" size={26} color="#16A34A" />
+            <Text style={styles.emptyTitle}>No previous leave requests.</Text>
+            <Text style={styles.emptySub}>Looks like you haven&apos;t made any requests yet.</Text>
+          </View>
         ) : (
           filteredPrevious.map((item) => (
             <LeaveCard
@@ -202,15 +217,15 @@ export default function OwnerEmployeeLeaveScreen({ route, navigation }) {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
-function StatTile({ value, label, bg }) {
+function StatTile({ value, label, icon, tint, accent }) {
   return (
-    <View style={styles.statTileWrap}>
-      <View style={[styles.statTileTop, { backgroundColor: bg }]}>
-        <Text style={styles.statTileTopText}>{label}</Text>
+    <View style={[styles.statTileWrap, { backgroundColor: tint }]}>
+      <View style={styles.statTileTop}>
+        <Ionicons name={icon} size={14} color={accent} />
+        <Text style={[styles.statTileTopText, { color: accent }]}>{label}</Text>
       </View>
-      <View style={styles.statTileBottom}>
-        <Text style={styles.statTileValue}>{value}</Text>
-      </View>
+      <Text style={styles.statTileValue}>{value}</Text>
+      <Text style={styles.statTileHint}>Total</Text>
     </View>
   );
 }
@@ -270,86 +285,89 @@ function LeaveCard({ item, ownerCanApprove, onApprove, onReject }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F1FB' },
+  safe: { flex: 1, backgroundColor: '#F4FBF6' },
   content: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { fontSize: 14, color: '#DC2626' },
 
   statsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   statsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  statsHeaderTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  statsHeaderTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
 
   monthPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: '#15803D',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 999,
-    gap: 6,
+    gap: 8,
   },
-  monthPillText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  monthPillText: { color: '#FFFFFF', fontSize: 12.5, fontWeight: '700' },
   monthPillSep: { width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.3)' },
 
   statTilesRow: { flexDirection: 'row', gap: 8 },
   statTileWrap: {
     flex: 1,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'flex-start',
   },
-  statTileTop: { paddingVertical: 5, alignItems: 'center' },
-  statTileTopText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-  statTileBottom: { paddingVertical: 8, alignItems: 'center', backgroundColor: '#FFFFFF' },
-  statTileValue: { fontSize: 18, fontWeight: '800', color: '#111827' },
+  statTileTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statTileTopText: { fontSize: 11, fontWeight: '800' },
+  statTileValue: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginTop: 8 },
+  statTileHint: { fontSize: 11, color: '#64748B', marginTop: 2, fontWeight: '600' },
 
   applyBtn: {
-    marginTop: 12,
-    backgroundColor: '#3B4FD7',
-    paddingVertical: 11,
-    borderRadius: 10,
+    marginTop: 14,
+    backgroundColor: '#15803D',
+    paddingVertical: 15,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    shadowColor: '#0F172A', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
-  applyBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  applyBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
 
-  sectionHeader: { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 14, marginBottom: 8 },
+  sectionHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
+  sectionHeader: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
+  viewAll: { fontSize: 13, fontWeight: '800', color: '#16A34A' },
 
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
   },
-  filterChipActive: { backgroundColor: '#3B4FD7', borderColor: '#3B4FD7' },
-  filterChipText: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
+  filterChipActive: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
+  filterChipText: { fontSize: 13, color: '#6B7280', fontWeight: '700' },
   filterChipTextActive: { color: '#FFFFFF' },
 
   leaveCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    marginBottom: 8,
+    borderRadius: 14,
+    marginBottom: 10,
     overflow: 'hidden',
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  leaveAccent: { width: 3, backgroundColor: '#7C3AED' },
-  leaveInner: { flex: 1, padding: 10 },
+  leaveAccent: { width: 4, backgroundColor: '#16A34A' },
+  leaveInner: { flex: 1, padding: 14 },
   leaveTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   leaveDate: { fontSize: 12, fontWeight: '700', color: '#111827' },
 
@@ -375,4 +393,14 @@ const styles = StyleSheet.create({
   rejectBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
 
   empty: { fontSize: 12, color: '#6B7280', textAlign: 'center', paddingVertical: 14 },
+  emptyCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    borderRadius: 14,
+    paddingVertical: 26,
+    alignItems: 'center',
+  },
+  emptyTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 10 },
+  emptySub: { fontSize: 12.5, color: '#64748B', marginTop: 3 },
 });

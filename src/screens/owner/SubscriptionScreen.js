@@ -76,6 +76,7 @@ const PLAN_ICON = { FREE_TRIAL: Gift, BASIC: Crown };
 
 export default function SubscriptionScreen({ navigation, gated = false, onUnlock, onLogout }) {
   const [ownerUserId, setOwnerUserId] = useState(null);
+  const [isShopLogin, setIsShopLogin] = useState(false);
   const [current, setCurrent] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,9 +99,11 @@ export default function SubscriptionScreen({ navigation, gated = false, onUnlock
       try {
         const me = await fetchMe();
         uid = me?.id || me?.userId || null;
+        setIsShopLogin(me?.loginScope === 'SHOP' || me?.loginType === 'SHOP_LOGIN');
       } catch {
         const s = await getSession();
         uid = s?.userId || s?.id || null;
+        setIsShopLogin(s?.loginScope === 'SHOP' || s?.loginType === 'SHOP_LOGIN');
       }
       setOwnerUserId(uid);
 
@@ -252,6 +255,17 @@ export default function SubscriptionScreen({ navigation, gated = false, onUnlock
           {/* ---------- CURRENT PLAN ---------- */}
           <CurrentPlanCard current={current} />
 
+          {/* Shop-scoped logins see only the current plan — plan management,
+              multi-shop pricing, and upgrades stay in the owner's account. */}
+          {isShopLogin ? (
+            <View className="bg-white rounded-2xl p-4 mt-4 flex-row items-start" style={softShadow}>
+              <AlertCircle size={16} color="#64748B" />
+              <Text className="ml-2 flex-1 text-[12.5px] text-gray-600 leading-5">
+                Your plan is managed by the shop owner. Upgrades and payments are available from the owner&apos;s account.
+              </Text>
+            </View>
+          ) : (
+            <>
           {/* ---------- PLANS ---------- */}
           <SectionLabel>Available Plans</SectionLabel>
           {plans.length === 0 ? (
@@ -332,6 +346,8 @@ export default function SubscriptionScreen({ navigation, gated = false, onUnlock
               </Pressable>
             </View>
           ) : null}
+            </>
+          )}
         </ScrollView>
       )}
     </View>
@@ -371,6 +387,8 @@ function CurrentPlanCard({ current }) {
     ? 'Basic'
     : (current.subscriptionType === 'FREE_TRIAL' || isTrial ? 'Free Trial' : (current.subscriptionType || meta.label));
   const days = Number(current.daysRemaining);
+  const startedText = formatDate(current.activeDate || current.subscriptionStartDate || current.trialStartDate);
+  const endsText = formatDate(current.inactiveDate || current.subscriptionEndDate || current.trialEndDate);
 
   return (
     <View className="bg-white rounded-3xl p-4" style={cardShadow}>
@@ -436,32 +454,52 @@ function CurrentPlanCard({ current }) {
         </View>
       ) : null}
 
-      {/* Meta chips (shops / employees / sell / pickup) */}
-      {(current.shopLimit != null || current.shopCount != null) ? (
-        <View className="flex-row flex-wrap mt-3" style={{ marginHorizontal: -3 }}>
-          {current.shopCount != null ? (
-            <MetaChip icon={Store} label={`${current.shopCount} shop${current.shopCount === 1 ? '' : 's'}`} />
-          ) : null}
-          {current.employeeLimit != null ? (
-            <MetaChip icon={CreditCard} label={`${current.employeeLimit} staff`} />
-          ) : null}
-          {current.pickupServiceEnabled ? (
-            <MetaChip icon={Zap} label="Pickup enabled" />
-          ) : null}
-        </View>
-      ) : null}
+      {/* Plan details — labelled list of everything on the current plan. */}
+      <View className="mt-3 pt-2" style={{ borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+        <Text className="text-[10px] font-extrabold uppercase mb-1" style={{ color: '#94A3B8', letterSpacing: 1 }}>
+          Plan Details
+        </Text>
+        <DetailLine label="Plan" value={planName} />
+        <DetailLine label="Status" value={meta.label} valueColor={meta.color} />
+        {startedText ? <DetailLine label="Started on" value={startedText} /> : null}
+        {endsText ? <DetailLine label={isTrial ? 'Trial ends' : 'Valid till'} value={endsText} /> : null}
+        {Number.isFinite(days) ? (
+          <DetailLine label="Days remaining" value={`${days} day${days === 1 ? '' : 's'}`} />
+        ) : null}
+        {current.shopCount != null ? (
+          <DetailLine
+            label="Shops covered"
+            value={`${current.shopCount}${current.shopLimit ? ` of ${current.shopLimit}` : ''}`}
+          />
+        ) : null}
+        {current.employeeLimit != null ? (
+          <DetailLine label="Staff limit" value={String(current.employeeLimit)} />
+        ) : null}
+        {current.pickupServiceEnabled != null ? (
+          <DetailLine label="Pickup service" value={current.pickupServiceEnabled ? 'Enabled' : 'Disabled'} />
+        ) : null}
+        {money(current.priceAmount) ? (
+          <DetailLine label="Amount" value={money(current.priceAmount)} />
+        ) : null}
+      </View>
     </View>
   );
 }
 
-function MetaChip({ icon: Icon, label }) {
+function DetailLine({ label, value, valueColor }) {
   return (
     <View
-      className="flex-row items-center px-2.5 py-1 rounded-full mb-1.5"
-      style={{ backgroundColor: '#F1F5F9', marginHorizontal: 3 }}
+      className="flex-row items-center justify-between py-1.5"
+      style={{ borderTopWidth: 1, borderTopColor: '#F8FAFC' }}
     >
-      <Icon size={11} color="#475569" />
-      <Text className="ml-1 text-[11px] font-bold text-gray-600">{label}</Text>
+      <Text className="text-[12px] text-gray-500">{label}</Text>
+      <Text
+        className="text-[12.5px] font-bold ml-3 flex-1 text-right"
+        style={{ color: valueColor || '#0F172A' }}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
     </View>
   );
 }

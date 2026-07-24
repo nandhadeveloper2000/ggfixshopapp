@@ -26,13 +26,23 @@ const authSlice = createSlice({
       state.fullName = s.fullName ?? null;
       state.mobile = s.mobile ?? null;
     },
+    // Patch only the active-shop pointer, leaving token/roles/profile intact.
+    // Dispatched whenever the persisted session's active shop changes (shop
+    // switch, /auth/me refresh) so `selectShopId` consumers never drift from
+    // the AsyncStorage session. Undefined keys are ignored so a partial payload
+    // can't clobber the current values.
+    setActiveShop(state, action) {
+      const p = action.payload || {};
+      if (p.shopId !== undefined) state.shopId = p.shopId ?? null;
+      if (p.shopSlug !== undefined) state.shopSlug = p.shopSlug ?? null;
+    },
     clearSession() {
       return initialState;
     },
   },
 });
 
-export const { setSession, clearSession } = authSlice.actions;
+export const { setSession, setActiveShop, clearSession } = authSlice.actions;
 
 export const selectSession = (state) => state.auth;
 export const selectShopId = (state) => state.auth.shopId;

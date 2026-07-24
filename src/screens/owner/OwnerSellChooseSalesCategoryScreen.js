@@ -71,13 +71,13 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
             onPress={() => navigation.goBack()}
             hitSlop={10}
             style={{
-              width: 36, height: 36, borderRadius: 18,
-              backgroundColor: '#F1F3F5',
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: '#DCFCE7',
               alignItems: 'center', justifyContent: 'center',
               marginRight: 12,
             }}
           >
-            <Ionicons name="arrow-back" size={20} color="#0F172A" />
+            <Ionicons name="arrow-back" size={20} color="#15803D" />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '800', color: '#0F172A', letterSpacing: 0.2 }}>
@@ -89,12 +89,12 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
           </View>
           <View
             style={{
-              width: 38, height: 38, borderRadius: 19,
-              backgroundColor: '#F1F3F5',
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: '#DCFCE7',
               alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <Ionicons name="pricetag" size={20} color="#0F172A" />
+            <Ionicons name="create-outline" size={20} color="#0F172A" />
           </View>
         </View>
 
@@ -110,22 +110,28 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
         >
           <View
             style={{
-              width: 28, height: 28, borderRadius: 14,
+              width: 36, height: 36, borderRadius: 18,
               backgroundColor: '#DCFCE7',
-              alignItems: 'center', justifyContent: 'center', marginRight: 10,
+              alignItems: 'center', justifyContent: 'center', marginRight: 12,
             }}
           >
-            <Ionicons name="flash" size={14} color="#16A34A" />
+            <Ionicons name="flash" size={16} color="#16A34A" />
           </View>
-          <Text style={{ flex: 1, color: '#0F172A', fontSize: 12, fontWeight: '600' }}>
-            Zero commission on first 10 listings
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#15803D', fontSize: 14, fontWeight: '800' }}>
+              Zero commission on first 10 listings
+            </Text>
+            <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+              List more, sell more – we only win when you do!
+            </Text>
+          </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 18 }}>
         {modelName ? (
-          <View
+          <Pressable
+            onPress={() => navigation.goBack()}
             style={{
               backgroundColor: '#FFFFFF',
               borderRadius: 18,
@@ -155,7 +161,7 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.5, color: '#94A3B8', textTransform: 'uppercase' }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 0.5, color: '#16A34A', textTransform: 'uppercase' }}>
                 Selected
               </Text>
               <Text style={{ fontSize: 15, fontWeight: '800', color: '#0F172A', marginTop: 2 }} numberOfLines={1}>
@@ -170,14 +176,15 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
                     borderRadius: 999, marginTop: 4,
                   }}
                 >
-                  <Ionicons name="checkmark-circle" size={11} color="#16A34A" />
+                  <Ionicons name="phone-portrait" size={11} color="#16A34A" />
                   <Text style={{ fontSize: 10, fontWeight: '700', color: '#16A34A', marginLeft: 4 }}>
                     {categoryName}
                   </Text>
                 </View>
               ) : null}
             </View>
-          </View>
+            <ChevronRight size={20} color="#CBD5E1" />
+          </Pressable>
         ) : null}
 
         <Text
@@ -212,8 +219,6 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
                   shadowRadius: 10,
                   elevation: 2,
                   opacity: pressed ? 0.85 : 1,
-                  borderLeftWidth: 4,
-                  borderLeftColor: t.accent,
                 },
               ]}
             >
@@ -247,15 +252,7 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
                   {t.sub}
                 </Text>
               </View>
-              <View
-                style={{
-                  width: 30, height: 30, borderRadius: 15,
-                  backgroundColor: t.tint,
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <ChevronRight size={16} color={t.accent} />
-              </View>
+              <ChevronRight size={20} color={t.accent} />
             </Pressable>
           );
         })}
@@ -284,22 +281,33 @@ export default function OwnerSellChooseSalesCategoryScreen({ navigation, route }
           </Text>
 
           {[
-            { icon: 'shield-checkmark', color: '#16A34A', text: 'Verified buyers in your area' },
-            { icon: 'cash', color: '#F59E0B', text: 'Get paid quickly & safely' },
-            { icon: 'rocket', color: '#7C3AED', text: 'Listing live in under a minute' },
-          ].map((row) => (
-            <View key={row.icon} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            { icon: 'shield-checkmark', color: '#16A34A', title: 'Verified buyers in your area', sub: 'We connect you with trusted, local buyers' },
+            { icon: 'ribbon', color: '#F59E0B', title: 'Get paid quickly & safely', sub: 'Secure payments with instant transfers' },
+            { icon: 'rocket', color: '#7C3AED', title: 'Listing live in under a minute', sub: 'A few simple steps and you are done' },
+          ].map((row, i) => (
+            <View
+              key={row.icon}
+              style={{
+                flexDirection: 'row', alignItems: 'center',
+                paddingVertical: 12,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: '#F1F5F9',
+              }}
+            >
               <View
                 style={{
-                  width: 28, height: 28, borderRadius: 14,
-                  backgroundColor: row.color + '20',
+                  width: 44, height: 44, borderRadius: 14,
+                  backgroundColor: row.color + '18',
                   alignItems: 'center', justifyContent: 'center',
-                  marginRight: 10,
+                  marginRight: 12,
                 }}
               >
-                <Ionicons name={row.icon} size={14} color={row.color} />
+                <Ionicons name={row.icon} size={20} color={row.color} />
               </View>
-              <Text style={{ fontSize: 12, color: '#334155', fontWeight: '600' }}>{row.text}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13.5, color: '#0F172A', fontWeight: '800' }}>{row.title}</Text>
+                <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{row.sub}</Text>
+              </View>
             </View>
           ))}
         </View>

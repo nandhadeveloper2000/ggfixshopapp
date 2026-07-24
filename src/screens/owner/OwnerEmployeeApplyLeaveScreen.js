@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import { CalendarDays, User, MessageSquare } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { CalendarDays, User, MessageSquare, Info, ChevronRight } from 'lucide-react-native';
 import {
-  AppHeader, Card, Input, FormField, Button, BottomActionBar, ScreenContainer,
+  Card, Input, FormField, BottomActionBar, ScreenContainer,
   EmptyState, useBottomBarInset,
 } from '../../components/rnr';
 import { tokens } from '../../theme/colors';
@@ -54,7 +54,6 @@ export default function OwnerEmployeeApplyLeaveScreen({ route, navigation }) {
   if (!employee) {
     return (
       <ScreenContainer>
-        <AppHeader title="Apply Leave" onBack={() => navigation.goBack()} />
         <EmptyState title="Employee not found" description="Open this from the employee list." />
       </ScreenContainer>
     );
@@ -64,20 +63,21 @@ export default function OwnerEmployeeApplyLeaveScreen({ route, navigation }) {
 
   return (
     <ScreenContainer>
-      <AppHeader title="Apply Leave" subtitle={employee.name || employee.fullName} onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insetBottom + 96 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insetBottom + 110 }}>
         <Card>
           <View className="flex-row items-center">
-            <View className="h-11 w-11 rounded-2xl bg-primary-soft items-center justify-center mr-3">
-              <User size={20} color={tokens.primary} />
+            <View className="h-12 w-12 rounded-full bg-primary-soft items-center justify-center mr-3">
+              <User size={22} color={tokens.primary} />
             </View>
             <View className="flex-1">
-              <Text className="text-[11px] text-text-muted uppercase tracking-widest">Employee</Text>
-              <Text className="text-[15px] font-extrabold text-text" numberOfLines={1}>
+              <Text className="text-[11px] uppercase tracking-widest font-bold" style={{ color: tokens.primary }}>
+                Employee
+              </Text>
+              <Text className="text-[16px] font-extrabold text-text mt-0.5" numberOfLines={1}>
                 {employee.name || employee.fullName || 'Employee'}
               </Text>
               {employee.role || employee.roleLabel ? (
-                <Text className="text-[11px] text-text-muted mt-0.5">
+                <Text className="text-[12px] text-text-muted mt-0.5">
                   {employee.role || employee.roleLabel}
                 </Text>
               ) : null}
@@ -91,7 +91,8 @@ export default function OwnerEmployeeApplyLeaveScreen({ route, navigation }) {
             value={startDate}
             onChangeText={setStartDate}
             placeholder="2026-02-01"
-            leftIcon={<CalendarDays size={16} color={tokens.textMuted} />}
+            leftIcon={<CalendarDays size={18} color={tokens.primary} />}
+            rightIcon={<CalendarDays size={18} color={tokens.primary} />}
             autoCapitalize="none"
           />
         </FormField>
@@ -100,7 +101,8 @@ export default function OwnerEmployeeApplyLeaveScreen({ route, navigation }) {
             value={endDate}
             onChangeText={setEndDate}
             placeholder="2026-02-03"
-            leftIcon={<CalendarDays size={16} color={tokens.textMuted} />}
+            leftIcon={<CalendarDays size={18} color={tokens.primary} />}
+            rightIcon={<CalendarDays size={18} color={tokens.primary} />}
             autoCapitalize="none"
           />
         </FormField>
@@ -111,19 +113,46 @@ export default function OwnerEmployeeApplyLeaveScreen({ route, navigation }) {
             placeholder="e.g. Personal work"
             multiline
             numberOfLines={4}
-            leftIcon={<MessageSquare size={16} color={tokens.textMuted} />}
-            style={{ minHeight: 96, textAlignVertical: 'top' }}
+            maxLength={250}
+            leftIcon={<MessageSquare size={18} color={tokens.primary} />}
+            style={{ minHeight: 110, textAlignVertical: 'top' }}
           />
+          <Text className="text-[11px] text-text-muted text-right mt-1">{reason.length} / 250</Text>
         </FormField>
+
+        {/* Note */}
+        <View
+          className="flex-row items-start mt-4 rounded-2xl p-3.5"
+          style={{ backgroundColor: '#ECFDF3', borderWidth: 1, borderColor: '#D1FAE5' }}
+        >
+          <Info size={18} color={tokens.primary} style={{ marginTop: 1 }} />
+          <View className="flex-1 ml-2.5">
+            <Text className="text-[13.5px] font-extrabold" style={{ color: '#15803D' }}>Note</Text>
+            <Text className="text-[12.5px] text-text-muted mt-0.5 leading-4">
+              Leave request will be sent to your manager for approval.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
 
-      <BottomActionBar
-        title={saving ? 'Submitting...' : 'Submit Leave Request'}
-        onPress={handleSubmit}
-        loading={saving}
-        disabled={!canSubmit}
-        insetBottom={insetBottom}
-      />
+      <BottomActionBar insetBottom={insetBottom}>
+        <TouchableOpacity
+          onPress={handleSubmit}
+          disabled={!canSubmit}
+          activeOpacity={0.9}
+          className="flex-row items-center justify-center rounded-2xl py-4"
+          style={{ backgroundColor: canSubmit ? '#15803D' : '#9CA3AF' }}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Text className="text-white text-[15px] font-extrabold">Submit Leave Request</Text>
+              <ChevronRight size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            </>
+          )}
+        </TouchableOpacity>
+      </BottomActionBar>
     </ScreenContainer>
   );
 }

@@ -4,49 +4,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   PlusCircle,
+  Plus,
   Receipt,
   BarChart3,
-  HelpCircle,
   Users,
-  ShoppingBag,
-  Tag,
-  CheckCircle2,
-  UserCheck,
-  Wrench,
   PackageCheck,
   Truck,
-  PackageOpen,
   Clock,
-  TrendingUp,
   Bell,
   ChevronRight,
   ShieldCheck,
-  ArrowLeftRight,
   Store,
   X,
   Check,
   Search,
   Mic,
   MessageCircle,
-  CalendarCheck,
-  CalendarX,
   FileText,
-  Hand,
   Smartphone,
-  Phone,
   User,
   QrCode,
-  ScanLine,
   Package,
   CalendarClock,
   LogOut,
   ShoppingCart,
+  PackageOpen,
 } from 'lucide-react-native';
 import { ticketApi } from '../../api/client';
 import { getDeviceCategories, getModelsByBrand } from '../../api/masterData';
+import { listShopRepairBookings } from '../../api/orders';
 import { listShopKycDocuments } from '../../api/shops';
 import { getUnreadCount as getNotifUnreadCount } from '../../api/notifications';
-import { Loader, SectionHeader, Badge, Card, EmptyState } from '../../components/rnr';
+import { Loader, SectionHeader } from '../../components/rnr';
 import { getSession } from '../../auth/session';
 import { fetchMe, switchShop } from '../../api/auth';
 
@@ -55,6 +44,7 @@ import { fetchMe, switchShop } from '../../api/auth';
 const GREEN       = '#16A34A';
 const GREEN_LIGHT = '#22C55E';
 const GREEN_DARK  = '#15803D';
+const HERO_IMAGE = 'https://res.cloudinary.com/dg6c0g4gi/image/upload/v1784700061/hero_z8j4sg.png';
 
 // On regaining focus we refresh the Latest Bookings list silently, but only if
 // the cached data is older than this. Stops Home from visibly re-loading every
@@ -93,35 +83,25 @@ function useBookingCounts() {
         delivered: Number(counts.DELIVERED ?? 0),
         workPending: Number(counts.QUOTED ?? 0) + Number(counts.APPROVED ?? 0),
         total: Number(counts.total ?? 0),
+        revenue: Number(counts.revenue ?? counts.totalRevenue ?? counts.monthlyRevenue ?? 0),
       }
     : null;
 
   return { summary, loading, error, refresh: load };
 }
 
-const STATUSES = [
-  { key: 'serviceAccepted',   label: 'Service Accepted',   icon: CheckCircle2, color: GREEN,       bg: '#DCFCE7', statusKey: 'SERVICE_ACCEPTED',     statusList: ['CREATED'],                  bgFull: '#60A5FA' },
-  { key: 'technicianAssigned',label: 'Technician Assigned',icon: UserCheck,    color: '#0EA5E9',   bg: '#E0F2FE', statusKey: 'TECHNICIAN_ASSIGNED',  statusList: ['ASSIGNED'],                 bgFull: '#4C1D95' },
-  { key: 'inServiceProcess',  label: 'In Service Process', icon: Wrench,       color: '#2563EB',   bg: '#DBEAFE', statusKey: 'IN_SERVICE_PROCESS',   statusList: ['IN_DIAGNOSIS', 'IN_REPAIR'], bgFull: '#334155' },
-  { key: 'workCompleted',     label: 'Work Completed',     icon: PackageCheck, color: '#7C3AED',   bg: '#EDE9FE', statusKey: 'WORK_COMPLETED',       statusList: ['READY'],                    bgFull: '#22C55E' },
-  { key: 'outForDelivery',    label: 'Out for Delivery',   icon: Truck,        color: '#F59E0B',   bg: '#FEF3C7', statusKey: 'OUT_FOR_DELIVERY',     statusList: ['DELIVERED_PROCESSING'],     bgFull: '#2DD4BF' },
-  { key: 'delivered',         label: 'Delivered',          icon: PackageOpen,  color: GREEN_DARK,  bg: '#DCFCE7', statusKey: 'DELIVERED',            statusList: ['DELIVERED'],                bgFull: '#16A34A' },
-  { key: 'workPending',       label: 'Work Pending',       icon: Clock,        color: '#EF4444',   bg: '#FEE2E2', statusKey: 'WORK_PENDING',         statusList: ['QUOTED', 'APPROVED'],       bgFull: '#EF4444' },
-];
-
 const QUICK_ACTIONS = [
-  { key: 'RepairServiceBookingShop', label: 'New\nBooking', icon: PlusCircle,   color: GREEN_DARK, bg: '#DCFCE7', via: 'parent' },
-  { key: 'OwnerPickupServiceList', label: 'Pickup',         icon: Truck,        color: '#B45309',  bg: '#FEF3C7', via: 'parent' },
-  { key: 'Bookings',               label: 'All\nBookings',  icon: PackageCheck, color: '#0EA5E9',  bg: '#E0F2FE' },
-  { key: 'ScanQrCode',             label: 'Scan\nQR',       icon: ScanLine,     color: '#7C3AED',  bg: '#F3E8FF', via: 'parent' },
-  { key: 'Billing',                label: 'Invoices',       icon: Receipt,      color: '#2563EB',  bg: '#DBEAFE' },
-  { key: 'BookingStatus',          label: 'Booking\nStatus', icon: BarChart3,   color: GREEN,      bg: '#D1FAE5' },
-  { key: 'ShopChatInbox',          label: 'Enquiry',        icon: MessageCircle, color: '#F59E0B', bg: '#FEF3C7' },
+  { key: 'RepairServiceBookingShop', label: 'New Booking',  icon: PlusCircle,    via: 'parent' },
+  { key: 'OwnerPickupServiceList',  label: 'Pickup',        icon: Truck,         via: 'parent' },
+  { key: 'Bookings',                label: 'All Bookings',  icon: PackageCheck },
+  { key: 'Billing',                 label: 'Invoices',      icon: Receipt },
+  { key: 'OwnerSearch',             label: 'Customers',      icon: Users,         via: 'parent' },
+  { key: 'ShopChatInbox',           label: 'Enquiry',        icon: MessageCircle, via: 'parent' },
+  { key: 'BookingStatus',           label: 'Booking Status', icon: BarChart3 },
 ];
 
-// Emoji fallbacks for the Buy Categories rail — mirrors the customer app's
-// category styling so both stores read the same. Used when a category has no
-// image_url in master data.
+// Emoji fallbacks for the category rails — mirrors the customer app's category
+// styling so both stores read the same. Used when a category has no image_url.
 const BUY_CAT_META = {
   MOBILE:        { emoji: '📱' },
   SMARTPHONE:    { emoji: '📱' },
@@ -141,18 +121,6 @@ function buyCatImage(item) {
   const url = item.imageUrl && String(item.imageUrl).trim();
   return url || null;
 }
-
-// Employee Management menu — Employee List + Leave Report open existing
-// screens; Attendance / Leave / Late / Permission open the all-staff report
-// screen in the matching mode.
-const EMPLOYEE_MENU = [
-  { key: 'list',        label: 'Employee List', desc: 'View & manage your staff',   icon: Users,         route: 'OwnerEmployeeList' },
-  { key: 'attendance',  label: 'Attendance',    desc: 'Daily attendance, all staff', icon: CalendarCheck, route: 'OwnerStaffReport', params: { mode: 'attendance' } },
-  { key: 'leave',       label: 'Leave',         desc: 'Leave days this month',       icon: CalendarX,     route: 'OwnerStaffReport', params: { mode: 'leave' } },
-  { key: 'late',        label: 'Late',          desc: 'Late hours by employee',      icon: Clock,         route: 'OwnerStaffReport', params: { mode: 'late' } },
-  { key: 'permission',  label: 'Permission',    desc: 'Permission records',          icon: Hand,          route: 'OwnerStaffReport', params: { mode: 'permission' } },
-  { key: 'leaveReport', label: 'Leave Report',  desc: 'Approve leave requests',      icon: FileText,      route: 'OwnerLeaveRequests' },
-];
 
 // Account sidebar menu (opened from the header avatar) — mirrors the My
 // Account screen's profile list. KYC routes to View/Intro based on submission.
@@ -216,6 +184,7 @@ export default function DashboardScreen({ navigation, onLogout }) {
   const [notifUnread, setNotifUnread] = useState(0);
   const [buyCats, setBuyCats] = useState([]);
   const [latest, setLatest] = useState([]);
+  const [pickupCount, setPickupCount] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarRendered, setSidebarRendered] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -226,17 +195,39 @@ export default function DashboardScreen({ navigation, onLogout }) {
   const latestLoadedAtRef = useRef(0);
   const latestLoadingRef = useRef(false);
 
-  // Fill the screen: phones keep the compact grid; tablets/large screens get
-  // more columns so the content uses the full width instead of stretching a
-  // few tiles across it.
+  // ── Responsive layout system ─────────────────────────────────────────────
+  // Every size below scales off the live window width, so the dashboard reads
+  // well from a 320px phone up to a tablet instead of hard-coding pixels.
   const { width: winW } = useWindowDimensions();
+  const isSmall  = winW < 360;
   const isTablet = winW >= 680;
-  const qaCols = isTablet ? 8 : 4;
-  const empCols = isTablet ? 6 : 3;
-  const buyTileW = isTablet
-    ? Math.max(96, Math.floor((winW - 32 - 12 * Math.max(0, buyCats.length - 1)) / Math.max(1, buyCats.length)))
-    : 84;
+  const PAGE_PAD = isSmall ? 14 : 18;              // page side gutter
+  const contentW = winW - PAGE_PAD * 2;            // usable content width
+
+  // Snapshot: all 5 cards on a single compact row. Floor the width so rounding
+  // never wraps the last card onto a new line.
+  const statCols   = 5;
+  const statGap    = 6;
+  const statCardW  = Math.floor((contentW - statGap * (statCols - 1)) / statCols);
+  const statValueF = isTablet ? 15 : isSmall ? 11 : 12.5;
+
+  // Quick actions: 4 across on phones, 8 on tablets.
+  const qaCols  = isTablet ? 8 : 4;
+  const qaIcon  = isSmall ? 46 : 52;
+  const qaGlyph = isSmall ? 22 : 24;
+
+  // Category rail tiles (Marketplace / Sell).
+  const catTile = isSmall ? 68 : 74;
+  const catIcon = isSmall ? 56 : 62;
+
+  // Latest-booking cards.
+  const bookingCardW = isSmall ? 150 : 160;
+
   const panelW = Math.min(360, winW * 0.82);
+
+  // Shared elevation presets — keeps the shadow language consistent.
+  const cardShadow = { shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 };
+  const heroShadow = { shadowColor: GREEN, shadowOpacity: 0.14, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 4 };
 
   // Slide the sidebar drawer in from the left; keep it mounted through the
   // slide-out so the close animation plays before unmount.
@@ -294,7 +285,9 @@ export default function DashboardScreen({ navigation, onLogout }) {
         };
       });
       enriched.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-      setLatest(groupBookingsByDay(enriched.slice(0, 12)));
+      // Dashboard shows only the newest handful; "View all" jumps to the full
+      // Bookings screen for the rest.
+      setLatest(groupBookingsByDay(enriched.slice(0, 6)));
     } catch {
       // Keep the cached list on a background refresh failure — don't blank the
       // screen (that reads as a jarring reload).
@@ -306,6 +299,18 @@ export default function DashboardScreen({ navigation, onLogout }) {
 
   useEffect(() => { loadLatest(); }, [loadLatest]);
 
+  // Pickup snapshot count — repair pickups live in order-service repair_bookings
+  // (serviceMode === 'PICKUP'), not in /tickets/counts, so fetch them here.
+  const loadPickups = useCallback(async () => {
+    try {
+      const data = await listShopRepairBookings();
+      const n = (Array.isArray(data) ? data : []).filter((b) => b.serviceMode === 'PICKUP').length;
+      setPickupCount(n);
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadPickups(); }, [loadPickups]);
+
   // Refresh the bell badge whenever the dashboard regains focus. The heavier
   // bookings-list refetch is throttled + silent (no loader, no blanking) so
   // returning to Home — e.g. right after the booking/assign flow — doesn't
@@ -314,10 +319,11 @@ export default function DashboardScreen({ navigation, onLogout }) {
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
       refreshNotifs();
+      loadPickups();
       if (Date.now() - latestLoadedAtRef.current > HOME_REFRESH_STALE_MS) loadLatest();
     });
     return unsub;
-  }, [navigation, refreshNotifs, loadLatest]);
+  }, [navigation, refreshNotifs, loadLatest, loadPickups]);
 
   const reloadSession = useCallback(async () => {
     try { setSession(await fetchMe()); }
@@ -326,8 +332,8 @@ export default function DashboardScreen({ navigation, onLogout }) {
 
   useEffect(() => { reloadSession(); }, [reloadSession]);
 
-  // Buy Categories rail — same source as the customer app's Buy home so the
-  // owner browses the marketplace by the same category set. Silent on failure.
+  // Category rail — same source as the customer app's Buy home so the owner
+  // browses the marketplace by the same category set. Silent on failure.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -370,6 +376,15 @@ export default function DashboardScreen({ navigation, onLogout }) {
 
   const shopName = session?.shopName || (session?.shops?.find?.((s) => s.isActive)?.name) || 'Shop · Owner';
   const shops = session?.shops || [];
+  // Shop front photo for the header avatar — same source OwnerQrCode uses.
+  // Falls back to the shop initials when no image is set.
+  const activeShop = session?.activeShop || shops.find?.((s) => s.isActive) || null;
+  // Shop-mobile logins show the SHOP front image; owner logins show the owner's
+  // profile avatar (falling back to the shop image when they haven't set one).
+  const isShopLogin = session?.loginScope === 'SHOP' || session?.loginType === 'SHOP_LOGIN';
+  const shopImage = isShopLogin
+    ? (activeShop?.frontImageUrl || null)
+    : (session?.avatarUrl || activeShop?.frontImageUrl || null);
   // SHOP-scoped sessions (shop-mobile login) are locked to one shop — never
   // show the switcher even if `shops.length > 1` for some reason.
   const hasMultipleShops = session?.loginScope !== 'SHOP' && shops.length > 1;
@@ -387,7 +402,7 @@ export default function DashboardScreen({ navigation, onLogout }) {
       await switchShop(shopId);
       await reloadSession();
       await refresh();
-      await loadLatest();
+      await Promise.all([loadLatest(), loadPickups()]);
     } catch (e) {
       // keep the sidebar open on failure so the user can retry
     } finally {
@@ -399,7 +414,7 @@ export default function DashboardScreen({ navigation, onLogout }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refresh(), loadLatest()]);
+    await Promise.all([refresh(), loadLatest(), loadPickups()]);
     setRefreshing(false);
   };
 
@@ -416,103 +431,106 @@ export default function DashboardScreen({ navigation, onLogout }) {
   const total = summary?.total ?? 0;
   const activeCount = (summary?.serviceAccepted || 0) + (summary?.technicianAssigned || 0) + (summary?.inServiceProcess || 0);
   const deliveredCount = summary?.delivered || 0;
+  const revenue = Number(summary?.revenue ?? summary?.totalRevenue ?? summary?.monthlyRevenue ?? 0);
+  const recentBookings = latest.flatMap((group) => group.items);
 
-  const kpis = [
-    { label: 'Bookings',  value: total,          sub: 'All-time',    icon: PackageCheck, onPress: () => gotoParent('Bookings') },
-    { label: 'Active',    value: activeCount,    sub: 'In pipeline', icon: Clock,        onPress: () => navigation.navigate('BookingStatus') },
-    { label: 'Delivered', value: deliveredCount, sub: 'Completed',   icon: PackageOpen,  onPress: () => navigation.navigate('BookingStatus') },
+  // One merged "business snapshot" — replaces the old KPI row + duplicated
+  // Today's Summary. Each card is tappable to its detail screen.
+  const stats = [
+    { label: 'Bookings',  value: total,                                sub: 'All time',       icon: PackageCheck, color: '#16A34A', bg: '#DCFCE7', onPress: () => gotoParent('Bookings') },
+    { label: 'Active',    value: activeCount,                          sub: 'In pipeline',    icon: Clock,        color: '#2563EB', bg: '#DBEAFE', onPress: () => navigation.navigate('BookingStatus') },
+    { label: 'Pickup',    value: pickupCount,                          sub: 'Repair pickups', icon: Truck,        color: '#0D9488', bg: '#CCFBF1', onPress: () => gotoParent('OwnerPickupServiceList') },
+    { label: 'Delivered', value: deliveredCount,                       sub: 'Completed',      icon: PackageOpen,  color: '#D97706', bg: '#FEF3C7', onPress: () => navigation.navigate('BookingStatus') },
+    { label: 'Revenue',   value: `₹ ${revenue.toLocaleString('en-IN')}`, sub: 'This month',    icon: Receipt,      color: '#7C3AED', bg: '#F3E8FF', onPress: () => gotoParent('Reports') },
   ];
 
   return (
-    <View className="flex-1 bg-background">
-      {/* ─── Hero header (compact greeting + search pill) ──────── */}
+    <View className="flex-1" style={{ backgroundColor: '#F5F7F9' }}>
+      {/* ─── Hero header (greeting + shop identity + bell) ─────── */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            paddingTop: 6,
-            paddingBottom: 14,
-            borderBottomWidth: 1,
-            borderBottomColor: '#E5E7EB',
-          }}
-        >
-          {/* Top action row */}
-          <View className="px-4 flex-row items-center py-1">
+        <View style={{ backgroundColor: '#FFFFFF', paddingTop: 10, paddingBottom: 14 }}>
+          <View style={{ paddingHorizontal: PAGE_PAD }} className="flex-row items-center">
             <Pressable
               onPress={() => setShowSidebar(true)}
-              className="h-10 w-10 rounded-2xl bg-surface-muted items-center justify-center mr-3 active:opacity-80"
-              style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+              className="rounded-full items-center justify-center mr-3 active:opacity-80 overflow-hidden"
+              style={{
+                height: 52, width: 52,
+                backgroundColor: GREEN_DARK,
+                shadowColor: GREEN_DARK,
+                shadowOpacity: 0.2,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
+              }}
             >
-              <Text className="text-text text-[13px] font-extrabold">{shopInitial(shopName)}</Text>
+              {shopImage ? (
+                <Image source={{ uri: shopImage }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              ) : (
+                <Text className="text-white font-extrabold" style={{ fontSize: 19 }}>{shopInitial(shopName)}</Text>
+              )}
             </Pressable>
-            <View className="flex-1 mr-2">
-              <Text className="text-text-muted text-[11px] font-semibold" numberOfLines={1}>{greeting},</Text>
+            <View className="flex-1 mr-3">
+              <Text className="text-text-muted font-medium" style={{ fontSize: 13 }} numberOfLines={1}>{greeting},</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text
-                  className="text-text text-[16.5px] font-extrabold leading-5 mr-1.5"
+                  className="text-text font-bold mr-2"
                   numberOfLines={1}
-                  style={{ flexShrink: 1 }}
+                  style={{ fontSize: isSmall ? 16 : 18, lineHeight: isSmall ? 20 : 22, flexShrink: 1 }}
                 >
                   {shopName}
                 </Text>
                 <View
-                  className="flex-row items-center bg-surface-muted px-1.5 py-[2px] rounded-full"
-                  style={{ flexShrink: 0 }}
+                  className="flex-row items-center px-2 py-1 rounded-full"
+                  style={{ flexShrink: 0, backgroundColor: '#ECFDF3' }}
                 >
-                  <ShieldCheck size={9} color={GREEN} />
-                  <Text className="text-[8px] font-extrabold ml-0.5 tracking-wider" style={{ color: GREEN_DARK }}>VERIFIED</Text>
+                  <ShieldCheck size={12} color={GREEN} />
+                  <Text className="font-extrabold ml-1 tracking-wider" style={{ fontSize: 9, color: GREEN_DARK }}>VERIFIED</Text>
                 </View>
               </View>
             </View>
 
             <Pressable
               onPress={() => navigation.navigate('OwnerNotifications')}
-              className="h-10 w-10 rounded-full bg-surface-muted items-center justify-center active:opacity-80"
+              className="rounded-full items-center justify-center active:opacity-80"
+              style={{ height: 46, width: 46, backgroundColor: '#F1F5F4' }}
             >
-              <Bell size={16} color="#0F172A" />
+              <Bell size={22} color="#0F172A" strokeWidth={2.1} />
               {notifUnread > 0 ? (
                 <View
-                  className="absolute -top-0.5 -right-0.5 rounded-full min-w-[16px] h-4 px-1 items-center justify-center"
-                  style={{ backgroundColor: '#F59E0B', borderWidth: 1.5, borderColor: '#FFFFFF' }}
-                >
-                  <Text className="text-white text-[9px] font-extrabold">
-                    {notifUnread > 9 ? '9+' : notifUnread}
-                  </Text>
-                </View>
+                  className="absolute rounded-full"
+                  style={{ top: 9, right: 9, width: 10, height: 10, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#FFFFFF' }}
+                />
               ) : null}
             </Pressable>
           </View>
         </View>
       </SafeAreaView>
 
-      {/* ─── Separated search bar (sits below the header, sticky) ── */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 }}>
+      {/* ─── Sticky search bar (sits below the header) ─────────── */}
+      <View style={{ paddingHorizontal: PAGE_PAD, paddingTop: 2, paddingBottom: 6, backgroundColor: '#FFFFFF' }}>
         <Pressable
-          onPress={() => gotoParent('Bookings')}
-          className="bg-white rounded-2xl px-3.5 py-3 flex-row items-center active:opacity-90"
+          onPress={() => gotoParent('OwnerSearch')}
+          className="bg-white rounded-3xl flex-row items-center active:opacity-90"
           style={{
+            paddingHorizontal: 16,
+            paddingVertical: 14,
             borderWidth: 1,
-            borderColor: '#E5E7EB',
-            shadowColor: '#0F172A',
-            shadowOpacity: 0.06,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 3,
+            borderColor: '#DDE3DF',
+            ...cardShadow,
           }}
         >
-          <Search size={16} color={GREEN} />
-          <Text className="text-text-muted text-[13px] ml-2 flex-1" numberOfLines={1}>
+          <Search size={22} color="#0F172A" strokeWidth={2} />
+          <Text className="text-text-muted ml-3 flex-1" style={{ fontSize: 15 }} numberOfLines={1}>
             Search bookings, customers, devices…
           </Text>
-          <View className="h-5 w-px bg-border mx-2" />
-          <Mic size={15} color={GREEN_DARK} />
+          <Mic size={20} color="#94A3B8" strokeWidth={2} />
         </Pressable>
       </View>
 
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 36 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -522,184 +540,174 @@ export default function DashboardScreen({ navigation, onLogout }) {
           />
         }
       >
-        {/* ─── Stats (Bookings / Active / Delivered) ────────────── */}
-        <View className="px-3 mt-3 flex-row">
-          {kpis.map((k) => {
-            const Icon = k.icon;
+        {/* ─── Hero banner (tap → start a new booking) ──────────── */}
+        <Pressable
+          onPress={() => gotoParent('RepairServiceBookingShop')}
+          className="overflow-hidden rounded-3xl active:opacity-95"
+          style={{ marginHorizontal: PAGE_PAD, marginTop: 14, ...heroShadow }}
+        >
+          <Image
+            source={{ uri: HERO_IMAGE }}
+            resizeMode="contain"
+            style={{ width: '100%', aspectRatio: 2076 / 757, backgroundColor: '#E9F9E9' }}
+          />
+        </Pressable>
+
+        {/* ─── Business snapshot (single compact row of 5) ──────── */}
+        <View
+          style={{
+            paddingHorizontal: PAGE_PAD,
+            marginTop: 16,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+          }}
+        >
+          {stats.map((s) => {
+            const Icon = s.icon;
             return (
               <Pressable
-                key={k.label}
-                onPress={k.onPress}
-                className="flex-1 mx-1 bg-white rounded-2xl p-3 active:opacity-80"
+                key={s.label}
+                onPress={s.onPress}
+                className="active:opacity-80 items-center"
                 style={{
+                  width: statCardW,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 14,
+                  paddingVertical: 10,
+                  paddingHorizontal: 4,
                   borderWidth: 1,
-                  borderColor: '#E5E7EB',
-                  shadowColor: '#0F172A',
-                  shadowOpacity: 0.05,
-                  shadowRadius: 7,
-                  shadowOffset: { width: 0, height: 3 },
-                  elevation: 2,
+                  borderColor: '#EDF1EE',
+                  ...cardShadow,
                 }}
               >
-                <View className="flex-row items-center">
-                  <View className="h-8 w-8 rounded-lg items-center justify-center mr-2" style={{ backgroundColor: '#F1F5F9' }}>
-                    <Icon size={15} color="#0F172A" />
-                  </View>
-                  <Text className="text-[22px] font-extrabold leading-7 text-text">{k.value}</Text>
-                </View>
-                <Text className="text-[10px] font-extrabold text-text-muted tracking-wide mt-1">{k.label}</Text>
-                <Text className="text-[9.5px] text-text-muted">{k.sub}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* ─── Quick Actions (4-col, Paytm-style circular icons) ── */}
-        <SectionHeader title="Quick Actions" caption="What would you like to do?" />
-        <View className="px-3 flex-row flex-wrap">
-          {QUICK_ACTIONS.map((t) => {
-            const Icon = t.icon;
-            return (
-              <View key={t.label} style={{ width: `${100 / qaCols}%` }} className="p-1.5">
-                <Pressable
-                  onPress={() => {
-                    if (t.key?.startsWith('_')) return;
-                    if (t.via === 'parent') gotoParent(t.key); else navigation.navigate(t.key);
-                  }}
-                  className="items-center active:opacity-80"
-                >
-                  <View
-                    className="h-14 w-14 rounded-2xl items-center justify-center bg-white"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      shadowColor: '#0F172A',
-                      shadowOpacity: 0.06,
-                      shadowRadius: 7,
-                      shadowOffset: { width: 0, height: 3 },
-                      elevation: 2,
-                    }}
-                  >
-                    <Icon size={22} color="#0F172A" />
-                  </View>
-                  <Text
-                    className="text-[10px] font-bold text-text mt-1.5 text-center leading-tight"
-                    numberOfLines={2}
-                    style={{ minHeight: 24 }}
-                  >
-                    {t.label.replace('\n', ' ')}
-                  </Text>
-                </Pressable>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* ─── Employee Management (horizontal rail + View all) ──── */}
-        <SectionHeader
-          title="Employee Management"
-          caption="Team, attendance & leave"
-          action="View all"
-          onAction={() => gotoParent('OwnerEmployeeList')}
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}
-        >
-          {EMPLOYEE_MENU.map((m, idx) => {
-            const Icon = m.icon;
-            return (
-              <Pressable
-                key={m.key}
-                onPress={() => gotoParent(m.route, m.params)}
-                className="items-center active:opacity-80"
-                style={{ width: buyTileW, marginRight: idx === EMPLOYEE_MENU.length - 1 ? 0 : 12 }}
-              >
                 <View
-                  className="h-16 w-16 rounded-2xl items-center justify-center bg-white"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    shadowColor: '#0F172A',
-                    shadowOpacity: 0.06,
-                    shadowRadius: 7,
-                    shadowOffset: { width: 0, height: 3 },
-                    elevation: 2,
-                  }}
+                  className="items-center justify-center"
+                  style={{ height: 30, width: 30, borderRadius: 9, backgroundColor: s.bg }}
                 >
-                  <Icon size={22} color="#0F172A" />
+                  <Icon size={16} color={s.color} strokeWidth={2.4} />
                 </View>
                 <Text
-                  className="text-[10px] font-bold text-text mt-1.5 text-center leading-tight"
-                  numberOfLines={2}
-                  style={{ minHeight: 24, width: buyTileW }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                  className="text-text font-extrabold mt-2"
+                  style={{ fontSize: statValueF, width: '100%', textAlign: 'center' }}
                 >
-                  {m.label}
+                  {s.value}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  className="text-text-muted font-semibold mt-0.5"
+                  style={{ fontSize: 8.5, width: '100%', textAlign: 'center' }}
+                >
+                  {s.label}
                 </Text>
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
 
-        {/* ─── Sell Categories (same category set as Buy; taps jump straight
-            into the owner sell flow for that category, like OwnerSellHome). ── */}
-        {buyCats.length > 0 ? (
+        {/* ─── Quick Actions (icon grid, 4-up phone · 8-up tablet) ─ */}
+        <View
+          style={{
+            marginHorizontal: PAGE_PAD,
+            marginTop: 6,
+            borderRadius: 24,
+            backgroundColor: '#FFFFFF',
+            borderWidth: 1,
+            borderColor: '#EDF1EE',
+            paddingHorizontal: 8,
+            paddingTop: 14,
+            paddingBottom: 8,
+            ...cardShadow,
+          }}
+        >
+          <Text className="text-text font-extrabold px-1 mb-1" style={{ fontSize: 16 }}>Quick Actions</Text>
+          <View className="flex-row flex-wrap">
+            {QUICK_ACTIONS.map((t) => {
+              const Icon = t.icon;
+              return (
+                <View key={t.label} style={{ width: `${100 / qaCols}%`, paddingVertical: 8 }}>
+                  <Pressable
+                    onPress={() => { if (t.via === 'parent') gotoParent(t.key); else navigation.navigate(t.key); }}
+                    className="items-center active:opacity-70"
+                  >
+                    <View
+                      className="items-center justify-center"
+                      style={{ width: qaIcon, height: qaIcon, borderRadius: 16, backgroundColor: '#F0FDF4' }}
+                    >
+                      <Icon size={qaGlyph} color={GREEN} strokeWidth={2.3} />
+                    </View>
+                    <Text
+                      className="text-text font-semibold text-center"
+                      numberOfLines={1}
+                      style={{ fontSize: isSmall ? 10 : 11, marginTop: 6 }}
+                    >
+                      {t.label}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ─── Latest Bookings (horizontal cards) ────────────────── */}
+        {recentBookings.length > 0 ? (
           <>
             <SectionHeader
-              title="Sell"
-              caption="Start a sell listing by category"
-              action="See all"
-              onAction={() => navigation.navigate('Sell')}
+              title="Latest Bookings"
+              action="View all"
+              onAction={() => navigation.navigate('Bookings')}
+              className="mt-5"
             />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}
+              contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingBottom: 4 }}
             >
-              {buyCats.map((c, idx) => {
-                const code = (c.code || '').toUpperCase();
-                const meta = BUY_CAT_META[code] || BUY_CAT_DEFAULT;
-                const uri = buyCatImage(c);
+              {recentBookings.slice(0, 6).map((t, idx) => {
+                const img = t._modelImage;
+                const num = t.trackingId || (t.id ? t.id.slice(0, 8).toUpperCase() : '-');
+                const device = t._modelName || t.deviceDisplayName || t.modelName || 'Device';
+                const customer = t.customerName || t.customerFullName || t.customer?.name || 'Customer';
+                const status = String(t.status || 'NEW').replaceAll('_', ' ');
+                const isDone = /DELIVERED|COMPLETED|READY/.test(status);
+                const isPickup = /PICKUP/.test(status);
+                const statusColor = isDone ? '#7C3AED' : isPickup ? '#D97706' : GREEN;
+                const statusBg = isDone ? '#F3E8FF' : isPickup ? '#FFF7E6' : '#DCFCE7';
                 return (
                   <Pressable
-                    key={c.id}
-                    onPress={() => navigation.navigate('SelectBrand', {
-                      flow: 'OWNER_LIST',
-                      categoryId: c.id,
-                      categoryCode: code,
-                      categoryName: c.name,
-                    })}
-                    className="items-center active:opacity-80"
-                    style={{ width: buyTileW, marginRight: idx === buyCats.length - 1 ? 0 : 12 }}
+                    key={t.id || `${num}-${idx}`}
+                    onPress={() => navigation.navigate('TicketDetail', { ticketId: t.id })}
+                    className="bg-white rounded-3xl active:opacity-80"
+                    style={{
+                      width: bookingCardW,
+                      marginRight: 12,
+                      padding: 10,
+                      borderWidth: 1,
+                      borderColor: '#EDF1EE',
+                      ...cardShadow,
+                    }}
                   >
                     <View
-                      className="h-16 w-16 rounded-2xl items-center justify-center bg-white"
-                      style={{
-                        borderWidth: 1,
-                        borderColor: '#E5E7EB',
-                        shadowColor: '#0F172A',
-                        shadowOpacity: 0.07,
-                        shadowRadius: 8,
-                        shadowOffset: { width: 0, height: 3 },
-                        elevation: 3,
-                      }}
+                      className="items-center justify-center overflow-hidden"
+                      style={{ height: 94, borderRadius: 16, backgroundColor: '#F6FAF7' }}
                     >
-                      {uri ? (
-                        <Image source={{ uri }} style={{ width: 40, height: 40 }} resizeMode="contain" />
-                      ) : (
-                        <Text style={{ fontSize: 26 }}>{meta.emoji}</Text>
-                      )}
+                      {img
+                        ? <Image source={{ uri: img }} style={{ width: '82%', height: '82%' }} resizeMode="contain" />
+                        : <Smartphone size={34} color={GREEN_DARK} />}
+                      <View className="absolute px-2 py-0.5 rounded-full" style={{ top: 8, left: 8, backgroundColor: statusBg }}>
+                        <Text className="font-extrabold" style={{ fontSize: 8.5, color: statusColor }} numberOfLines={1}>{status}</Text>
+                      </View>
                     </View>
-                    <Text
-                      className="text-[11px] font-bold text-text mt-1.5 text-center"
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.8}
-                      style={{ width: '100%' }}
-                    >
-                      {c.name}
-                    </Text>
+                    <Text className="font-bold mt-2" style={{ fontSize: 10, color: '#64748B' }} numberOfLines={1}>#{num}</Text>
+                    <Text className="text-text font-extrabold mt-0.5" style={{ fontSize: 14 }} numberOfLines={1}>{device}</Text>
+                    <Text className="text-text-muted mt-0.5" style={{ fontSize: 11 }} numberOfLines={1}>{customer}</Text>
+                    <View className="flex-row items-center justify-between mt-2 pt-2" style={{ borderTopWidth: 1, borderTopColor: '#EEF2EF' }}>
+                      <Text className="font-extrabold" style={{ fontSize: 10, color: GREEN_DARK }}>View details</Text>
+                      <ChevronRight size={14} color={GREEN_DARK} strokeWidth={2.5} />
+                    </View>
                   </Pressable>
                 );
               })}
@@ -707,19 +715,19 @@ export default function DashboardScreen({ navigation, onLogout }) {
           </>
         ) : null}
 
-        {/* ─── Buy Categories (mirrors the customer Buy home) ─────── */}
+        {/* ─── Marketplace categories (mirrors the customer Buy home) ─ */}
         {buyCats.length > 0 ? (
           <>
             <SectionHeader
-              title="Buy"
-              caption="Shop marketplace deals by category"
+              title="Marketplace"
+              caption="Browse devices & accessories by category"
               action="See all"
               onAction={() => navigation.navigate('Buy', { categoryId: null })}
             />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}
+              contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingVertical: 4 }}
             >
               {buyCats.map((c, idx) => {
                 const code = (c.code || '').toUpperCase();
@@ -728,38 +736,24 @@ export default function DashboardScreen({ navigation, onLogout }) {
                 return (
                   <Pressable
                     key={c.id}
-                    onPress={() => navigation.navigate('Buy', {
-                      categoryId: c.id,
-                      categoryCode: code,
-                      categoryName: c.name,
-                    })}
+                    onPress={() => navigation.navigate('Buy', { categoryId: c.id, categoryCode: code, categoryName: c.name })}
                     className="items-center active:opacity-80"
-                    style={{ width: buyTileW, marginRight: idx === buyCats.length - 1 ? 0 : 12 }}
+                    style={{ width: catTile, marginRight: idx === buyCats.length - 1 ? 0 : 12 }}
                   >
                     <View
-                      className="h-16 w-16 rounded-2xl items-center justify-center bg-white"
-                      style={{
-                        borderWidth: 1,
-                        borderColor: '#E5E7EB',
-                        shadowColor: '#0F172A',
-                        shadowOpacity: 0.07,
-                        shadowRadius: 8,
-                        shadowOffset: { width: 0, height: 3 },
-                        elevation: 3,
-                      }}
+                      className="items-center justify-center bg-white"
+                      style={{ width: catIcon, height: catIcon, borderRadius: 18, borderWidth: 1, borderColor: '#E7ECE8', ...cardShadow }}
                     >
-                      {uri ? (
-                        <Image source={{ uri }} style={{ width: 40, height: 40 }} resizeMode="contain" />
-                      ) : (
-                        <Text style={{ fontSize: 26 }}>{meta.emoji}</Text>
-                      )}
+                      {uri
+                        ? <Image source={{ uri }} style={{ width: catIcon * 0.6, height: catIcon * 0.6 }} resizeMode="contain" />
+                        : <Text style={{ fontSize: 26 }}>{meta.emoji}</Text>}
                     </View>
                     <Text
-                      className="text-[11px] font-bold text-text mt-1.5 text-center"
+                      className="text-text font-bold text-center mt-1.5"
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       minimumFontScale={0.8}
-                      style={{ width: '100%' }}
+                      style={{ fontSize: 11, width: catTile }}
                     >
                       {c.name}
                     </Text>
@@ -770,81 +764,75 @@ export default function DashboardScreen({ navigation, onLogout }) {
           </>
         ) : null}
 
-        {/* ─── Latest Bookings (grouped by day, current date first) ─ */}
-        {latest.length > 0 ? (
+        {/* ─── Sell by category (owner sell flow entry) ──────────── */}
+        {buyCats.length > 0 ? (
           <>
             <SectionHeader
-              title="Latest Bookings"
-              caption="Newest first, day by day"
-              action="View all"
-              onAction={() => gotoParent('Bookings')}
+              title="Sell by category"
+              caption="Create a listing for a device you have"
+              action="Sell"
+              onAction={() => navigation.navigate('Sell')}
             />
-            <View className="px-4">
-              {latest.map((group) => (
-                <View key={group.key}>
-                  <Text className="text-[11px] font-extrabold text-text-muted mt-1 mb-2 tracking-wide">
-                    {dayLabel(group.date)}
-                  </Text>
-                  {group.items.map((t) => {
-                    const img = t._modelImage;
-                    const num = t.trackingId || (t.id ? t.id.slice(0, 8).toUpperCase() : '-');
-                    const name = t.customerName || t.customerFullName || t.customer?.name || '-';
-                    const phone = t.customerPhone || t.customer?.phone || '';
-                    const device = t._modelName || t.deviceDisplayName || t.modelName || 'Device';
-                    return (
-                      <View
-                        key={t.id}
-                        className="bg-white rounded-2xl p-3 mb-2.5"
-                        style={{
-                          borderWidth: 1,
-                          borderColor: '#E5E7EB',
-                          shadowColor: '#0F172A',
-                          shadowOpacity: 0.05,
-                          shadowRadius: 8,
-                          shadowOffset: { width: 0, height: 3 },
-                          elevation: 2,
-                        }}
-                      >
-                        <View className="flex-row items-center">
-                          <View
-                            className="h-14 w-14 rounded-xl items-center justify-center mr-3 overflow-hidden"
-                            style={{ backgroundColor: '#F1F5F9' }}
-                          >
-                            {img ? (
-                              <Image source={{ uri: img }} style={{ width: 56, height: 56 }} resizeMode="contain" />
-                            ) : (
-                              <Smartphone size={24} color={GREEN_DARK} />
-                            )}
-                          </View>
-                          <View className="flex-1">
-                            <View className="flex-row items-center">
-                              <Text className="text-[10px] font-extrabold mr-1.5" style={{ color: GREEN_DARK }}>#{num}</Text>
-                              <Text className="text-[11px] text-text-muted flex-1" numberOfLines={1}>{device}</Text>
-                            </View>
-                            <View className="flex-row items-center mt-0.5">
-                              <Text className="text-[13.5px] font-extrabold text-text" numberOfLines={1} style={{ flexShrink: 1 }}>{name}</Text>
-                              <Phone size={11} color="#94A3B8" style={{ marginLeft: 8 }} />
-                              <Text className="text-[11.5px] text-text-muted ml-1" numberOfLines={1}>{phone || '—'}</Text>
-                            </View>
-                          </View>
-                        </View>
-                        <Pressable
-                          onPress={() => navigation.navigate('TicketDetail', { ticketId: t.id })}
-                          className="mt-2 flex-row items-center justify-end active:opacity-70"
-                        >
-                          <Text className="text-[12px] font-extrabold" style={{ color: GREEN_DARK }}>View Details</Text>
-                          <ChevronRight size={14} color={GREEN_DARK} />
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingVertical: 4 }}
+            >
+              {buyCats.map((c, idx) => {
+                const code = (c.code || '').toUpperCase();
+                const meta = BUY_CAT_META[code] || BUY_CAT_DEFAULT;
+                const uri = buyCatImage(c);
+                return (
+                  <Pressable
+                    key={`sell-${c.id}`}
+                    onPress={() => gotoParent('SelectBrand', { flow: 'OWNER_LIST', categoryId: c.id, categoryCode: code, categoryName: c.name })}
+                    className="items-center active:opacity-80"
+                    style={{ width: catTile, marginRight: idx === buyCats.length - 1 ? 0 : 12 }}
+                  >
+                    <View
+                      className="items-center justify-center bg-white"
+                      style={{ width: catIcon, height: catIcon, borderRadius: 18, borderWidth: 1, borderColor: '#DDEEE1', ...cardShadow }}
+                    >
+                      {uri
+                        ? <Image source={{ uri }} style={{ width: catIcon * 0.6, height: catIcon * 0.6 }} resizeMode="contain" />
+                        : <Text style={{ fontSize: 26 }}>{meta.emoji}</Text>}
+                    </View>
+                    <Text
+                      className="text-text font-bold text-center mt-1.5"
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                      style={{ fontSize: 11, width: catTile }}
+                    >
+                      {c.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </>
         ) : null}
-
       </ScrollView>
+
+      <Pressable
+        onPress={() => gotoParent('RepairServiceBookingShop')}
+        className="rounded-full items-center justify-center active:opacity-90"
+        style={{
+          position: 'absolute',
+          right: 18,
+          bottom: 18,
+          width: 56,
+          height: 56,
+          backgroundColor: GREEN_DARK,
+          shadowColor: GREEN_DARK,
+          shadowOpacity: 0.3,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 10,
+        }}
+      >
+        <Plus size={28} color="#FFFFFF" strokeWidth={2.6} />
+      </Pressable>
 
       {/* ─── Account sidebar (opened from the header avatar) ────── */}
       <Modal visible={sidebarRendered} transparent animationType="none" onRequestClose={() => setShowSidebar(false)}>

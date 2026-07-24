@@ -16,8 +16,7 @@ import {
   ChevronUp,
   Plus,
   X,
-  Star,
-  ShieldCheck,
+  Hash,
   Sparkles,
   ArrowLeft,
 } from 'lucide-react-native';
@@ -124,13 +123,8 @@ export default function DeviceServicesScreen({ navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups]);
 
-  // Default-open the first group when nothing has been picked yet so the user
-  // immediately sees the menu without an extra tap (matches Swiggy's "first
-  // section auto-open" UX).
-  useEffect(() => {
-    if (loading || pickedIds.size > 0 || groups.length === 0) return;
-    setExpanded((prev) => (prev[groups[0].id] ? prev : { ...prev, [groups[0].id]: true }));
-  }, [loading, groups, pickedIds.size]);
+  // Repair groups start collapsed — the shop taps a section open when they want
+  // it (edit mode still auto-expands groups that already have picks, above).
 
   const ensureRow = (id) => rows[id] || { price: '', warranty: '' };
   const setField = (id, key, value) => {
@@ -254,16 +248,14 @@ export default function DeviceServicesScreen({ navigation, route }) {
                 <Text className="text-[12px] text-text-muted mt-0.5" numberOfLines={1}>
                   {[params.ramLabel, params.storageLabel, params.color].filter(Boolean).join(' · ')}
                 </Text>
-                <View className="flex-row items-center mt-1.5">
-                  <View className="flex-row items-center bg-success/10 rounded-md px-1.5 py-0.5 mr-1.5">
-                    <Star size={10} color={ACCENT_GREEN} fill={ACCENT_GREEN} />
-                    <Text className="text-success text-[12px] font-extrabold ml-0.5">4.8</Text>
+                {params.modelNumber ? (
+                  <View className="flex-row items-center mt-1.5">
+                    <View className="flex-row items-center bg-primary/10 rounded-md px-1.5 py-0.5">
+                      <Hash size={10} color="#00008B" />
+                      <Text className="text-primary text-[12px] font-extrabold ml-0.5">{params.modelNumber}</Text>
+                    </View>
                   </View>
-                  <View className="flex-row items-center">
-                    <ShieldCheck size={11} color="#64748B" />
-                    <Text className="text-text-muted text-[12px] font-semibold ml-1">Genuine parts</Text>
-                  </View>
-                </View>
+                ) : null}
               </View>
             </View>
           </View>

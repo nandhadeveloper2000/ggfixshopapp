@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Smartphone,
+  Hash,
   Plus,
   CircleCheck,
   ReceiptText,
@@ -50,6 +51,7 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
   // Build a device record from the just-finished flow (if any modelId came through).
   const newDevice = params.modelId ? {
     modelName: params.modelName,
+    modelNumber: params.modelNumber,
     modelId: params.modelId,
     imageUrl: params.imageUrl,
     brandId: params.brandId,
@@ -115,7 +117,7 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
     issueDescription: d.complaint,
     issueAudioUrl: d.issueAudioUrl || null,
     estimatedPrice: totalFor(d),
-    deviceDisplayName: d.modelName ? `${d.modelName}${d.ramLabel || d.storageLabel ? ` (${[d.ramLabel, d.storageLabel].filter(Boolean).join(' / ')})` : ''}` : null,
+    deviceDisplayName: d.modelName ? `${d.modelName}${d.modelNumber ? ` · ${d.modelNumber}` : ''}${d.ramLabel || d.storageLabel ? ` (${[d.ramLabel, d.storageLabel].filter(Boolean).join(' / ')})` : ''}` : null,
     deviceImageUrl: d.imageUrl || null,
     repairServicesSummary: serviceSummaryFor(d) || null,
     priceItemsJson: priceItemsJsonFor(d),
@@ -273,9 +275,19 @@ export default function ServiceBookingDevicesListScreen({ navigation, route }) {
                         {summary}
                       </Text>
                     ) : null}
-                    {d.brandName ? (
-                      <View className="bg-primary/10 rounded-md px-1.5 py-0.5 self-start mt-1">
-                        <Text className="text-primary text-[10px] font-extrabold">{d.brandName}</Text>
+                    {(d.brandName || d.modelNumber) ? (
+                      <View className="flex-row items-center flex-wrap mt-1">
+                        {d.brandName ? (
+                          <View className="bg-primary/10 rounded-md px-1.5 py-0.5 mr-1.5">
+                            <Text className="text-primary text-[10px] font-extrabold">{d.brandName}</Text>
+                          </View>
+                        ) : null}
+                        {d.modelNumber ? (
+                          <View className="flex-row items-center bg-primary/10 rounded-md px-1.5 py-0.5">
+                            <Hash size={9} color="#00008B" />
+                            <Text className="text-primary text-[10px] font-extrabold ml-0.5">{d.modelNumber}</Text>
+                          </View>
+                        ) : null}
                       </View>
                     ) : null}
                   </View>

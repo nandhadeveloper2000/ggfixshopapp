@@ -11,20 +11,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Smartphone, Check, Pencil, X, Search, ArrowLeft } from 'lucide-react-native';
 import { EmptyState, Loader, ScreenHeader } from '../../../components/rnr';
 import DeviceImage from '../../../components/DeviceImage';
-import { getModelsByBrand, getSeriesForCategoryBrand } from '../../../api/masterData';
+import { getModelsByBrand, getSeriesForCategoryBrand, parseModelNumbers } from '../../../api/masterData';
 import { resolveDeviceImageSource } from '../../../utils/images';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// A model's "model number" is now a jsonb array of codes (e.g. Vivo T1 →
-// ["V2153","V2168"]); older records may still arrive as a single slash / comma
-// separated string. Normalise both to a clean array so a single code renders
-// inline and multiple codes offer a dropdown pick.
-function parseModelNumbers(mn) {
-  if (!mn) return [];
-  if (Array.isArray(mn)) return mn.map((s) => String(s).trim()).filter(Boolean);
-  return String(mn).split(/[/,]+/).map((s) => s.trim()).filter(Boolean);
-}
 
 // Canonical "Select Product" picker used by all flows. Series chips at the top
 // FILTER the full model grid below (Cashify-style). Search is a header icon that
@@ -246,7 +236,7 @@ export default function SelectModelScreen({ navigation, route }) {
       brandId, brandName,
       seriesId: m.seriesId || selSeriesId || undefined,
       seriesName: pickedSeries?.name || routeSeriesName || undefined,
-      modelId: m.id, modelName: m.name, modelNumber,
+      modelId: m.id, modelName: m.name, modelNumber, modelNumbers: numbers,
       modelImageUrl: resolveDeviceImageSource({ url: m.imageUrl, base64: m.imageBase64 }) || undefined,
       editSellOrderId, editHints,
       ...(editSellOrderId && editHints?.modelId === m.id ? {

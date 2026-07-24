@@ -6,6 +6,7 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { config } from '@gluestack-ui/config';
@@ -31,12 +32,19 @@ export default function App() {
   return (
     <Provider store={store}>
       <GluestackUIProvider config={config}>
-        <SafeAreaProvider>
-          <StatusBar style="dark" />
-          <NavigationContainer theme={navTheme}>
-            <RootNavigator />
-          </NavigationContainer>
-        </SafeAreaProvider>
+        {/* KeyboardProvider must sit above the navigation tree so every screen's
+            KeyboardAwareScrollView can read the native keyboard (IME) insets.
+            On Expo SDK 54 this is what makes keyboard avoidance consistent under
+            Android edge-to-edge, where windowSoftInputMode="adjustResize" alone
+            is unreliable device-to-device. */}
+        <KeyboardProvider>
+          <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <NavigationContainer theme={navTheme}>
+              <RootNavigator />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </KeyboardProvider>
       </GluestackUIProvider>
     </Provider>
   );

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,8 +13,11 @@ import {
   X,
   ArrowLeft,
   User,
-  Search as SearchIcon,
   CircleCheck,
+  Calendar,
+  Clock,
+  Truck,
+  FileText,
 } from 'lucide-react-native';
 import {
   SearchBar,
@@ -22,7 +25,7 @@ import {
   Loader,
 } from '../../../components/rnr';
 import { ticketApi } from '../../../api/client';
-import { getModelsByBrand } from '../../../api/masterData';
+import { getModelsByBrand, getRamOptions, getStorageOptions, parseModelNumbers } from '../../../api/masterData';
 
 // Swiggy / Zomato green palette — same as the booking-flow screens.
 const BRAND_GREEN = '#22C55E';
@@ -56,6 +59,16 @@ const TONE_STYLE = {
   red:    { bg: 'rgba(239, 68, 68, 0.12)',  fg: '#B91C1C', border: 'rgba(239, 68, 68, 0.35)' },
 };
 
+// Quick status tabs shown below the search bar — each is a group of raw
+// statuses. Tapping one filters the list to that group; the count is derived
+// live from the loaded bookings so the numbers always match what's on screen.
+const TABS = [
+  { key: 'ALL',         label: 'All Bookings', icon: FileText,    color: ACCENT_GREEN, bg: '#DCFCE7' },
+  { key: 'IN_PROGRESS', label: 'In Progress',  icon: Clock,       color: '#2563EB',    bg: '#DBEAFE' },
+  { key: 'PICKUP',      label: 'Pickup',       icon: Truck,       color: '#7C3AED',    bg: '#EDE9FE' },
+  { key: 'COMPLETED',   label: 'Completed',    icon: CircleCheck, color: ACCENT_GREEN, bg: '#DCFCE7' },
+];
+
 const STATUS_FILTERS = [
   { key: 'ALL',                  label: 'All' },
   { key: 'CREATED',              label: 'Accepted' },
@@ -70,6 +83,50 @@ const STATUS_FILTERS = [
 
 const DATE_FILTERS = ['Today', 'Yesterday', 'This Week', 'This Month', 'Last 3 Months', 'Last 6 Months'];
 
+// ── Grouping helpers (drive the tab counts + tab filtering) ───────────────
+function isPickup(t) {
+  const st = String(t.status || '').toUpperCase();
+  return t.serviceMode === 'PICKUP' || st.startsWith('PICKUP');
+}
+function groupOf(t) {
+  if (isPickup(t)) return 'PICKUP';
+  return String(t.status || '').toUpperCase() === 'DELIVERED' ? 'COMPLETED' : 'IN_PROGRESS';
+}
+
+// Client-side date-range filter (createdAt vs the chosen chip).
+function inDateRange(d, filter) {
+  if (!filter || !d) return true;
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return true;
+  const now = new Date();
+  const startOfDay = (x) => { const y = new Date(x); y.setHours(0, 0, 0, 0); return y; };
+  const today = startOfDay(now);
+  const dDay = startOfDay(date);
+  const DAY = 86400000;
+  switch (filter) {
+    case 'Today':         return dDay.getTime() === today.getTime();
+    case 'Yesterday':     return dDay.getTime() === today.getTime() - DAY;
+    case 'This Week':     { const wk = new Date(today); wk.setDate(today.getDate() - today.getDay()); return date >= wk; }
+    case 'This Month':    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    case 'Last 3 Months': { const m = new Date(today); m.setMonth(today.getMonth() - 3); return date >= m; }
+    case 'Last 6 Months': { const m = new Date(today); m.setMonth(today.getMonth() - 6); return date >= m; }
+    default: return true;
+  }
+}
+
+function formatDate(d) {
+  if (!d) return null;
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function formatTime(d) {
+  if (!d) return null;
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function BookingHistoryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { width: winW } = useWindowDimensions();
@@ -79,10 +136,13 @@ export default function BookingHistoryScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [tab, setTab] = useState('ALL');            // quick group filter
+  const [statusFilter, setStatusFilter] = useState('ALL'); // detailed status (panel)
   const [dateFilter, setDateFilter] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Fetch all bookings (search server-side; status/date/tab filtering happens
+  // client-side so the tab counts always reflect the full result set).
   const load = useCallback(
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
@@ -90,12 +150,7 @@ export default function BookingHistoryScreen({ navigation }) {
       setError(null);
       try {
         const data = await ticketApi.get('/tickets', {
-          query: {
-            page: 0,
-            size: 50,
-            q: query || undefined,
-            status: statusFilter !== 'ALL' ? statusFilter : undefined,
-          },
+          query: { page: 0, size: 50, q: query || undefined },
         });
         const content = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
         // Enrich each ticket with the model's catalog image and proper name —
@@ -103,6 +158,14 @@ export default function BookingHistoryScreen({ navigation }) {
         // have brandId+modelId on every row.
         const brandIds = Array.from(new Set(content.map((t) => t.brandId).filter(Boolean)));
         const modelById = {};
+        // Master RAM/Storage options so the ticket's option UUIDs can be shown as
+        // human labels ("8 GB" / "128 GB") on the card's RAM · Storage line.
+        const [ramOpts, storageOpts] = await Promise.all([
+          getRamOptions().catch(() => []),
+          getStorageOptions().catch(() => []),
+        ]);
+        const ramById = {}; (ramOpts || []).forEach((r) => { ramById[r.id] = r.label; });
+        const storageById = {}; (storageOpts || []).forEach((s) => { storageById[s.id] = s.label; });
         if (brandIds.length) {
           await Promise.all(brandIds.map(async (bId) => {
             try {
@@ -114,9 +177,13 @@ export default function BookingHistoryScreen({ navigation }) {
         const enriched = content.map((t) => {
           const m = t.modelId ? modelById[t.modelId] : null;
           const modelUrl = m?.imageUrl || (m?.imageBase64 ? `data:image/png;base64,${m.imageBase64}` : null);
+          const ramLabel = t.ramOptionId ? ramById[t.ramOptionId] : null;
+          const storageLabel = t.storageOptionId ? storageById[t.storageOptionId] : null;
           return {
             ...t,
             _modelName: m?.name || t.deviceDisplayName || t.modelName || null,
+            _modelNumber: parseModelNumbers(m?.modelNumber).join(' · ') || null,
+            _ramStorage: [ramLabel, storageLabel].filter(Boolean).join(' + ') || null,
             _modelImage: t.deviceImageUrl || modelUrl || null,
           };
         });
@@ -128,24 +195,48 @@ export default function BookingHistoryScreen({ navigation }) {
         setRefreshing(false);
       }
     },
-    [query, statusFilter],
+    [query],
   );
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const counts = useMemo(() => ({ total: items.length }), [items]);
+  // Live tab counts from the loaded set.
+  const counts = useMemo(() => {
+    let inProgress = 0, pickup = 0, completed = 0;
+    for (const t of items) {
+      const g = groupOf(t);
+      if (g === 'PICKUP') pickup++;
+      else if (g === 'COMPLETED') completed++;
+      else inProgress++;
+    }
+    return { ALL: items.length, IN_PROGRESS: inProgress, PICKUP: pickup, COMPLETED: completed };
+  }, [items]);
+
+  // Apply tab group + detailed status + date filters, all client-side.
+  const visible = useMemo(() => items.filter((t) => {
+    if (tab !== 'ALL' && groupOf(t) !== tab) return false;
+    if (statusFilter !== 'ALL' && String(t.status || '').toUpperCase() !== statusFilter) return false;
+    if (dateFilter && !inDateRange(t.createdAt, dateFilter)) return false;
+    return true;
+  }), [items, tab, statusFilter, dateFilter]);
+
   const activeFilters = (statusFilter !== 'ALL' ? 1 : 0) + (dateFilter ? 1 : 0);
 
+  // Selecting a tab is the primary quick filter — clear the detailed status so
+  // the two status controls never silently intersect to an empty list.
+  const selectTab = (key) => { setTab(key); setStatusFilter('ALL'); };
+
   // Pad to an even count in 2-col mode so the last lone card stays half-width.
-  const listData = numCols > 1 && items.length % 2 === 1
-    ? [...items, { id: '__ghost__', _ghost: true }]
-    : items;
+  const listData = numCols > 1 && visible.length % 2 === 1
+    ? [...visible, { id: '__ghost__', _ghost: true }]
+    : visible;
 
   // ── Card row ──────────────────────────────────────────────────────
   const renderItem = ({ item }) => {
     if (item._ghost) return <View style={{ flex: 1, marginHorizontal: 0 }} />;
     const deviceName = item._modelName || item.deviceDisplayName || item.deviceModelName || item.modelName || 'Device';
     const deviceImage = item._modelImage || item.deviceImageUrl || null;
+    const specs = [item._modelNumber, item._ramStorage].filter(Boolean).join(' · ');
     const color = item.color;
     const trackingId = item.trackingId || (item.id ? item.id.slice(0, 8).toUpperCase() : '-');
     const statusMeta = STATUS_VARIANT[String(item.status || '').toUpperCase()] || { label: item.status || 'Pending', tone: 'amber' };
@@ -153,6 +244,8 @@ export default function BookingHistoryScreen({ navigation }) {
     const phone = item.customerPhone || item.customer?.phone || '';
     const services = item.repairServicesSummary || (item.services?.map?.((s) => s.serviceName).join(', ')) || '';
     const tone = TONE_STYLE[statusMeta.tone] || TONE_STYLE.amber;
+    const dateStr = formatDate(item.createdAt);
+    const timeStr = formatTime(item.createdAt);
 
     return (
       <Pressable
@@ -170,38 +263,51 @@ export default function BookingHistoryScreen({ navigation }) {
           elevation: 2,
         }}
       >
-        {/* Top row: image + name/tracking + status pill */}
+        {/* Top: image + info (left) + status/date/time (right) */}
         <View className="flex-row items-start">
-          <View className="h-14 w-14 rounded-2xl bg-success/10 items-center justify-center mr-3 overflow-hidden">
+          <View className="h-16 w-16 rounded-2xl bg-success/10 items-center justify-center mr-3 overflow-hidden">
             {deviceImage ? (
-              <Image source={{ uri: deviceImage }} style={{ width: 56, height: 56 }} resizeMode="cover" />
+              <Image source={{ uri: deviceImage }} style={{ width: 64, height: 64 }} resizeMode="cover" />
             ) : (
-              <Smartphone size={24} color={ACCENT_GREEN} />
+              <Smartphone size={26} color={ACCENT_GREEN} />
             )}
           </View>
-          <View className="flex-1 pr-2">
-            <View className="flex-row items-center mb-0.5">
+
+          <View className="flex-1 flex-row">
+            {/* left info column */}
+            <View className="flex-1 pr-2">
+              <View className="self-start rounded-md px-1.5 py-0.5 mb-1" style={{ backgroundColor: 'rgba(22, 163, 74, 0.12)' }}>
+                <Text className="text-[9.5px] font-extrabold" style={{ color: ACCENT_GREEN }}>#{trackingId}</Text>
+              </View>
+              <Text className="text-[14.5px] font-extrabold text-text" numberOfLines={1}>{deviceName}</Text>
+              {specs ? (
+                <Text className="text-[10.5px] text-text-muted mt-0.5" numberOfLines={1}>{specs}</Text>
+              ) : null}
+              {color ? (
+                <Text className="text-[10.5px] text-text-muted mt-0.5" numberOfLines={1}>Color: {color}</Text>
+              ) : null}
+            </View>
+
+            {/* right meta column: status pill, then date + time */}
+            <View className="items-end" style={{ maxWidth: 118 }}>
               <View
-                className="rounded-md px-1.5 py-0.5 mr-1.5"
-                style={{ backgroundColor: 'rgba(22, 163, 74, 0.12)' }}
+                className="rounded-full px-2.5 py-1"
+                style={{ backgroundColor: tone.bg, borderWidth: 1, borderColor: tone.border }}
               >
-                <Text className="text-[9.5px] font-extrabold" style={{ color: ACCENT_GREEN }}>
-                  #{trackingId}
+                <Text className="text-[9px] font-extrabold" style={{ color: tone.fg }} numberOfLines={1}>
+                  {statusMeta.label.toUpperCase()}
                 </Text>
               </View>
+              {dateStr ? (
+                <View className="flex-row items-center mt-2">
+                  <Calendar size={11} color="#64748B" />
+                  <Text className="text-[10.5px] text-text-muted font-semibold ml-1">{dateStr}</Text>
+                </View>
+              ) : null}
+              {timeStr ? (
+                <Text className="text-[10.5px] text-text-muted mt-0.5">{timeStr}</Text>
+              ) : null}
             </View>
-            <Text className="text-[14px] font-extrabold text-text" numberOfLines={1}>{deviceName}</Text>
-            {color ? (
-              <Text className="text-[10.5px] text-text-muted mt-0.5" numberOfLines={1}>Color: {color}</Text>
-            ) : null}
-          </View>
-          <View
-            className="rounded-full px-2.5 py-1"
-            style={{ backgroundColor: tone.bg, borderWidth: 1, borderColor: tone.border }}
-          >
-            <Text className="text-[9.5px] font-extrabold" style={{ color: tone.fg }}>
-              {statusMeta.label.toUpperCase()}
-            </Text>
           </View>
         </View>
 
@@ -209,12 +315,18 @@ export default function BookingHistoryScreen({ navigation }) {
         <View className="h-px bg-border my-2.5" />
         <Row icon={<User size={11} color="#64748B" />} label="Customer" value={customerName} />
         {phone ? <Row icon={<Phone size={11} color="#64748B" />} label="Mobile" value={phone} /> : null}
-        {services ? <Row icon={<Wrench size={11} color="#64748B" />} label="Services" value={services} /> : null}
 
-        {/* Footer CTA */}
-        <View className="flex-row items-center justify-end mt-2">
-          <Text className="text-[11px] font-extrabold mr-0.5" style={{ color: ACCENT_GREEN }}>View details</Text>
-          <ChevronRight size={13} color={ACCENT_GREEN} />
+        {/* Services + View details on the same footer line */}
+        <View className="flex-row items-center mt-1">
+          <View className="flex-1 flex-row items-center pr-2">
+            <View className="w-4 items-center mr-1.5"><Wrench size={11} color="#64748B" /></View>
+            <Text className="text-[10px] text-text-muted w-16">Services</Text>
+            <Text className="text-[11.5px] text-text flex-1 font-semibold" numberOfLines={1}>{services || '—'}</Text>
+          </View>
+          <View className="flex-row items-center">
+            <Text className="text-[11px] font-extrabold mr-0.5" style={{ color: ACCENT_GREEN }}>View details</Text>
+            <ChevronRight size={13} color={ACCENT_GREEN} />
+          </View>
         </View>
       </Pressable>
     );
@@ -222,10 +334,10 @@ export default function BookingHistoryScreen({ navigation }) {
 
   return (
     <View className="flex-1 bg-background">
-      {/* ── White header ─────────────────────────────────── */}
+      {/* ── White header: back + title + Filters button ──────────── */}
       <View
         className="border-b border-border"
-        style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 20, paddingHorizontal: 16 }}
+        style={{ backgroundColor: '#FFFFFF', paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 16 }}
       >
         <View className="flex-row items-center">
           <Pressable
@@ -236,144 +348,65 @@ export default function BookingHistoryScreen({ navigation }) {
           </Pressable>
           <View className="flex-1">
             <Text className="text-text-muted text-[11px] font-bold tracking-widest">ALL BOOKINGS</Text>
-            <Text className="text-text text-[19px] font-extrabold mt-0.5" numberOfLines={1}>
-              {counts.total} {counts.total === 1 ? 'booking' : 'bookings'}
+            <Text className="text-text text-[20px] font-extrabold mt-0.5" numberOfLines={1}>
+              {counts.ALL} {counts.ALL === 1 ? 'Booking' : 'Bookings'}
             </Text>
           </View>
+          <Pressable
+            onPress={() => setShowFilters((v) => !v)}
+            className="flex-row items-center rounded-full px-3.5 py-2 active:opacity-80"
+            style={{ backgroundColor: showFilters || activeFilters > 0 ? ACCENT_GREEN : '#ECFDF3' }}
+          >
+            <Filter size={15} color={showFilters || activeFilters > 0 ? '#fff' : ACCENT_GREEN} />
+            <Text
+              className="text-[13px] font-extrabold ml-1.5"
+              style={{ color: showFilters || activeFilters > 0 ? '#fff' : ACCENT_GREEN }}
+            >
+              Filters
+            </Text>
+            {activeFilters > 0 ? (
+              <View className="ml-1.5 px-1.5 rounded-full" style={{ backgroundColor: '#fff' }}>
+                <Text className="text-[10px] font-extrabold" style={{ color: ACCENT_GREEN }}>{activeFilters}</Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
       </View>
 
-      {/* ── Search + filter row below header ────────────────── */}
+      {/* ── Full-width search bar ────────────────────────────────── */}
       <View className="px-4" style={{ marginTop: 12 }}>
-        <View
-          className="bg-card rounded-2xl p-2.5"
-          style={{
-            shadowColor: '#0F172A',
-            shadowOpacity: 0.10,
-            shadowRadius: 16,
-            shadowOffset: { width: 0, height: 6 },
-            elevation: 5,
-          }}
-        >
-          <View className="flex-row items-center">
-            <View className="flex-1 mr-2">
-              <SearchBar
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search Tracking ID, name, mobile…"
-                onClear={() => setQuery('')}
-              />
-            </View>
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search by Tracking ID, Customer name, Mobile…"
+          onClear={() => setQuery('')}
+        />
+      </View>
+
+      {/* ── Status count row (icon + count, fixed row of 4) ──────── */}
+      <View className="flex-row" style={{ paddingHorizontal: 12, paddingTop: 14, paddingBottom: 2 }}>
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.key;
+          return (
             <Pressable
-              onPress={() => setShowFilters((v) => !v)}
-              className="h-10 px-3 rounded-2xl items-center justify-center flex-row active:opacity-80"
+              key={t.key}
+              onPress={() => selectTab(t.key)}
+              className="flex-1 flex-row items-center justify-center rounded-2xl mx-1 active:opacity-80"
               style={{
-                backgroundColor: showFilters || activeFilters > 0 ? ACCENT_GREEN : '#F1F5F9',
-                borderWidth: showFilters || activeFilters > 0 ? 0 : 1,
-                borderColor: '#E2E8F0',
+                paddingVertical: 10,
+                backgroundColor: active ? '#F0FDF4' : '#FFFFFF',
+                borderWidth: 1.5,
+                borderColor: active ? ACCENT_GREEN : '#E5E7EB',
               }}
             >
-              <Filter size={14} color={showFilters || activeFilters > 0 ? '#fff' : '#0F172A'} />
-              {activeFilters > 0 ? (
-                <View className="ml-1 px-1.5 rounded-full" style={{ backgroundColor: '#fff' }}>
-                  <Text className="text-[10px] font-extrabold" style={{ color: ACCENT_GREEN }}>
-                    {activeFilters}
-                  </Text>
-                </View>
-              ) : (
-                <Text className="text-[12px] font-extrabold ml-1 text-text">Filters</Text>
-              )}
-            </Pressable>
-          </View>
-
-          {/* Active filter chips row */}
-          {activeFilters > 0 ? (
-            <View className="flex-row flex-wrap mt-2">
-              {statusFilter !== 'ALL' ? (
-                <Pressable
-                  onPress={() => setStatusFilter('ALL')}
-                  className="flex-row items-center rounded-full pl-2.5 pr-1.5 py-1 mr-2 active:opacity-80"
-                  style={{ backgroundColor: ACCENT_GREEN }}
-                >
-                  <Text className="text-white text-[10px] font-extrabold mr-1">
-                    {STATUS_FILTERS.find((f) => f.key === statusFilter)?.label}
-                  </Text>
-                  <X size={10} color="#fff" />
-                </Pressable>
-              ) : null}
-              {dateFilter ? (
-                <Pressable
-                  onPress={() => setDateFilter(null)}
-                  className="flex-row items-center rounded-full pl-2.5 pr-1.5 py-1 mr-2 active:opacity-80"
-                  style={{ backgroundColor: BRAND_GREEN_DARK }}
-                >
-                  <Text className="text-white text-[10px] font-extrabold mr-1">{dateFilter}</Text>
-                  <X size={10} color="#fff" />
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* Expanded filter panel */}
-          {showFilters ? (
-            <View
-              className="rounded-2xl p-3 mt-2"
-              style={{ backgroundColor: 'rgba(22, 163, 74, 0.05)', borderWidth: 1, borderColor: 'rgba(22, 163, 74, 0.25)' }}
-            >
-              <Text className="text-[10px] font-extrabold text-text-muted tracking-widest mb-2">
-                BOOKING STATUS
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3 -mx-1">
-                {STATUS_FILTERS.map((s) => (
-                  <FilterPill
-                    key={s.key}
-                    label={s.label}
-                    active={statusFilter === s.key}
-                    onPress={() => setStatusFilter(s.key)}
-                  />
-                ))}
-              </ScrollView>
-
-              <Text className="text-[10px] font-extrabold text-text-muted tracking-widest mb-2">
-                BOOKING TIME
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
-                {DATE_FILTERS.map((d) => (
-                  <FilterPill
-                    key={d}
-                    label={d}
-                    active={dateFilter === d}
-                    onPress={() => setDateFilter(dateFilter === d ? null : d)}
-                  />
-                ))}
-              </ScrollView>
-
-              <View className="flex-row mt-3">
-                <Pressable
-                  onPress={() => { setStatusFilter('ALL'); setDateFilter(null); setQuery(''); setShowFilters(false); }}
-                  className="flex-1 mr-1.5 py-2.5 rounded-xl items-center active:opacity-70"
-                  style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' }}
-                >
-                  <Text className="text-[12px] font-extrabold text-text">Clear all</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => { setShowFilters(false); load(true); }}
-                  className="flex-1 ml-1.5 rounded-xl active:opacity-90 overflow-hidden"
-                >
-                  <LinearGradient
-                    colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ paddingVertical: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
-                  >
-                    <CircleCheck size={13} color="#fff" />
-                    <Text className="text-[12px] font-extrabold text-white ml-1.5">Apply</Text>
-                  </LinearGradient>
-                </Pressable>
+              <View className="h-7 w-7 rounded-full items-center justify-center mr-1.5" style={{ backgroundColor: t.bg }}>
+                <Icon size={15} color={t.color} strokeWidth={2.3} />
               </View>
-            </View>
-          ) : null}
-        </View>
+              <Text className="text-[16px] font-extrabold text-text">{counts[t.key] ?? 0}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {error ? (
@@ -395,18 +428,96 @@ export default function BookingHistoryScreen({ navigation }) {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={ACCENT_GREEN} colors={[ACCENT_GREEN]} />}
-          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 14, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 24 }}
           ListEmptyComponent={
             <EmptyState
               icon={<ClipboardList size={26} color={ACCENT_GREEN} />}
               title="No bookings found"
-              description={query || statusFilter !== 'ALL' || dateFilter ? 'Try clearing filters.' : 'Bookings will appear here as they are created.'}
-              actionLabel={query || statusFilter !== 'ALL' || dateFilter ? 'Clear filters' : null}
-              onAction={() => { setQuery(''); setStatusFilter('ALL'); setDateFilter(null); }}
+              description={query || tab !== 'ALL' || statusFilter !== 'ALL' || dateFilter ? 'Try clearing filters.' : 'Bookings will appear here as they are created.'}
+              actionLabel={query || tab !== 'ALL' || statusFilter !== 'ALL' || dateFilter ? 'Clear filters' : null}
+              onAction={() => { setQuery(''); setTab('ALL'); setStatusFilter('ALL'); setDateFilter(null); }}
             />
           }
         />
       )}
+
+      {/* ── Filter popup (modal, slides up from bottom) ──────────── */}
+      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.45)' }}>
+          <Pressable style={{ flex: 1 }} onPress={() => setShowFilters(false)} />
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 16,
+              paddingTop: 10,
+              paddingBottom: insets.bottom + 16,
+            }}
+          >
+            <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 12 }} />
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-[16px] font-extrabold text-text">Filters</Text>
+              <Pressable
+                onPress={() => setShowFilters(false)}
+                hitSlop={8}
+                className="h-8 w-8 rounded-full items-center justify-center"
+                style={{ backgroundColor: '#F1F5F9' }}
+              >
+                <X size={16} color="#0F172A" />
+              </Pressable>
+            </View>
+
+            <Text className="text-[10px] font-extrabold text-text-muted tracking-widest mb-2">BOOKING STATUS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3 -mx-1">
+              {STATUS_FILTERS.map((s) => (
+                <FilterPill
+                  key={s.key}
+                  label={s.label}
+                  active={statusFilter === s.key}
+                  onPress={() => { setStatusFilter(s.key); setTab('ALL'); }}
+                />
+              ))}
+            </ScrollView>
+
+            <Text className="text-[10px] font-extrabold text-text-muted tracking-widest mb-2">BOOKING TIME</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
+              {DATE_FILTERS.map((d) => (
+                <FilterPill
+                  key={d}
+                  label={d}
+                  active={dateFilter === d}
+                  onPress={() => setDateFilter(dateFilter === d ? null : d)}
+                />
+              ))}
+            </ScrollView>
+
+            <View className="flex-row mt-4">
+              <Pressable
+                onPress={() => { setStatusFilter('ALL'); setDateFilter(null); setTab('ALL'); setQuery(''); }}
+                className="flex-1 mr-1.5 py-3 rounded-xl items-center active:opacity-70"
+                style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' }}
+              >
+                <Text className="text-[13px] font-extrabold text-text">Clear all</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowFilters(false)}
+                className="flex-1 ml-1.5 rounded-xl active:opacity-90 overflow-hidden"
+              >
+                <LinearGradient
+                  colors={[BRAND_GREEN, BRAND_GREEN_DARK]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+                >
+                  <CircleCheck size={14} color="#fff" />
+                  <Text className="text-[13px] font-extrabold text-white ml-1.5">Apply</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

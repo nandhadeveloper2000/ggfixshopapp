@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { ticketApi } from '../../api/client';
 
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -46,6 +47,7 @@ export default function OwnerEmployeeShiftDetailsScreen({ route, navigation }) {
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [dayData, setDayData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [viewAsList, setViewAsList] = useState(false);
 
   const loadDay = useCallback(async (dateStr) => {
     if (!employee?.id) return;
@@ -110,16 +112,13 @@ export default function OwnerEmployeeShiftDetailsScreen({ route, navigation }) {
           onPress={() => setSelectedDate(todayIso)}
           activeOpacity={0.85}
         >
+          <Ionicons name="calendar-outline" size={15} color="#16A34A" />
           <Text style={styles.todayBtnText}>Today</Text>
         </TouchableOpacity>
       </View>
 
       {/* Week strip */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.weekStripContent}
-      >
+      <View style={styles.weekStrip}>
         {weekDays.map((dt) => {
           const dateStr = isoDate(dt);
           const isSelected = dateStr === selectedDate;
@@ -156,14 +155,44 @@ export default function OwnerEmployeeShiftDetailsScreen({ route, navigation }) {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Schedule timeline */}
       <ScrollView contentContainerStyle={styles.scheduleContent}>
-        <Text style={styles.scheduleTitle}>Schedule</Text>
+        <View style={styles.scheduleHeaderRow}>
+          <Text style={styles.scheduleTitle}>Schedule</Text>
+          <TouchableOpacity
+            style={styles.viewListBtn}
+            onPress={() => setViewAsList((v) => !v)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="list" size={16} color="#16A34A" />
+            <Text style={styles.viewListBtnText}>{viewAsList ? 'View as timeline' : 'View as list'}</Text>
+          </TouchableOpacity>
+        </View>
 
         {loading ? (
-          <ActivityIndicator size="small" color="#3B4FD7" style={{ marginVertical: 24 }} />
+          <ActivityIndicator size="small" color="#16A34A" style={{ marginVertical: 24 }} />
+        ) : viewAsList ? (
+          <View style={styles.listWrap}>
+            {checkIn ? (
+              <View style={styles.listRow}>
+                <View style={[styles.listDot, { backgroundColor: '#16A34A' }]} />
+                <Text style={styles.listRowLabel}>Check-In Time</Text>
+                <Text style={styles.listRowValue}>{checkIn.label}</Text>
+              </View>
+            ) : null}
+            {checkOut ? (
+              <View style={styles.listRow}>
+                <View style={[styles.listDot, { backgroundColor: '#DC2626' }]} />
+                <Text style={styles.listRowLabel}>Check-Out Time</Text>
+                <Text style={[styles.listRowValue, { color: '#DC2626' }]}>{checkOut.label}</Text>
+              </View>
+            ) : null}
+            {!checkIn && !checkOut ? (
+              <Text style={styles.empty}>No attendance recorded for this day.</Text>
+            ) : null}
+          </View>
         ) : (
           <View style={styles.timeline}>
             {SCHEDULE_HOURS.map((h) => {
@@ -173,6 +202,10 @@ export default function OwnerEmployeeShiftDetailsScreen({ route, navigation }) {
                 <View key={h} style={styles.hourRow}>
                   <View style={styles.hourPill}>
                     <Text style={styles.hourPillText}>{hourLabel(h)}</Text>
+                  </View>
+                  <View style={styles.connectorCol}>
+                    <View style={styles.connectorLine} />
+                    <View style={styles.connectorDot} />
                   </View>
                   <View style={styles.hourLineWrap}>
                     <View style={styles.hourLine} />
@@ -195,10 +228,6 @@ export default function OwnerEmployeeShiftDetailsScreen({ route, navigation }) {
           </View>
         )}
 
-        {!loading && !checkIn && !checkOut && (
-          <Text style={styles.empty}>No attendance recorded for this day.</Text>
-        )}
-
         {/* Notes / status badge if backend has it */}
         {dayData?.status && dayData.status !== 'GENERAL' && (
           <View style={styles.statusNote}>
@@ -214,7 +243,7 @@ export default function OwnerEmployeeShiftDetailsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F1FB' },
+  safe: { flex: 1, backgroundColor: '#F4FBF6' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   error: { fontSize: 14, color: '#DC2626' },
 
@@ -223,44 +252,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 8,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerDate: { fontSize: 28, fontWeight: '800', color: '#111827', lineHeight: 30 },
-  headerDayLong: { fontSize: 13, fontWeight: '600', color: '#111827' },
-  headerMonth: { fontSize: 11, color: '#6B7280', marginTop: 1 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerDate: { fontSize: 36, fontWeight: '800', color: '#16A34A', lineHeight: 38 },
+  headerDayLong: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  headerMonth: { fontSize: 13, color: '#6B7280', marginTop: 1 },
   todayBtn: {
-    backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#22C55E',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
-  todayBtnText: { color: '#15803D', fontSize: 12, fontWeight: '700' },
+  todayBtnText: { color: '#15803D', fontSize: 13, fontWeight: '700' },
 
-  weekStripContent: {
+  weekStrip: {
+    flexDirection: 'row',
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
   },
   weekDay: {
-    width: 46,
-    paddingVertical: 8,
+    flex: 1,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  weekDaySelected: { backgroundColor: '#22C55E' },
-  weekDaySunday: { backgroundColor: '#EF4444' },
-  weekDayName: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
-  weekDayNum: { fontSize: 15, fontWeight: '800', color: '#111827', marginTop: 2 },
+  weekDaySelected: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
+  weekDaySunday: { backgroundColor: '#EF4444', borderColor: '#EF4444' },
+  weekDayName: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  weekDayNum: { fontSize: 17, fontWeight: '800', color: '#111827', marginTop: 3 },
   weekDayTextSelected: { color: '#FFFFFF' },
   weekDayTextSunday: { color: '#FFFFFF' },
 
   scheduleContent: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 32 },
-  scheduleTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 10 },
+  scheduleHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  scheduleTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  viewListBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  viewListBtnText: { color: '#15803D', fontSize: 13, fontWeight: '700' },
 
   timeline: {
     backgroundColor: 'transparent',
@@ -268,27 +316,33 @@ const styles = StyleSheet.create({
   hourRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 42,
+    minHeight: 52,
   },
   hourPill: {
-    width: 56,
-    paddingVertical: 4,
+    width: 66,
+    paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#9CA3AF',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 4,
   },
-  hourPillText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  hourPillText: { fontSize: 12, fontWeight: '700', color: '#166534' },
+  connectorCol: { width: 22, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  connectorLine: { position: 'absolute', top: 0, bottom: 0, left: 10, borderLeftWidth: 1.5, borderStyle: 'dashed', borderColor: '#86EFAC' },
+  connectorDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#16A34A', zIndex: 1 },
   hourLineWrap: {
     flex: 1,
     justifyContent: 'center',
     minHeight: 30,
+    marginLeft: 4,
   },
   hourLine: {
     height: 1,
     borderStyle: 'dashed',
     borderWidth: 0.5,
-    borderColor: '#C7CDDB',
+    borderColor: '#BBF7D0',
   },
 
   eventChip: {
@@ -313,6 +367,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+
+  listWrap: { marginTop: 2 },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  listDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
+  listRowLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  listRowValue: { fontSize: 14, fontWeight: '800', color: '#15803D' },
 
   statusNote: {
     marginTop: 14,

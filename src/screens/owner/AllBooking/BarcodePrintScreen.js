@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as Clipboard from 'expo-clipboard';
 import { captureRef } from 'react-native-view-shot';
 import {
   Minus,
@@ -46,6 +47,14 @@ function formatSecurity(type, value) {
     : t.charAt(0) + t.slice(1).toLowerCase();
   const v = value == null ? '' : String(value).trim();
   return v ? `${label} · ${v}` : label;
+}
+
+// Splits a tracking id into its letter prefix and trailing digits so the header
+// pill can render the digits in brand green (e.g. #CSPEN·3588549).
+function splitTrackingId(id) {
+  const s = String(id ?? '').replace(/^#/, '');
+  const m = s.match(/^(\D*)(\d.*)$/);
+  return m ? { prefix: m[1], digits: m[2] } : { prefix: s, digits: '' };
 }
 
 // Escape dynamic values before dropping them into the print HTML.
@@ -118,6 +127,7 @@ export default function BarcodePrintScreen({ navigation, route }) {
   if (loading) return <Loader label="Loading QR slip..." />;
 
   const trackingId = ticket?.trackingId || ticketId || 'NO-ID';
+  const tid = splitTrackingId(trackingId);
   const deviceName = ticket?.deviceModelName || ticket?.modelName || 'Device';
   const services = ticket?.repairServicesSummary
     || ticket?.services?.map?.((s) => s.serviceName).join(', ')
@@ -174,6 +184,17 @@ export default function BarcodePrintScreen({ navigation, route }) {
                  color: #6B7280; font-weight: 700; }
         .value { font-size: 10px; font-weight: 800; margin-top: 2px; word-break: break-word; }
       </style></head><body>${slips}</body></html>`;
+  };
+
+  // Copy the service number to the clipboard so the shop can paste it into
+  // search / chat / an invoice without retyping the tracking code.
+  const handleCopy = async () => {
+    try {
+      await Clipboard.setStringAsync(String(trackingId));
+      notify('Copied', `Service number ${trackingId} copied.`, { preset: 'done' });
+    } catch (e) {
+      notify('Copy failed', e?.message || 'Could not copy to clipboard.');
+    }
   };
 
   const handleShare = async () => {
@@ -248,11 +269,12 @@ export default function BarcodePrintScreen({ navigation, route }) {
             QR E-Print
           </Text>
           <View
-            className="px-2.5 py-1 rounded-full bg-surface-muted"
-            style={{ maxWidth: 160 }}
+            className="px-2.5 py-1 rounded-full"
+            style={{ maxWidth: 180, backgroundColor: '#DCFCE7' }}
           >
-            <Text className="text-text text-[11px] font-extrabold" numberOfLines={1}>
-              #{trackingId}
+            <Text className="text-[11px] font-extrabold" numberOfLines={1}>
+              <Text style={{ color: '#0F172A' }}>#{tid.prefix}</Text>
+              <Text style={{ color: BRAND_GREEN_DARK }}>{tid.digits}</Text>
             </Text>
           </View>
         </View>
@@ -286,18 +308,20 @@ export default function BarcodePrintScreen({ navigation, route }) {
                 #{trackingId}
               </Text>
             </View>
-            <View
-              className="px-3 py-1.5 rounded-full flex-row items-center"
+            <TouchableOpacity
+              onPress={handleCopy}
+              activeOpacity={0.8}
+              className="px-3.5 py-2 rounded-full flex-row items-center"
               style={{ backgroundColor: '#DCFCE7' }}
             >
-              <Copy size={11} color={BRAND_GREEN_DARK} />
+              <Copy size={13} color={BRAND_GREEN_DARK} />
               <Text
-                className="ml-1 text-[11px] font-extrabold"
-                style={{ color: BRAND_GREEN_DARK }}
+                className="ml-1.5 text-[11px] font-extrabold tracking-wider"
+                style={{ color: BRAND_GREEN_DARK, letterSpacing: 0.8 }}
               >
-                {copies} {copies === 1 ? 'COPY' : 'COPIES'}
+                COPY
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 

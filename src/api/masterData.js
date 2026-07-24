@@ -7,6 +7,24 @@ function unwrap(list) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_RE.test(v); }
 
+// A model's "model number" is a jsonb array of codes (e.g. Vivo T1 →
+// ["V2153","V2168"]); older records may still arrive as a single slash/comma
+// separated string. Normalise both to a clean, de-duplicated array so callers
+// can render one code inline and multiple codes as a dropdown.
+export function parseModelNumbers(mn) {
+  const raw = Array.isArray(mn)
+    ? mn.map((s) => String(s).trim())
+    : String(mn || '').split(/[/,;]+/).map((s) => s.trim());
+  const seen = new Set();
+  const out = [];
+  for (const code of raw) {
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    out.push(code);
+  }
+  return out;
+}
+
 // Detect MIME type from filename extension. Covers the image, video, and audio
 // formats we actually upload (m4a/mp3/aac/webm come from expo-av recordings).
 function mimeFromName(name) {
@@ -141,6 +159,10 @@ export async function getModelOptions(modelId) {
 
   const rawColors = Array.isArray(model?.colors) ? model.colors : [];
   const rawSpecs = Array.isArray(model?.ramStorage) ? model.ramStorage : [];
+  // The model's configured identifier codes, so the variant/booking screens can
+  // show (and let the shop pick between) this model's model number(s).
+  const modelNumbers = parseModelNumbers(model?.modelNumber);
+  const otherNumbers = parseModelNumbers(model?.otherNumber);
 
   const colors = [];
   const seenColor = new Set();
@@ -191,7 +213,7 @@ export async function getModelOptions(modelId) {
     }
   }
 
-  return { colors, specs, allColors, allRams, allStorages };
+  return { colors, specs, modelNumbers, otherNumbers, allColors, allRams, allStorages };
 }
 
 // Repair categories

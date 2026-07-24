@@ -1,4 +1,4 @@
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, memo, useState } from 'react';
 import { Platform, Text, TextInput, View, Pressable } from 'react-native';
 import { cn } from './cn';
 import { tokens } from '../../theme/colors';
@@ -14,8 +14,8 @@ const WEB_NO_OUTLINE = Platform.OS === 'web'
  * When `leftIcon` or `rightIcon` is provided, the TextInput is wrapped in a
  * row container so the icons sit inside the bordered box.
  */
-export const Input = forwardRef(function Input(
-  { className, onFocus, onBlur, leftIcon, rightIcon, containerClassName, style, ...rest },
+const InputBase = forwardRef(function Input(
+  { className, onFocus, onBlur, onEndEditing, leftIcon, rightIcon, containerClassName, style, ...rest },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -31,6 +31,7 @@ export const Input = forwardRef(function Input(
         {...rest}
         onFocus={(e) => { setFocused(true); onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+        onEndEditing={(e) => { setFocused(false); onEndEditing?.(e); }}
         className={cn(
           'bg-card rounded-2xl px-4 py-3 text-base text-text',
           callerSuppressesBorder ? '' : 'border',
@@ -64,6 +65,7 @@ export const Input = forwardRef(function Input(
         {...rest}
         onFocus={(e) => { setFocused(true); onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+        onEndEditing={(e) => { setFocused(false); onEndEditing?.(e); }}
         className={cn('flex-1 text-base text-text', className)}
         style={[WEB_NO_OUTLINE, { paddingVertical: 6 }, style]}
       />
@@ -71,6 +73,14 @@ export const Input = forwardRef(function Input(
     </View>
   );
 });
+
+// Memoized: on large forms (e.g. Customer Details) a keystroke re-renders the
+// parent, but every field whose props are unchanged now skips re-render. That
+// keeps the focused input's controlled-value round-trip cheap, which is what
+// prevents the Android caret from jumping / dropping characters. Callers that
+// pass unstable props (new inline handlers/icons each render) simply re-render
+// as before — memo is a no-op there, never a behavior change.
+export const Input = memo(InputBase);
 
 export function Label({ className, children, required }) {
   return (
