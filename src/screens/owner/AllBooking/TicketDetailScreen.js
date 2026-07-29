@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, TouchableOpacity, View, StatusBar, useWindowDimensions, Modal, Linking, Platform } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, TextInput, TouchableOpacity, View, StatusBar, useWindowDimensions, Modal, Linking, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,6 +34,8 @@ import {
   Wrench,
   MessageSquare,
   ChevronRight,
+  ScanLine,
+  Plus,
 } from 'lucide-react-native';
 import {
   Card,
@@ -209,6 +211,14 @@ export default function TicketDetailScreen({ route, navigation }) {
   const [progressChecked, setProgressChecked] = useState({});
   const [progressBusy, setProgressBusy] = useState(null);
 
+  // IMEI capture gate — a booking must carry an IMEI before it can be marked
+  // "Ready for Delivery". If it's missing we pop a type-or-scan sheet, PATCH the
+  // IMEI onto the ticket, then continue the progress submission.
+  const [imeiModalOpen, setImeiModalOpen] = useState(false);
+  const [imeiInput, setImeiInput] = useState('');
+  const [imeiSaving, setImeiSaving] = useState(false);
+  const pendingReadyRow = useRef(null); // the READY row awaiting IMEI, or null for a plain add
+
   const refreshProgress = useCallback(async () => {
     if (!ticketId) return;
     try {
@@ -287,6 +297,49 @@ export default function TicketDetailScreen({ route, navigation }) {
       setProgressBusy(null);
     }
   }, [ticketId, refreshProgress]);
+
+  // "Done" tap on a progress step. Ready for Delivery requires an IMEI — if the
+  // booking has none, open the capture sheet instead of recording immediately.
+  const onProgressDone = useCallback((row) => {
+    const hasImei = !!String(ticket?.imei || '').trim();
+    if (row.key === 'READY' && !hasImei) {
+      pendingReadyRow.current = row;
+      setImeiInput('');
+      setImeiModalOpen(true);
+      return;
+    }
+    submitProgress(row);
+  }, [ticket, submitProgress]);
+
+  // Opens the same sheet from the Service Info card, just to add/fix the IMEI
+  // (no progress step to continue afterwards).
+  const openImeiEntry = useCallback(() => {
+    pendingReadyRow.current = null;
+    setImeiInput(String(ticket?.imei || ''));
+    setImeiModalOpen(true);
+  }, [ticket]);
+
+  const saveImeiAndContinue = useCallback(async () => {
+    const imei = normaliseImei(imeiInput);
+    if (!imei) {
+      notify('Enter a valid IMEI', 'IMEI must be 14–17 digits. Dial *#06# on the device to see it.', { preset: 'error' });
+      return;
+    }
+    setImeiSaving(true);
+    try {
+      await ticketApi.patch(`/tickets/${ticketId}`, { body: { imei } });
+      setTicket((prev) => (prev ? { ...prev, imei } : prev));
+      setImeiModalOpen(false);
+      const row = pendingReadyRow.current;
+      pendingReadyRow.current = null;
+      if (row) await submitProgress(row); // continue the Ready-for-Delivery record
+      else notify('Saved', 'IMEI added to this booking.', { preset: 'done' });
+    } catch (e) {
+      notify('Save failed', e?.message || 'Could not save the IMEI. Try again.', { preset: 'error', haptic: 'error' });
+    } finally {
+      setImeiSaving(false);
+    }
+  }, [imeiInput, ticketId, submitProgress]);
 
   const buildMessage = () => {
     const lineItems = priceItemsFromTicket(ticket);
@@ -706,6 +759,28 @@ export default function TicketDetailScreen({ route, navigation }) {
             ) : null}
             <DetailRow icon={Clock} label="Est. Time" value={fmtInstant(ticket.estimatedReadyAt) || '-'} />
             <DetailRow icon={Calendar} label="Delivery" value={fmtInstant(ticket.estimatedDeliveryAt) || '-'} />
+            {/* IMEI — shows the number, or a "-" with an Add shortcut when missing. */}
+            <View className="flex-row items-center py-1.5">
+              <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F0FDF4' }}>
+                <ScanLine size={14} color={ACCENT_GREEN} />
+              </View>
+              <Text className="text-[12px] text-text-muted" style={{ width: 78 }}>IMEI</Text>
+              {ticket.imei ? (
+                <Text className="text-[13px] text-text font-bold flex-1" numberOfLines={1}>{String(ticket.imei)}</Text>
+              ) : (
+                <View className="flex-1 flex-row items-center justify-between">
+                  <Text className="text-[13px] text-text-muted font-bold">-</Text>
+                  <Pressable
+                    onPress={openImeiEntry}
+                    className="flex-row items-center rounded-full px-2.5 py-1 active:opacity-80"
+                    style={{ backgroundColor: '#DCFCE7' }}
+                  >
+                    <Plus size={12} color={BRAND_GREEN_DARK} />
+                    <Text className="text-[11px] font-extrabold ml-1" style={{ color: BRAND_GREEN_DARK }}>Add</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
             <View className="flex-row items-center py-1.5">
               <View className="w-7 h-7 rounded-lg items-center justify-center mr-2.5" style={{ backgroundColor: '#F0FDF4' }}>
                 <ShieldCheck size={14} color={ACCENT_GREEN} />
@@ -944,9 +1019,9 @@ export default function TicketDetailScreen({ route, navigation }) {
                         </View>
                       ) : checked ? (
                         <View className="flex-row items-center">
-                          {/* Done — fires the emit. */}
+                          {/* Done — fires the emit (READY first prompts for IMEI). */}
                           <TouchableOpacity
-                            onPress={() => submitProgress(row)}
+                            onPress={() => onProgressDone(row)}
                             disabled={busy}
                             className="rounded-full flex-row items-center"
                             style={{
@@ -1278,6 +1353,74 @@ export default function TicketDetailScreen({ route, navigation }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── IMEI capture sheet — type or scan, then save ─────────────────── */}
+      <Modal
+        visible={imeiModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => (imeiSaving ? null : setImeiModalOpen(false))}
+      >
+        <Pressable
+          className="flex-1 bg-black/50 items-center justify-center px-6"
+          onPress={() => (imeiSaving ? null : setImeiModalOpen(false))}
+        >
+          <Pressable className="bg-card rounded-3xl p-5 w-full" style={{ maxWidth: 420 }} onPress={() => {}}>
+            <View className="items-center mb-1">
+              <View className="h-11 w-11 rounded-full items-center justify-center mb-2" style={{ backgroundColor: '#DCFCE7' }}>
+                <ScanLine size={20} color={BRAND_GREEN_DARK} />
+              </View>
+              <Text className="text-text text-[16px] font-extrabold">Enter IMEI Number</Text>
+              <Text className="text-text-muted text-[12px] text-center mt-1">
+                Add the device IMEI number for this booking.
+              </Text>
+            </View>
+
+            <View className="flex-row items-center rounded-xl border border-border bg-background px-3 mt-3">
+              <TextInput
+                className="flex-1 py-3 text-text text-[15px] font-bold"
+                placeholder="Enter 15-digit IMEI"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+                maxLength={17}
+                value={imeiInput}
+                onChangeText={setImeiInput}
+                autoFocus
+              />
+              <Pressable
+                onPress={() => {
+                  setImeiModalOpen(false);
+                  navigation.navigate('ScanImei', { onScan: (v) => { setImeiInput(v); setImeiModalOpen(true); } });
+                }}
+                className="flex-row items-center rounded-full px-3 py-1.5 ml-1 active:opacity-80"
+                style={{ backgroundColor: 'rgba(34, 197, 94, 0.14)' }}
+              >
+                <ScanLine size={14} color={BRAND_GREEN} />
+                <Text className="text-[12px] font-extrabold ml-1" style={{ color: BRAND_GREEN }}>SCAN</Text>
+              </Pressable>
+            </View>
+            <Text className="text-text-muted text-[11px] mt-2">Tip: dial *#06# on the device to show its IMEI.</Text>
+
+            <View className="flex-row mt-4">
+              <Pressable
+                onPress={() => setImeiModalOpen(false)}
+                disabled={imeiSaving}
+                className="flex-1 mr-2 rounded-2xl bg-background border border-border py-3 items-center active:opacity-80"
+              >
+                <Text className="text-text-muted text-[14px] font-extrabold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveImeiAndContinue}
+                disabled={imeiSaving}
+                className="flex-1 rounded-2xl py-3 items-center active:opacity-80"
+                style={{ backgroundColor: BRAND_GREEN }}
+              >
+                {imeiSaving ? <ActivityIndicator color="#fff" /> : <Text className="text-white text-[14px] font-extrabold">Save</Text>}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1308,6 +1451,13 @@ function SectionHeader({ icon: Icon, label }) {
 }
 
 // Icon + label + value row used in the redesigned section cards.
+// Normalise a typed/scanned IMEI to digits; valid when 14–17 digits (15 is the
+// IMEI proper; 16/17 cover IMEISV and TAC+IMEI). Returns null when out of range.
+function normaliseImei(raw) {
+  const digits = String(raw || '').replace(/[^0-9]/g, '');
+  return digits.length >= 14 && digits.length <= 17 ? digits : null;
+}
+
 function DetailRow({ icon: Icon, label, value }) {
   return (
     <View className="flex-row items-center py-1.5">

@@ -41,6 +41,9 @@ const priceNum = (v) => Number(String(v ?? '').replace(/[^0-9.]/g, '')) || 0;
 const formatINR = (n) =>
   Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
+// Custom "Others" issues have no catalog serviceId — give each a local id.
+let nextOtherId = 1;
+
 export default function DeviceServicesScreen({ navigation, route }) {
   const params = route?.params || {};
   const insets = useSafeAreaInsets();
@@ -56,18 +59,37 @@ export default function DeviceServicesScreen({ navigation, route }) {
     const prefill = Array.isArray(params.prefillServices) ? params.prefillServices : [];
     const rowSeed = {};
     const idSeed = new Set();
+    const customSeed = [];
     for (const s of prefill) {
-      if (!s?.serviceId) continue;
-      rowSeed[s.serviceId] = { price: String(s.price ?? ''), warranty: s.warranty || '' };
-      idSeed.add(s.serviceId);
+      if (s?.serviceId) {
+        rowSeed[s.serviceId] = { price: String(s.price ?? ''), warranty: s.warranty || '' };
+        idSeed.add(s.serviceId);
+      } else if (s?.serviceName) {
+        // A previously-saved custom "Others" issue — re-seed it so edits keep it.
+        customSeed.push({
+          id: `other-${nextOtherId++}`,
+          name: s.serviceName,
+          categoryId: s.categoryId || null,
+          categoryName: s.categoryName || 'Others',
+          price: priceNum(s.price),
+          warranty: s.warranty || null,
+        });
+      }
     }
-    return { rowSeed, idSeed };
+    return { rowSeed, idSeed, customSeed };
   };
   const seed = useMemo(seedFromPrefill, []);
   const [rows, setRows] = useState(seed.rowSeed); // { [serviceId]: { price, warranty } }
   const [pickedIds, setPickedIds] = useState(() => new Set(seed.idSeed));
   const [expanded, setExpanded] = useState({}); // { [groupId]: bool }
   const scrollRef = useRef(null);
+
+  // ── "Others" custom issues (not in the service catalog) ──────────────
+  const [customIssues, setCustomIssues] = useState(seed.customSeed); // committed rows
+  const otherNameRef = useRef('');   // draft issue text — uncontrolled to avoid re-render jank
+  const [otherHasName, setOtherHasName] = useState(false); // toggles ADD enabled (boundary-only re-render)
+  const [otherCatId, setOtherCatId] = useState(null);
+  const [otherFormKey, setOtherFormKey] = useState(0); // bump to remount + clear the draft input
 
   // Lift the focused price field above the keyboard. Android resizes the window
   // when the keyboard opens but never scrolls to the focused input, so a field
@@ -144,6 +166,26 @@ export default function DeviceServicesScreen({ navigation, route }) {
 
   const toggleGroup = (gid) => setExpanded((e) => ({ ...e, [gid]: !e[gid] }));
 
+  const addCustomIssue = () => {
+    const name = (otherNameRef.current || '').trim();
+    if (!name) return;
+    const cat = groups.find((g) => g.id === otherCatId);
+    setCustomIssues((list) => [...list, {
+      id: `other-${nextOtherId++}`,
+      name,
+      categoryId: cat?.id || null,
+      categoryName: cat?.name || 'Others',
+      price: 0,
+      warranty: null,
+    }]);
+    otherNameRef.current = '';
+    setOtherHasName(false);
+    setOtherCatId(null);
+    setOtherFormKey((k) => k + 1); // remount input so its text clears
+  };
+  const removeCustomIssue = (id) =>
+    setCustomIssues((list) => list.filter((c) => c.id !== id));
+
   // Running total — drives the floating cart bar at the bottom.
   const cartTotal = useMemo(() => {
     let sum = 0;
@@ -151,9 +193,10 @@ export default function DeviceServicesScreen({ navigation, route }) {
       const r = ensureRow(id);
       sum += priceNum(r.price);
     }
+    for (const c of customIssues) sum += Number(c.price) || 0;
     return sum;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedIds, rows]);
+  }, [pickedIds, rows, customIssues]);
 
   const onContinue = () => {
     const byId = {}; (services || []).forEach((s) => { byId[s.id] = s; });
@@ -167,8 +210,20 @@ export default function DeviceServicesScreen({ navigation, route }) {
         warranty: r.warranty || null,
       };
     });
-    if (selected.length === 0) return;
-    navigation.navigate('ServicePriceEstimate', { ...params, services: selected });
+    // Custom "Others" issues carry no catalog id — the booking pipeline already
+    // tolerates serviceId:null (persisted as a line item by its label).
+    const customSelected = customIssues.map((c) => ({
+      serviceId: null,
+      serviceCode: 'OTHER',
+      serviceName: c.name,
+      categoryId: c.categoryId || null,
+      categoryName: c.categoryName || 'Others',
+      price: Number(c.price) || 0,
+      warranty: c.warranty || null,
+    }));
+    const all = [...selected, ...customSelected];
+    if (all.length === 0) return;
+    navigation.navigate('ServicePriceEstimate', { ...params, services: all });
   };
 
   if (loading) {
@@ -188,7 +243,7 @@ export default function DeviceServicesScreen({ navigation, route }) {
     );
   }
 
-  const totalSelected = pickedIds.size;
+  const totalSelected = pickedIds.size + customIssues.length;
 
   return (
     <View className="flex-1 bg-background">
@@ -342,6 +397,120 @@ export default function DeviceServicesScreen({ navigation, route }) {
               </View>
             );
           })}
+
+          {/* ── Others: a custom issue not in the service catalog ───────── */}
+          <View
+            className="mb-2.5 bg-card rounded-2xl overflow-hidden"
+            style={{ shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}
+          >
+            <Pressable
+              onPress={() => toggleGroup('__other__')}
+              className="flex-row items-center px-3.5 py-3 active:opacity-80"
+            >
+              <View className="h-9 w-9 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: 'rgba(245, 158, 11, 0.14)' }}>
+                <Sparkles size={16} color="#B45309" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[14px] font-extrabold text-text" numberOfLines={1}>Others</Text>
+                <View className="flex-row items-center mt-0.5">
+                  <Text className="text-[12px] text-text-muted">Add a custom issue</Text>
+                  {customIssues.length ? (
+                    <>
+                      <View className="h-1 w-1 rounded-full bg-text-muted mx-1.5" />
+                      <Text className="text-success text-[12px] font-extrabold">{customIssues.length} added</Text>
+                    </>
+                  ) : null}
+                </View>
+              </View>
+              {expanded['__other__'] ? <ChevronUp size={18} color="#64748B" /> : <ChevronDown size={18} color="#64748B" />}
+            </Pressable>
+
+            {expanded['__other__'] ? (
+              <View className="px-3.5 pb-2.5 pt-1">
+                {/* Already-added custom issues */}
+                {customIssues.map((c) => (
+                  <View
+                    key={c.id}
+                    className="rounded-2xl mb-2 bg-success/5 border-success/40"
+                    style={{ borderWidth: 1.5, padding: 10 }}
+                  >
+                    <View className="flex-row items-start">
+                      <View className="h-10 w-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: ACCENT_GREEN }}>
+                        <Wrench size={18} color="#fff" />
+                      </View>
+                      <View className="flex-1 pr-1.5">
+                        <Text className="font-extrabold text-text text-[14px]" numberOfLines={2}>{c.name}</Text>
+                        <Text className="text-text-muted text-[12px] mt-0.5" numberOfLines={1}>
+                          {c.categoryName}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => removeCustomIssue(c.id)}
+                        className="flex-row items-center rounded-full px-3 py-1.5 active:opacity-80"
+                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.10)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.35)' }}
+                      >
+                        <X size={12} color="#EF4444" />
+                        <Text className="text-danger text-[12px] font-extrabold ml-1">REMOVE</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+
+                {/* Draft: enter issue → pick condition category → price + warranty → ADD */}
+                <View className="rounded-2xl bg-background border-border" style={{ borderWidth: 1, padding: 10 }}>
+                  <Text className="text-[12px] font-extrabold text-text-muted tracking-widest mb-1">ISSUE</Text>
+                  <View className="rounded-lg border border-border bg-card px-2.5 mb-2.5">
+                    <TextInput
+                      key={`other-name-${otherFormKey}`}
+                      defaultValue=""
+                      onChangeText={(v) => { otherNameRef.current = v; setOtherHasName(v.trim().length > 0); }}
+                      placeholder="Describe the issue (e.g. Face ID not working)"
+                      placeholderTextColor="#94A3B8"
+                      className="text-text text-[14px]"
+                      style={{ paddingVertical: 8 }}
+                    />
+                  </View>
+
+                  {groups.length ? (
+                    <>
+                      <Text className="text-[12px] font-extrabold text-text-muted tracking-widest mb-1">CONDITION CATEGORY</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className="mb-2.5"
+                        contentContainerStyle={{ paddingRight: 8 }}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {groups.map((g) => {
+                          const active = otherCatId === g.id;
+                          return (
+                            <Pressable
+                              key={g.id}
+                              onPress={() => setOtherCatId(active ? null : g.id)}
+                              className="mr-2 px-3 py-1.5 rounded-full"
+                              style={{ backgroundColor: active ? BRAND_GREEN : '#fff', borderWidth: 1, borderColor: active ? BRAND_GREEN : '#E5E7EB' }}
+                            >
+                              <Text className={`text-[12px] font-extrabold ${active ? 'text-white' : 'text-text'}`}>{g.name}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    </>
+                  ) : null}
+
+                  <Pressable
+                    onPress={addCustomIssue}
+                    disabled={!otherHasName}
+                    className="flex-row items-center justify-center rounded-full py-2.5 active:opacity-80"
+                    style={{ backgroundColor: otherHasName ? ACCENT_GREEN : 'rgba(22, 163, 74, 0.35)' }}
+                  >
+                    <Plus size={14} color="#fff" />
+                    <Text className="text-white text-[13px] font-extrabold ml-1">ADD ISSUE</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+          </View>
         </View>
       </ScrollView>
 

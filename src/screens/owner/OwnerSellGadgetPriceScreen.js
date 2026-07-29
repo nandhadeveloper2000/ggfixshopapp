@@ -62,7 +62,8 @@ export default function OwnerSellGadgetPriceScreen({ navigation, route }) {
             conditionLabel: 'Spare Part',
             descriptionType: 'SPARE_PARTS',
             imageUrl: p.imageUrl || Object.values(images).filter(Boolean)[0] || null,
-            extraImageUrls: [],
+            // Persist every extra photo the shop attached to this part (all but the primary).
+            extraImageUrls: (p.imageUrls || []).filter((u) => u && u !== p.imageUrl),
             assessmentJson: JSON.stringify({ spareParts: [p] }),
           };
           const res = await marketplaceApi.post('/marketplace/products', { body: payload });

@@ -379,7 +379,7 @@ export default function MarketplaceSellScreen({ navigation }) {
         {/* Bottom CTA */}
         <View style={{ paddingHorizontal: padH, marginTop: 18 }}>
           <Pressable
-            onPress={() => navigation.navigate('OwnerSellListed')}
+            onPress={() => navigation.navigate('MarketplaceOrders')}
             style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
               backgroundColor: '#F0FDF4', borderRadius: 16,

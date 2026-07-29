@@ -203,7 +203,7 @@ export default function OwnerSellHomeScreen({ navigation, route }) {
               </Text>
             </View>
             <Pressable
-              onPress={() => navigation.navigate('OwnerSellListed')}
+              onPress={() => navigation.navigate('MarketplaceOrders')}
               className="flex-row items-center rounded-full px-3 py-2 active:opacity-80"
               style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', ...cardShadow }}
             >
