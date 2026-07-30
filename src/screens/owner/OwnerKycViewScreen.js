@@ -13,7 +13,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSelector } from 'react-redux';
 import {
   ChevronLeft,
   ShieldCheck,
@@ -22,13 +21,10 @@ import {
   FileText,
   Pencil,
   CloudUpload,
-  Trash2,
   Upload,
   CheckCircle2,
 } from 'lucide-react-native';
-import { listShopKycDocuments, deleteShopKycDocument } from '../../api/shops';
-import { selectShopId } from '../../store/authSlice';
-import { confirm, notify } from '../../components/confirm';
+import { getOwnerKycDocuments } from '../../api/shops';
 
 const BRAND_GREEN      = '#22C55E';
 const BRAND_GREEN_DARK = '#15803D';
@@ -49,14 +45,14 @@ const softShadow = {
   elevation: 2,
 };
 
-const ORDER = ['aadharFront', 'aadharBack', 'pan', 'gst', 'udyam'];
+// Owner KYC = personal identity documents only (Aadhar front/back + PAN).
+const ORDER = ['aadharFront', 'aadharBack', 'pan'];
 const TITLES = {
   aadharFront: 'Aadhar Card Front',
   aadharBack:  'Aadhar Card Back',
   pan:         'PAN Card',
-  gst:         'GST Certificate',
-  udyam:       'Udyam Certificate',
 };
+const URL_FIELD = { aadharFront: 'aadharFrontUrl', aadharBack: 'aadharBackUrl', pan: 'panUrl' };
 
 function isPdf(url) {
   return typeof url === 'string' && url.toLowerCase().includes('.pdf');
@@ -75,63 +71,49 @@ const STATUS_GRADIENT = {
 };
 
 export default function OwnerKycViewScreen({ route, navigation }) {
-  const shopId = useSelector(selectShopId);
   const fromSubmit = !!route?.params?.fromSubmit;
-  const [docs, setDocs] = useState([]);
+  const [kyc, setKyc] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [deletingType, setDeletingType] = useState(null);
 
   const load = useCallback(async (isRefresh = false) => {
-    if (!shopId) {
-      setLoading(false);
-      return;
-    }
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const list = await listShopKycDocuments(shopId);
-      setDocs(Array.isArray(list) ? list : []);
+      const res = await getOwnerKycDocuments();
+      setKyc(res && typeof res === 'object' ? res : {});
     } catch {
-      setDocs([]);
+      setKyc({});
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [shopId]);
+  }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const byType = Object.fromEntries(docs.map((d) => [d.docType, d]));
-  const orderedDocs = ORDER.map((key) => byType[key]).filter(Boolean);
+  // Owner KYC is a single blob with one review status shared across all docs.
+  const status = kyc.status || 'PENDING_REVIEW';
+  const reviewDate = kyc.reviewedAt || kyc.submittedAt;
+  const orderedDocs = ORDER
+    .map((key) => {
+      const url = kyc[URL_FIELD[key]];
+      if (!url) return null;
+      return {
+        docType: key,
+        title: TITLES[key],
+        url,
+        required: true,
+        status,
+        rejectReason: status === 'REJECTED' ? kyc.rejectReason : null,
+        updatedAt: reviewDate,
+      };
+    })
+    .filter(Boolean);
 
-  const overallStatus = (() => {
-    if (orderedDocs.length === 0) return 'NONE';
-    if (orderedDocs.some((d) => d.status === 'REJECTED')) return 'REJECTED';
-    if (orderedDocs.every((d) => d.status === 'APPROVED')) return 'APPROVED';
-    return 'PENDING_REVIEW';
-  })();
+  const overallStatus = orderedDocs.length === 0 ? 'NONE' : status;
 
   const onEdit = () => {
-    navigation.navigate('OwnerKycUpload', { existing: byType });
-  };
-
-  const onDelete = async (doc) => {
-    const ok = await confirm({
-      title: 'Remove document?',
-      message: `Remove ${doc.title || TITLES[doc.docType] || doc.docType} from your KYC submission?`,
-      confirmText: 'Remove',
-      destructive: true,
-    });
-    if (!ok) return;
-    setDeletingType(doc.docType);
-    try {
-      await deleteShopKycDocument(shopId, doc.docType);
-      await load(true);
-    } catch (e) {
-      notify('Failed', e?.message || 'Please try again.', { preset: 'error', haptic: 'error' });
-    } finally {
-      setDeletingType(null);
-    }
+    navigation.navigate('OwnerKycUpload', { existing: kyc });
   };
 
   const HeroIcon =
@@ -180,13 +162,7 @@ export default function OwnerKycViewScreen({ route, navigation }) {
         </View>
       </SafeAreaView>
 
-      {!shopId ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-[14px] font-semibold" style={{ color: '#DC2626' }}>
-            Please log in again.
-          </Text>
-        </View>
-      ) : (
+      {(
         <ScrollView
           contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}
@@ -374,19 +350,6 @@ export default function OwnerKycViewScreen({ route, navigation }) {
                           >
                             {fmtDate(doc.updatedAt || doc.createdAt)}
                           </Text>
-                          <Pressable
-                            onPress={() => onDelete(doc)}
-                            hitSlop={6}
-                            disabled={deletingType === doc.docType}
-                            className="w-7 h-7 rounded-full items-center justify-center"
-                            style={{ backgroundColor: '#FEE2E2' }}
-                          >
-                            {deletingType === doc.docType ? (
-                              <ActivityIndicator size="small" color="#B91C1C" />
-                            ) : (
-                              <Trash2 size={12} color="#B91C1C" />
-                            )}
-                          </Pressable>
                         </View>
 
                         {status === 'REJECTED' && doc.rejectReason ? (

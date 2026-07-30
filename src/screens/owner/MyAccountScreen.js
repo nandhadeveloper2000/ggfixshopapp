@@ -43,7 +43,7 @@ import {
 } from 'lucide-react-native';
 import { getSession } from '../../auth/session';
 import { switchShop, fetchMe } from '../../api/auth';
-import { listShopKycDocuments } from '../../api/shops';
+import { getOwnerKycDocuments } from '../../api/shops';
 import { isAppLockEnabled, setAppLockEnabled, isDeviceSecure, authenticate } from '../../auth/appLock';
 
 // Swiggy / Zomato green palette — shared with the rest of the owner app.
@@ -93,7 +93,10 @@ export default function MyAccountScreen({ onLogout, navigation }) {
     }
   };
 
-  useEffect(() => { reloadSession(); }, []);
+  // Reload identity on every focus, not just mount — returning from editing
+  // name/phone/avatar in OwnerPersonalInfo (a separate stack screen) otherwise
+  // left this always-mounted tab showing the old values.
+  useFocusEffect(useCallback(() => { reloadSession(); }, []));
 
   // Refresh KYC submission status whenever this screen comes into focus, so the
   // KYC Documents row can route the user to View (already uploaded) vs Intro
@@ -105,8 +108,8 @@ export default function MyAccountScreen({ onLogout, navigation }) {
       let cancelled = false;
       (async () => {
         try {
-          const list = await listShopKycDocuments(sid);
-          if (!cancelled) setHasKycDocs(Array.isArray(list) && list.length > 0);
+          const kyc = await getOwnerKycDocuments();
+          if (!cancelled) setHasKycDocs(!!(kyc && (kyc.aadharFrontUrl || kyc.aadharBackUrl || kyc.panUrl)));
         } catch {
           if (!cancelled) setHasKycDocs(false);
         }

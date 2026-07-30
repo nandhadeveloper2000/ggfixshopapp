@@ -38,11 +38,10 @@ const softShadow = {
   elevation: 2,
 };
 
+// Owner KYC = personal identity documents only (Aadhar front/back + PAN).
 const DOCS = [
-  { key: 'aadhar', Icon: IdCard,    title: 'Aadhar Card',      desc: 'Identity verification',         tint: '#DBEAFE', accent: '#1D4ED8' },
-  { key: 'pan',    Icon: CreditCard,title: 'PAN Card',         desc: 'Tax verification',              tint: '#FCE7F3', accent: '#BE185D' },
-  { key: 'gst',    Icon: FileText,  title: 'GST Certificate',  desc: 'Business verification',         tint: '#CFFAFE', accent: '#0E7490' },
-  { key: 'udyam',  Icon: Award,     title: 'Udyam Certificate',desc: 'MSME registration (alt. GST)',  tint: '#FFEDD5', accent: '#C2410C' },
+  { key: 'aadhar', Icon: IdCard,    title: 'Aadhar Card',      desc: 'Identity verification (front & back)', tint: '#DBEAFE', accent: '#1D4ED8' },
+  { key: 'pan',    Icon: CreditCard,title: 'PAN Card',         desc: 'Tax verification',                     tint: '#FCE7F3', accent: '#BE185D' },
 ];
 
 export default function OwnerKycIntroScreen({ navigation }) {

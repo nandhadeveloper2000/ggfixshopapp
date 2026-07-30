@@ -51,15 +51,20 @@ export async function deleteShopPickupSlot(shopId, slotId) {
   return await shopApi.del(`/shops/${shopId}/pickup-slots/${slotId}`);
 }
 
-// ---- Shop KYC documents ----
-// Backed by shop-service /shops/{shopId}/kyc-documents
-// (entity: shop_kyc_documents, migration 33).
-export async function listShopKycDocuments(shopId) {
-  return unwrap(await shopApi.get(`/shops/${shopId}/kyc-documents`));
+// ---- Owner KYC documents ----
+// Owner identity documents (Aadhar front/back + PAN) are the shop OWNER's
+// personal documents, so they live ONCE per owner in auth-service
+// (users.kyc_document jsonb) — NOT per shop. Business documents (GST / Udyam)
+// are separate and stored per shop.
+//
+// Shape returned/accepted:
+//   { aadharFrontUrl, aadharBackUrl, panUrl, status, rejectReason, submittedAt, reviewedAt }
+// status ∈ PENDING_REVIEW | APPROVED | REJECTED (absent when never submitted).
+export async function getOwnerKycDocuments() {
+  return await authApi.get('/auth/me/kyc-documents');
 }
-export async function saveShopKycDocuments(shopId, documents) {
-  return await shopApi.post(`/shops/${shopId}/kyc-documents`, { body: { documents } });
-}
-export async function deleteShopKycDocument(shopId, docType) {
-  return await shopApi.del(`/shops/${shopId}/kyc-documents/${encodeURIComponent(docType)}`);
+export async function saveOwnerKycDocuments({ aadharFrontUrl, aadharBackUrl, panUrl }) {
+  return await authApi.post('/auth/me/kyc-documents', {
+    body: { aadharFrontUrl, aadharBackUrl, panUrl },
+  });
 }

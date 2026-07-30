@@ -32,8 +32,9 @@ import {
 } from 'lucide-react-native';
 import { ticketApi } from '../../api/client';
 import { getDeviceCategories, getModelsByBrand } from '../../api/masterData';
+import { resolveDeviceImageSource } from '../../utils/images';
 import { listShopRepairBookings } from '../../api/orders';
-import { listShopKycDocuments } from '../../api/shops';
+import { getOwnerKycDocuments } from '../../api/shops';
 import { getUnreadCount as getNotifUnreadCount } from '../../api/notifications';
 import { Loader, SectionHeader } from '../../components/rnr';
 import { getSession } from '../../auth/session';
@@ -277,7 +278,7 @@ export default function DashboardScreen({ navigation, onLogout }) {
       }
       const enriched = content.map((t) => {
         const m = t.modelId ? modelById[t.modelId] : null;
-        const modelUrl = m?.imageUrl || (m?.imageBase64 ? `data:image/png;base64,${m.imageBase64}` : null);
+        const modelUrl = resolveDeviceImageSource({ url: m?.imageUrl, base64: m?.imageBase64 });
         return {
           ...t,
           _modelImage: t.deviceImageUrl || modelUrl || null,
@@ -367,8 +368,8 @@ export default function DashboardScreen({ navigation, onLogout }) {
     let cancelled = false;
     (async () => {
       try {
-        const list = await listShopKycDocuments(sid);
-        if (!cancelled) setHasKycDocs(Array.isArray(list) && list.length > 0);
+        const kyc = await getOwnerKycDocuments();
+        if (!cancelled) setHasKycDocs(!!(kyc && (kyc.aadharFrontUrl || kyc.aadharBackUrl || kyc.panUrl)));
       } catch { if (!cancelled) setHasKycDocs(false); }
     })();
     return () => { cancelled = true; };

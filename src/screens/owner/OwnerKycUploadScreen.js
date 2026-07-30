@@ -3,18 +3,16 @@ import {
   View, Text, ScrollView, Pressable, Alert, Platform, Image, Dimensions,
 } from 'react-native';
 import {
-  Camera, Upload, Check, X, AlertCircle, ShieldCheck, FileText, Building2,
+  Camera, Upload, Check, X, AlertCircle, ShieldCheck, FileText,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useSelector } from 'react-redux';
 import { CommonActions } from '@react-navigation/native';
 import {
   AppHeader, Card, BottomActionBar, ScreenContainer, useBottomBarInset,
 } from '../../components/rnr';
 import { tokens } from '../../theme/colors';
 import { uploadMedia } from '../../api/masterData';
-import { saveShopKycDocuments } from '../../api/shops';
-import { selectShopId } from '../../store/authSlice';
+import { saveOwnerKycDocuments } from '../../api/shops';
 import { notify } from '../../components/confirm';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -22,18 +20,20 @@ const GUTTER = 12;
 const OUTER = 16;
 const CARD_W = Math.floor((SCREEN_W - OUTER * 2 - GUTTER) / 2);
 
+// Owner KYC = the shop owner's personal identity documents only. Business
+// documents (GST / Udyam) are NOT part of KYC — they belong to the shop.
 const DOCS = [
-  { key: 'aadharFront', title: 'Aadhar Front', required: true,  group: 'identity', icon: ShieldCheck },
-  { key: 'aadharBack',  title: 'Aadhar Back',  required: true,  group: 'identity', icon: ShieldCheck },
-  { key: 'pan',         title: 'PAN Card',     required: true,  group: 'tax',      icon: FileText },
-  { key: 'gst',         title: 'GST Cert.',    required: false, group: 'business', icon: Building2 },
-  { key: 'udyam',       title: 'Udyam Cert.',  required: false, group: 'business', icon: Building2 },
+  { key: 'aadharFront', title: 'Aadhar Front', required: true, group: 'identity', icon: ShieldCheck },
+  { key: 'aadharBack',  title: 'Aadhar Back',  required: true, group: 'identity', icon: ShieldCheck },
+  { key: 'pan',         title: 'PAN Card',     required: true, group: 'tax',      icon: FileText },
 ];
+
+// Maps a DOCS key <-> the users.kyc_document url field.
+const KEY_TO_URL_FIELD = { aadharFront: 'aadharFrontUrl', aadharBack: 'aadharBackUrl', pan: 'panUrl' };
 
 const STEPS = [
   { key: 'identity', label: 'Identity' },
   { key: 'tax',      label: 'Tax' },
-  { key: 'business', label: 'Business' },
 ];
 
 function StepRail({ stepState }) {
@@ -109,16 +109,18 @@ function DocCard({ doc, file, onPick, onRemove }) {
 }
 
 export default function OwnerKycUploadScreen({ navigation, route }) {
+  // `existing` is the owner KYC blob { aadharFrontUrl, aadharBackUrl, panUrl, ... }.
   const existing = route?.params?.existing || {};
   const initialFiles = Object.fromEntries(
-    Object.entries(existing).map(([key, doc]) => [
-      key,
-      { uri: doc.url, __fromServer: true, __serverUrl: doc.url },
-    ])
+    DOCS
+      .map((d) => {
+        const url = existing?.[KEY_TO_URL_FIELD[d.key]];
+        return url ? [d.key, { uri: url, __fromServer: true, __serverUrl: url }] : null;
+      })
+      .filter(Boolean)
   );
   const [files, setFiles] = useState(initialFiles);
   const [submitting, setSubmitting] = useState(false);
-  const shopId = useSelector(selectShopId);
   const insetBottom = useBottomBarInset();
 
   const pickImage = async (key, fromCamera = false) => {
@@ -154,9 +156,8 @@ export default function OwnerKycUploadScreen({ navigation, route }) {
 
   const identityDone = !!files.aadharFront && !!files.aadharBack;
   const taxDone = !!files.pan;
-  const businessDone = !!files.gst || !!files.udyam;
-  const allRequiredDone = identityDone && taxDone && businessDone;
-  const stepState = { identity: identityDone, tax: taxDone, business: businessDone };
+  const allRequiredDone = identityDone && taxDone;
+  const stepState = { identity: identityDone, tax: taxDone };
 
   const onProceed = async () => {
     if (!allRequiredDone) {
@@ -164,42 +165,34 @@ export default function OwnerKycUploadScreen({ navigation, route }) {
       if (!files.aadharFront) missing.push('Aadhar Card Front');
       if (!files.aadharBack)  missing.push('Aadhar Card Back');
       if (!files.pan)         missing.push('PAN Card');
-      if (!businessDone)      missing.push('GST Certificate or Udyam Certificate');
       notify('Required documents missing', `Please upload: ${missing.join(', ')}`);
       return;
     }
-    if (!shopId) { notify('Session expired', 'Please log in again to submit your KYC.', { preset: 'error' }); return; }
     setSubmitting(true);
     try {
-      const payload = [];
-      const failedTitles = [];
+      // Build the owner KYC blob { aadharFrontUrl, aadharBackUrl, panUrl }.
+      const payload = {};
       for (const doc of DOCS) {
         const asset = files[doc.key];
+        const field = KEY_TO_URL_FIELD[doc.key];
         if (!asset?.uri) continue;
         if (asset.__fromServer && asset.__serverUrl) {
-          payload.push({ docType: doc.key, title: doc.title, url: asset.__serverUrl, required: doc.required });
+          payload[field] = asset.__serverUrl;
           continue;
         }
-        let url = asset.uri;
-        try {
-          const hostedUrl = await uploadMedia(asset, 'shop-kyc');
-          if (hostedUrl) url = hostedUrl;
-          else failedTitles.push(doc.title);
-        } catch (uploadErr) {
-          // eslint-disable-next-line no-console
-          console.warn(`KYC upload failed for ${doc.title}:`, uploadErr?.message);
-          failedTitles.push(doc.title);
+        // Never persist the device-local file:// URI — the server/admin can't
+        // resolve it. If the Cloudinary upload fails, abort the whole submit so
+        // the owner isn't told KYC succeeded with an unusable document.
+        const hostedUrl = await uploadMedia(asset, 'owner-kyc');
+        if (!hostedUrl) {
+          throw new Error(`Couldn't upload ${doc.title}. Please check your connection and try again.`);
         }
-        payload.push({ docType: doc.key, title: doc.title, url, required: doc.required });
+        payload[field] = hostedUrl;
       }
 
-      await saveShopKycDocuments(shopId, payload);
+      await saveOwnerKycDocuments(payload);
 
-      const successMessage = failedTitles.length > 0
-        ? `KYC submitted. Some files saved with local copies and will retry: ${failedTitles.join(', ')}.`
-        : 'KYC documents submitted successfully. Admin will review them shortly.';
-
-      notify('Submitted', successMessage, { preset: 'done' });
+      notify('Submitted', 'KYC documents submitted successfully. Admin will review them shortly.', { preset: 'done' });
       navigation.dispatch(
         CommonActions.reset({
           index: 1,
@@ -234,19 +227,18 @@ export default function OwnerKycUploadScreen({ navigation, route }) {
           ))}
         </View>
 
-        {!businessDone ? (
-          <Card className="mt-2 bg-accent-soft border-accent">
-            <View className="flex-row items-start">
-              <AlertCircle size={16} color={tokens.accent} />
-              <View className="ml-2 flex-1">
-                <Text className="text-[12px] font-extrabold text-accent-dark">Business proof required</Text>
-                <Text className="text-[11px] text-text-muted mt-0.5 leading-4">
-                  Upload either GST Certificate or Udyam Certificate (at least one).
-                </Text>
-              </View>
+        <Card className="mt-2 bg-accent-soft border-accent">
+          <View className="flex-row items-start">
+            <AlertCircle size={16} color={tokens.accent} />
+            <View className="ml-2 flex-1">
+              <Text className="text-[12px] font-extrabold text-accent-dark">Owner identity documents</Text>
+              <Text className="text-[11px] text-text-muted mt-0.5 leading-4">
+                Upload your Aadhar (front &amp; back) and PAN card. These are the shop owner's
+                personal KYC documents.
+              </Text>
             </View>
-          </Card>
-        ) : null}
+          </View>
+        </Card>
       </ScrollView>
 
       <BottomActionBar

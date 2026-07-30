@@ -10,12 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
-import { saveShopKycDocuments } from '../../api/shops';
-import { selectShopId } from '../../store/authSlice';
+import { saveOwnerKycDocuments } from '../../api/shops';
 import { notify } from '../../components/confirm';
 
-const ORDER = ['aadharFront', 'aadharBack', 'pan', 'gst', 'udyam'];
+const ORDER = ['aadharFront', 'aadharBack', 'pan'];
+const KEY_TO_URL_FIELD = { aadharFront: 'aadharFrontUrl', aadharBack: 'aadharBackUrl', pan: 'panUrl' };
 
 function isPdf(url) {
   return typeof url === 'string' && url.toLowerCase().includes('.pdf');
@@ -23,7 +22,6 @@ function isPdf(url) {
 
 export default function OwnerKycReviewScreen({ route, navigation }) {
   const uploaded = route?.params?.uploaded || {};
-  const shopId = useSelector(selectShopId);
   const [submitting, setSubmitting] = useState(false);
 
   // Build a stable list of cards to render — only the documents the user actually
@@ -46,22 +44,16 @@ export default function OwnerKycReviewScreen({ route, navigation }) {
       notify('No documents', 'There are no uploaded documents to submit.');
       return;
     }
-    if (!shopId) {
-      notify('Session expired', 'Please log in again to submit your KYC.', { preset: 'error' });
-      return;
-    }
     setSubmitting(true);
     try {
-      // Persist each picked doc to shop_kyc_documents via shop-service.
-      // The upload screen already pushed files to /media/upload, so url here
-      // is the hosted URL (or a local URI fallback we'll re-upload later).
-      const payload = docs.map((d) => ({
-        docType: d.key,
-        title: d.title,
-        url: d.url,
-        required: !!d.required,
-      }));
-      await saveShopKycDocuments(shopId, payload);
+      // The upload screen already pushed files to /media/upload, so url here is
+      // the hosted URL. Persist the owner KYC blob to users.kyc_document.
+      const payload = {};
+      for (const d of docs) {
+        const field = KEY_TO_URL_FIELD[d.key];
+        if (field && d.url) payload[field] = d.url;
+      }
+      await saveOwnerKycDocuments(payload);
       navigation.replace('OwnerKycView', { fromSubmit: true });
     } catch (e) {
       notify('Submit failed', e?.message || 'Please try again.', { preset: 'error', haptic: 'error' });
